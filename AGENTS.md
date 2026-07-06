@@ -53,6 +53,7 @@ The renderer exposes `window.__blockout` (not a public API — for tests/agents)
 - `__blockout.store` — the zustand store. `getState()` gives you every action: `addEntity(assetId, pos)`, `dropActorMark(entityId, pos)`, `dropCameraMark(pos, pan, tilt, focal)`, `setTime(t)`, `setMode(...)`, `mutate(label, fn)`, `scene()`, `shot()`.
 - `__blockout.exportShot({profileId, passes, labels})` — run a real export; resolves `{ok, packagePath}`.
 - `__blockout.renderStillPngForTest(t, w, h)` / `renderRawForTest(t, w, h)` — deterministic frame renders.
+- `window.__blockout_scene` — the live SceneManager (transform gizmo, freeCam, shotCam) for interaction tests; see `tests/e2e/interaction.spec.ts` for real-mouse gizmo-drag and camera-recording patterns.
 
 Headless/dialog-free driving: launch with env `BLOCKOUT_SMOKE_DIR=/some/dir` — the New/Open Project dialogs are bypassed and use `$BLOCKOUT_SMOKE_DIR/Smoke.blockout`. See `tests/e2e/smoke.spec.ts` for a complete scripted session (Playwright `_electron`).
 

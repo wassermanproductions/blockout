@@ -22,6 +22,13 @@ export interface AnimInput {
   distance: number
   /** Shot time in seconds — for idle motions (gesture sway, club lights). */
   time: number
+  /**
+   * Per-joint pose offsets in radians, applied AFTER the gait pose (people
+   * only). Keys: shoulderLX/RX (arm forward/up, negative raises), shoulderLZ/RZ
+   * (arm out to the side), elbowL/R (bend), hipLX/RX (leg forward/back),
+   * kneeL/R (bend), torsoX (lean), torsoY (twist), headX (nod), headY (turn).
+   */
+  overrides?: Record<string, number>
 }
 
 export interface BuiltAsset {
@@ -382,6 +389,25 @@ function animatePerson(j: PersonJoints, input: AnimInput): void {
       j.hipR.rotation.x = -0.2
       break
     }
+  }
+
+  // Manual pose offsets on top of the gait (fight/dance blocking).
+  const ov = input.overrides
+  if (ov) {
+    j.shoulderL.rotation.x += ov.shoulderLX ?? 0
+    j.shoulderR.rotation.x += ov.shoulderRX ?? 0
+    j.shoulderL.rotation.z += ov.shoulderLZ ?? 0
+    j.shoulderR.rotation.z -= ov.shoulderRZ ?? 0
+    j.elbowL.rotation.x -= ov.elbowL ?? 0
+    j.elbowR.rotation.x -= ov.elbowR ?? 0
+    j.hipL.rotation.x += ov.hipLX ?? 0
+    j.hipR.rotation.x += ov.hipRX ?? 0
+    j.kneeL.rotation.x -= ov.kneeL ?? 0
+    j.kneeR.rotation.x -= ov.kneeR ?? 0
+    j.torso.rotation.x += ov.torsoX ?? 0
+    j.torso.rotation.y += ov.torsoY ?? 0
+    j.head.rotation.x += ov.headX ?? 0
+    j.head.rotation.y += ov.headY ?? 0
   }
 }
 

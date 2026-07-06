@@ -14,6 +14,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { ShotEvaluator } from '@engine/evaluate'
+import { newId } from '@engine/ids'
 import { GAITS } from '@engine/gaits'
 import { frameSubject as frameSubjectMath, ASPECT_RATIOS } from '@engine/camera'
 import { entityHeight } from '@engine/assets'
@@ -100,6 +101,13 @@ export class SceneManager {
 
   /** Set by Viewport for overlay layout (letterbox rect in CSS px). */
   onViewRect?: (rect: { x: number; y: number; w: number; h: number } | null) => void
+  /** Set by Viewport: the PiP shot-preview rect in CSS px (null = hidden). */
+  onPipRect?: (rect: { x: number; y: number; w: number; h: number } | null) => void
+
+  /** Live camera-move recording buffer. */
+  private recSamples: { t: number; pos: THREE.Vector3; pan: number; tilt: number; roll: number }[] = []
+  private recStartedAt = 0
+  private recLens = 35
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -194,6 +202,10 @@ export class SceneManager {
         if (state.selection !== prev.selection || state.mode !== prev.mode) {
           this.syncSelection()
         }
+        if (state.recording !== prev.recording) {
+          if (state.recording) this.beginRecording()
+          else this.finishRecording()
+        }
       })
     )
 
@@ -215,6 +227,8 @@ export class SceneManager {
     this.syncFromStore()
     this.lastFrameAt = performance.now()
     this.loop()
+    // Automation/debug surface (see AGENTS.md).
+    ;(window as unknown as Record<string, unknown>).__blockout_scene = this
   }
 
   /* ------------------------------ lifecycle ----------------------------- */
@@ -494,6 +508,9 @@ export class SceneManager {
 
   private onPointerDown = (e: PointerEvent): void => {
     if (e.button !== 0) return
+    // Pointer is on the transform gizmo (axis set on hover) — the gizmo owns
+    // this interaction; running selection logic would detach it mid-grab.
+    if (this.transform.dragging || this.transform.axis) return
     const s = this.currentState()
     if (s.mode === 'deliver') return
     const ndc = this.pointerNdc(e)
@@ -601,8 +618,11 @@ export class SceneManager {
     const obj = this.selectedObject()
     this.transform.detach()
     this.selectionBox.visible = false
-    if (obj && s.mode === 'stage' && s.selection?.kind === 'entity') {
-      this.transform.attach(obj)
+    if (obj && !s.lookThrough && s.mode !== 'deliver') {
+      // Entities are draggable in Stage; the camera body is draggable in
+      // both Stage and Shoot (drags commit to the active camera mark).
+      if (s.selection?.kind === 'entity' && s.mode === 'stage') this.transform.attach(obj)
+      if (s.selection?.kind === 'camera') this.transform.attach(this.cameraBody)
     }
     if (obj) {
       this.selectionBox.setFromObject(obj)
@@ -613,7 +633,35 @@ export class SceneManager {
   private commitGizmo(): void {
     const s = this.currentState()
     const sel = s.selection
-    if (!sel || sel.kind !== 'entity') return
+    if (!sel) return
+
+    if (sel.kind === 'camera') {
+      // Dragging the camera body writes the active camera mark (or creates
+      // the first one). Rotation commits pan/tilt/roll too (R to rotate).
+      const pos = this.cameraBody.position
+      const e = new THREE.Euler().setFromQuaternion(this.cameraBody.quaternion, 'YXZ')
+      const mark = this.activeCameraMark()
+      if (!mark) {
+        s.dropCameraMark({ x: pos.x, y: pos.y, z: pos.z }, e.y, e.x, 35)
+        return
+      }
+      const shotId = this.shot?.id
+      s.mutate('move camera', (doc) => {
+        for (const scene of doc.scenes) {
+          const shot = scene.shots.find((x) => x.id === shotId)
+          const m = shot?.camera.marks.find((x) => x.id === mark.id)
+          if (m) {
+            m.position = { x: pos.x, y: pos.y, z: pos.z }
+            m.pan = e.y
+            m.tilt = e.x
+            m.roll = e.z
+          }
+        }
+      })
+      return
+    }
+
+    if (sel.kind !== 'entity') return
     const visual = this.visuals.get(sel.entityId)
     if (!visual) return
     const pos = visual.root.position
@@ -770,6 +818,62 @@ export class SceneManager {
     s.setSelection({ kind: 'camera' })
   }
 
+  /* ------------------------------ recording ----------------------------- */
+
+  private beginRecording(): void {
+    this.recSamples = []
+    this.recStartedAt = performance.now()
+    this.recLens = this.currentLens()
+    const s = this.currentState()
+    s.setPlaying(false)
+    s.toast('Recording — fly the viewport; the shot camera follows. Click ● again to stop.', 'info')
+  }
+
+  private finishRecording(): void {
+    const s = this.currentState()
+    const shotId = this.shot?.id
+    const samples = this.recSamples
+    this.recSamples = []
+    if (!shotId || samples.length < 5) {
+      if (samples.length > 0) s.toast('Recording too short — nothing saved.', 'info')
+      return
+    }
+    const length = Math.min(60, Math.max(0.5, samples[samples.length - 1]!.t))
+    // Downsample to a mark every 250ms (plus the final pose). Marks with
+    // zero easing replay the move exactly; the rig still layers on top.
+    const step = 0.25
+    const lens = this.recLens
+    const marks: import('@engine/types').CameraMark[] = []
+    let cursor = 0
+    for (let t = 0; t <= length + 1e-6; t += step) {
+      while (cursor < samples.length - 1 && samples[cursor]!.t < t) cursor++
+      const sm = samples[cursor]!
+      marks.push({
+        id: newId('cmark'),
+        time: Math.min(t, length),
+        hold: 0,
+        easeIn: 0,
+        easeOut: 0,
+        position: { x: sm.pos.x, y: sm.pos.y, z: sm.pos.z },
+        pan: sm.pan,
+        tilt: sm.tilt,
+        roll: sm.roll,
+        focalLength: lens
+      })
+    }
+    s.mutate('record camera move', (doc) => {
+      for (const scene of doc.scenes) {
+        const shot = scene.shots.find((x) => x.id === shotId)
+        if (shot) {
+          shot.camera.marks = marks
+          shot.duration = Math.round(length * 10) / 10
+        }
+      }
+    })
+    s.setSelection({ kind: 'camera' })
+    s.toast(`Camera move recorded — ${marks.length} marks over ${length.toFixed(1)}s.`, 'success')
+  }
+
   /* ------------------------------- playback ----------------------------- */
 
   private applyTime(t: number): void {
@@ -779,6 +883,9 @@ export class SceneManager {
     for (const es of state.entities) {
       const visual = this.visuals.get(es.entityId)
       if (!visual) continue
+      // An active gizmo drag owns this object's transform — re-applying the
+      // evaluator pose every frame would freeze the drag in place.
+      if (this.transform.dragging && this.transform.object === visual.root) continue
       visual.root.position.set(es.position.x, es.position.y, es.position.z)
       // Static entities keep their authored Y (a lamp stays on its table);
       // tracked entities travel on the ground plane.
@@ -786,14 +893,31 @@ export class SceneManager {
         visual.root.position.y = visual.entity.transform.position.y
       }
       visual.root.rotation.y = es.heading
-      const stride = GAITS[es.gait].strideLength * Math.max(visual.entity.transform.scale, 0.2)
+      // Stage-level pose (params.pose: a person sits on the bus without any
+      // marks) and manual joint offsets (params.joint_*: fight/dance poses).
+      const params = visual.entity.params
+      let gait = es.gait
+      if (!this.entityHasTrack(es.entityId) && typeof params?.pose === 'string') {
+        gait = params.pose as typeof es.gait
+      }
+      let overrides: Record<string, number> | undefined
+      if (params) {
+        for (const key of Object.keys(params)) {
+          const v = params[key]
+          if (key.startsWith('joint_') && typeof v === 'number' && v !== 0) {
+            (overrides ??= {})[key.slice(6)] = v
+          }
+        }
+      }
+      const stride = GAITS[gait].strideLength * Math.max(visual.entity.transform.scale, 0.2)
       const phase = stride > 0 ? (es.distanceTravelled / stride) % 1 : 0
       visual.built.animate?.({
-        gait: es.gait,
+        gait,
         phase,
         speed: es.speed,
         distance: es.distanceTravelled,
-        time: t
+        time: t,
+        overrides
       })
     }
 
@@ -805,9 +929,12 @@ export class SceneManager {
     this.shotCam.aspect = ASPECT_RATIOS[this.shot.aspect]
     this.shotCam.updateProjectionMatrix()
 
-    // Camera body visual follows the shot camera
-    this.cameraBody.position.copy(this.shotCam.position)
-    this.cameraBody.rotation.copy(this.shotCam.rotation)
+    // Camera body visual follows the shot camera — unless the user is
+    // dragging it (the drag commits to a camera mark on release).
+    if (!(this.transform.dragging && this.transform.object === this.cameraBody)) {
+      this.cameraBody.position.copy(this.shotCam.position)
+      this.cameraBody.rotation.copy(this.shotCam.rotation)
+    }
   }
 
   private entityHasTrack(entityId: string): boolean {
@@ -834,6 +961,23 @@ export class SceneManager {
     this.applyTime(s.time)
     this.controls.update()
 
+    // Live recording: the shot camera mirrors the free camera — what you
+    // see while flying IS the shot — and each frame is sampled.
+    if (s.recording) {
+      const t = (now - this.recStartedAt) / 1000
+      this.shotCam.position.copy(this.freeCam.position)
+      const e = new THREE.Euler().setFromQuaternion(this.freeCam.quaternion, 'YXZ')
+      this.shotCam.rotation.set(e.x, e.y, e.z, 'YXZ')
+      this.recSamples.push({
+        t,
+        pos: this.freeCam.position.clone(),
+        pan: e.y,
+        tilt: e.x,
+        roll: e.z
+      })
+      if (t >= 60) s.setRecording(false) // hard stop at the 60s duration cap
+    }
+
     // Resize
     const rect = this.canvas.getBoundingClientRect()
     const w = Math.max(1, Math.floor(rect.width))
@@ -846,7 +990,9 @@ export class SceneManager {
     }
 
     this.overlay.visible = s.mode !== 'deliver'
-    this.cameraBody.visible = !s.lookThrough && s.mode !== 'deliver'
+    // While recording, the free camera IS the shot camera — a body visual
+    // at your own eye position would fill the frame.
+    this.cameraBody.visible = !s.lookThrough && s.mode !== 'deliver' && !s.recording
 
     if (s.lookThrough || s.mode === 'deliver') {
       // Letterboxed shot-camera view.
@@ -873,6 +1019,47 @@ export class SceneManager {
       this.renderer.setViewport(0, 0, w, h)
       this.renderer.render(this.scene, this.freeCam)
       this.onViewRect?.(null)
+
+      // Picture-in-picture live shot preview (bottom-right): always shows
+      // what the SHOT camera sees — chrome-free, like the export will be.
+      // (mode is never 'deliver' in this branch — that renders look-through)
+      if (s.pipSize !== 'off' && this.shot && !s.recording) {
+        const frac = s.pipSize === 'small' ? 0.18 : s.pipSize === 'large' ? 0.42 : 0.28
+        const aspect = ASPECT_RATIOS[this.shot.aspect]
+        const pw = Math.max(120, Math.round(w * frac))
+        const ph = Math.round(pw / aspect)
+        const margin = 14
+        const px = w - pw - margin
+        const py = margin // GL viewport origin is bottom-left
+
+        const overlayWas = this.overlay.visible
+        const bodyWas = this.cameraBody.visible
+        const selWas = this.selectionBox.visible
+        const gizmo = this.transform.getHelper
+          ? this.transform.getHelper()
+          : (this.transform as unknown as THREE.Object3D)
+        const gizmoWas = gizmo.visible
+        this.overlay.visible = false
+        this.cameraBody.visible = false
+        this.selectionBox.visible = false
+        gizmo.visible = false
+
+        this.shotCam.aspect = aspect
+        this.shotCam.updateProjectionMatrix()
+        this.renderer.setScissorTest(true)
+        this.renderer.setScissor(px, py, pw, ph)
+        this.renderer.setViewport(px, py, pw, ph)
+        this.renderer.render(this.scene, this.shotCam)
+        this.renderer.setScissorTest(false)
+
+        this.overlay.visible = overlayWas
+        this.cameraBody.visible = bodyWas
+        this.selectionBox.visible = selWas
+        gizmo.visible = gizmoWas
+        this.onPipRect?.({ x: px, y: h - py - ph, w: pw, h: ph })
+      } else {
+        this.onPipRect?.(null)
+      }
     }
 
     // Keep selection box tracking its object. Hide it entirely in

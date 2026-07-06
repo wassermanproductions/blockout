@@ -56,6 +56,10 @@ interface BlockoutState {
   /** When true, clicking the floor drops a mark for the selection. */
   droppingMarks: boolean
   lookThrough: boolean
+  /** Picture-in-picture live shot preview size. */
+  pipSize: 'off' | 'small' | 'medium' | 'large'
+  /** True while performing a live camera-move recording. */
+  recording: boolean
   playing: boolean
   time: number
   dirty: boolean
@@ -77,6 +81,8 @@ interface BlockoutState {
   setPlacingAsset(assetId: string | null): void
   setDroppingMarks(on: boolean): void
   setLookThrough(on: boolean): void
+  setPipSize(size: 'off' | 'small' | 'medium' | 'large'): void
+  setRecording(on: boolean): void
 
   /* --- playback --- */
   setPlaying(playing: boolean): void
@@ -129,6 +135,8 @@ export const useStore = create<BlockoutState>((set, get) => ({
   placingAssetId: null,
   droppingMarks: false,
   lookThrough: false,
+  pipSize: 'medium',
+  recording: false,
   playing: false,
   time: 0,
   dirty: false,
@@ -202,6 +210,8 @@ export const useStore = create<BlockoutState>((set, get) => ({
   setPlacingAsset: (placingAssetId) => set({ placingAssetId }),
   setDroppingMarks: (droppingMarks) => set({ droppingMarks }),
   setLookThrough: (lookThrough) => set({ lookThrough }),
+  setPipSize: (pipSize) => set({ pipSize }),
+  setRecording: (recording) => set({ recording }),
 
   setPlaying(playing) {
     const { shot, time } = get()

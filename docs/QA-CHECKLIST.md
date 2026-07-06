@@ -22,6 +22,13 @@ Then the manual script, in order. Check each box.
 - [ ] Import a custom GLB; it appears and persists (copied into project assets/).
 - [ ] 50 mixed undo operations (⌘Z) walk state back correctly; redo replays them.
 
+## Interaction (added after user feedback round 1)
+- [ ] Gizmo-drag an entity with the mouse (arrows AND planes); position persists after save/reopen.
+- [ ] Select the camera and gizmo-drag its body; the active camera mark updates (R rotates → pan/tilt update).
+- [ ] PiP shot preview: shows the chrome-free shot view; S/M/L cycle; ✕ hides; 🎥 Preview restores.
+- [ ] Stage pose: set a person to Sit — they sit with no marks; pose-limb sliders move arms/legs/head; Reset limbs clears.
+- [ ] ● Record move: fly the viewport, stop — camera marks replace the shot's move and play back the flight; export matches.
+
 ## Shoot
 - [ ] Drop 3+ actor marks; actor walks the path, faces travel direction, gait cycle speed matches ground speed (no moon-walking).
 - [ ] A too-fast walk leg shows an amber warning chip; switching the mark to run clears it.

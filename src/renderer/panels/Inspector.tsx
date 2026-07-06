@@ -409,6 +409,8 @@ function EntityInspector({
         )}
       </div>
 
+      {isPerson && <PoseSection entity={entity} editEntity={editEntity} />}
+
       <div className="panel-section">
         <div className="panel-title">Label</div>
         <div className="field-row" style={{ marginBottom: 8 }}>
@@ -880,6 +882,120 @@ function MarkInspector({
           Delete mark
         </button>
       </div>
+    </div>
+  )
+}
+
+/* ------------------------------- pose ----------------------------------- */
+
+const POSES: { id: GaitId; label: string }[] = [
+  { id: 'stand', label: 'Stand' },
+  { id: 'sit', label: 'Sit' },
+  { id: 'crouch', label: 'Crouch' },
+  { id: 'lie', label: 'Lie' },
+  { id: 'gesture', label: 'Talk' },
+  { id: 'fall', label: 'Fallen' }
+]
+
+const JOINTS: { key: string; label: string; range: number }[] = [
+  { key: 'shoulderLX', label: 'L arm fwd', range: 180 },
+  { key: 'shoulderRX', label: 'R arm fwd', range: 180 },
+  { key: 'shoulderLZ', label: 'L arm out', range: 150 },
+  { key: 'shoulderRZ', label: 'R arm out', range: 150 },
+  { key: 'elbowL', label: 'L elbow', range: 150 },
+  { key: 'elbowR', label: 'R elbow', range: 150 },
+  { key: 'hipLX', label: 'L leg', range: 120 },
+  { key: 'hipRX', label: 'R leg', range: 120 },
+  { key: 'kneeL', label: 'L knee', range: 150 },
+  { key: 'kneeR', label: 'R knee', range: 150 },
+  { key: 'torsoX', label: 'Torso lean', range: 60 },
+  { key: 'torsoY', label: 'Torso twist', range: 80 },
+  { key: 'headY', label: 'Head turn', range: 80 },
+  { key: 'headX', label: 'Head nod', range: 45 }
+]
+
+const DEG = 180 / Math.PI
+
+function PoseSection({
+  entity,
+  editEntity
+}: {
+  entity: Entity
+  editEntity: (label: string, fn: (e: Entity) => void) => void
+}): JSX.Element {
+  const pose = typeof entity.params?.pose === 'string' ? entity.params.pose : 'stand'
+  const hasOverrides = Object.keys(entity.params ?? {}).some(
+    (k) => k.startsWith('joint_') && entity.params![k] !== 0
+  )
+
+  return (
+    <div className="panel-section">
+      <div className="panel-title">Pose</div>
+      <div className="seg gait-grid" style={{ marginBottom: 10 }}>
+        {POSES.map((p) => (
+          <button
+            key={p.id}
+            className={pose === p.id ? 'active' : ''}
+            onClick={() =>
+              editEntity('entity pose', (en) => {
+                en.params = { ...en.params, pose: p.id }
+              })
+            }
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>
+        The pose applies while the actor has no marks; marks override it with their own gait.
+      </p>
+      <details open={hasOverrides}>
+        <summary
+          style={{ cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8 }}
+        >
+          Pose limbs (fight / dance blocking)
+        </summary>
+        {JOINTS.map((j) => {
+          const raw = entity.params?.[`joint_${j.key}`]
+          const rad = typeof raw === 'number' ? raw : 0
+          const deg = Math.round(rad * DEG)
+          return (
+            <div className="field" key={j.key} style={{ marginBottom: 6 }}>
+              <label>
+                {j.label} ({deg}°)
+              </label>
+              <input
+                type="range"
+                min={-j.range}
+                max={j.range}
+                step={1}
+                value={deg}
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  if (Number.isNaN(v)) return
+                  editEntity('pose joint', (en) => {
+                    en.params = { ...en.params, [`joint_${j.key}`]: v / DEG }
+                  })
+                }}
+              />
+            </div>
+          )
+        })}
+        <button
+          className="btn small"
+          style={{ width: '100%', marginTop: 4 }}
+          onClick={() =>
+            editEntity('reset pose', (en) => {
+              if (!en.params) return
+              for (const k of Object.keys(en.params)) {
+                if (k.startsWith('joint_')) delete en.params[k]
+              }
+            })
+          }
+        >
+          Reset limbs
+        </button>
+      </details>
     </div>
   )
 }

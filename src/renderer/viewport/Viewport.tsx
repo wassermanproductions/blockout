@@ -98,10 +98,15 @@ function ShotSizeBar(): JSX.Element {
 export function Viewport(): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [viewRect, setViewRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+  const [pipRect, setPipRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
 
   const mode = useStore((s) => s.mode)
   const lookThrough = useStore((s) => s.lookThrough)
   const setLookThrough = useStore((s) => s.setLookThrough)
+  const pipSize = useStore((s) => s.pipSize)
+  const setPipSize = useStore((s) => s.setPipSize)
+  const recording = useStore((s) => s.recording)
+  const setRecording = useStore((s) => s.setRecording)
   const placingAssetId = useStore((s) => s.placingAssetId)
   const droppingMarks = useStore((s) => s.droppingMarks)
   const selection = useStore((s) => s.selection)
@@ -120,6 +125,12 @@ export function Viewport(): JSX.Element {
     if (!canvasRef.current) return
     const manager = new SceneManager(canvasRef.current)
     manager.onViewRect = (rect) => setViewRect(rect)
+    manager.onPipRect = (rect) =>
+      setPipRect((prev) =>
+        prev?.x === rect?.x && prev?.y === rect?.y && prev?.w === rect?.w && prev?.h === rect?.h
+          ? prev
+          : rect
+      )
     registerSceneManager(manager)
     return () => {
       registerSceneManager(null)
@@ -167,10 +178,86 @@ export function Viewport(): JSX.Element {
           >
             + Marks
           </button>
+          <button
+            className={`btn small ${recording ? 'active' : ''}`}
+            style={recording ? { color: 'var(--danger)', borderColor: 'var(--danger)' } : undefined}
+            onClick={() => setRecording(!recording)}
+            title="Record a camera move: fly the viewport and the shot camera follows; recording converts to camera marks"
+          >
+            {recording ? '■ Stop' : '● Record move'}
+          </button>
           <ReferenceControls />
         </div>
       )}
       {mode === 'shoot' && <ReferenceUnderlay />}
+
+      {/* PiP live shot preview chrome */}
+      {pipRect && !lookThrough && mode !== 'deliver' && (
+        <div
+          style={{
+            position: 'absolute',
+            left: pipRect.x - 1,
+            top: pipRect.y - 1,
+            width: pipRect.w + 2,
+            height: pipRect.h + 2,
+            border: '1px solid var(--border-strong)',
+            borderRadius: 4,
+            zIndex: 5,
+            pointerEvents: 'none'
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              top: -26,
+              left: 0,
+              right: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              pointerEvents: 'auto'
+            }}
+          >
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--text-faint)' }}>
+              SHOT PREVIEW
+            </span>
+            <span style={{ flex: 1 }} />
+            <button
+              className="btn small"
+              style={{ padding: '2px 7px', fontSize: 10 }}
+              title="Cycle preview size"
+              onClick={() =>
+                setPipSize(pipSize === 'small' ? 'medium' : pipSize === 'medium' ? 'large' : 'small')
+              }
+            >
+              {pipSize === 'small' ? 'S' : pipSize === 'medium' ? 'M' : 'L'}
+            </button>
+            <button
+              className="btn small"
+              style={{ padding: '2px 7px', fontSize: 10 }}
+              title="Hide preview"
+              onClick={() => setPipSize('off')}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      {pipSize === 'off' && !lookThrough && mode !== 'deliver' && (
+        <button
+          className="btn small"
+          style={{ position: 'absolute', right: 14, bottom: 14, zIndex: 5 }}
+          onClick={() => setPipSize('medium')}
+          title="Show the live shot preview"
+        >
+          🎥 Preview
+        </button>
+      )}
+      {recording && (
+        <div className="viewport-hint" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}>
+          ● REC — fly the view (orbit/pan/zoom); this is the shot. Click ■ Stop to save the move.
+        </div>
+      )}
       {mode === 'shoot' && <ShotSizeBar />}
 
       {showLetterbox && viewRect && (
