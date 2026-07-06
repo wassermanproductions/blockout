@@ -244,6 +244,35 @@ const THUMBS: Record<string, string> = {
   'prop.fountain': '⛲',
   'prop.flagpole': '🚩',
   'prop.helicopter': '🚁',
+  // Props — backyard / recreation
+  'prop.hotTub': '🛁',
+  'prop.bbqGrill': '🍖',
+  'prop.firepit': '🔥',
+  'prop.poolLounger': '🏖',
+  'prop.patioUmbrellaTable': '⛱',
+  'prop.picnicTable': '🧺',
+  'prop.swingSet': '🎠',
+  'prop.slide': '🛝',
+  'prop.seesaw': '🪅',
+  'prop.sandbox': '🏖',
+  'prop.trampoline': '🤸',
+  'prop.kiddiePool': '💧',
+  'prop.basketballHoop': '🏀',
+  'prop.soccerGoal': '🥅',
+  'prop.doghouse': '🐕',
+  'prop.shed': '🛖',
+  'prop.gazebo': '⛺',
+  'prop.hammock': '🌴',
+  'prop.lawnmower': '🚜',
+  // Props — commercial / street
+  'prop.cashRegister': '🧾',
+  'prop.kiosk': '🏪',
+  'prop.gasPump': '⛽',
+  'prop.parkingMeter': '🅿️',
+  'prop.busShelter': '🚏',
+  'prop.slotMachine': '🎰',
+  'prop.cloud': '☁️',
+  'prop.squirtGun': '🔫',
   // Environments
   'env.houseInterior': '🏠',
   'env.houseExterior': '🏡',
@@ -270,6 +299,38 @@ const THUMBS: Record<string, string> = {
   'env.forest': '🌲',
   'env.bar': '🍺',
   'env.stage': '🎭',
+  // Environments — round 5 interiors
+  'env.trainInterior': '🚃',
+  'env.boatInterior': '⛵',
+  'env.postOffice': '📮',
+  'env.supermarket': '🛒',
+  'env.movieTheater': '🎬',
+  'env.indoorMall': '🛍',
+  'env.hotelLobby': '🏨',
+  'env.hotelRoom': '🛎',
+  'env.diner': '🍔',
+  'env.coffeeShop': '☕',
+  'env.policeStation': '🚓',
+  'env.church': '⛪',
+  'env.schoolHallway': '🏫',
+  'env.airportTerminal': '🛫',
+  'env.casino': '🎰',
+  'env.parkingGarage': '🅿️',
+  // Environments — round 5 exteriors
+  'env.stripMall': '🏬',
+  'env.outdoorMall': '🛍',
+  'env.residentialStreet': '🏘',
+  'env.downtown': '🌆',
+  'env.trainStation': '🚉',
+  'env.gasStation': '⛽',
+  'env.park': '🏞',
+  'env.playgroundPark': '🛝',
+  'env.backyard': '🏡',
+  'env.constructionSite': '🏗',
+  'env.cemetery': '🪦',
+  'env.stadium': '🏟',
+  'env.sky': '☁️',
+  'env.houseFull': '🏠',
   // Primitives
   'prim.cube': '⬜',
   'prim.cylinder': '⚪',
@@ -295,6 +356,8 @@ const CATEGORY_ORDER: { key: EntityCategory; title: string }[] = [
 
 export function Library(): JSX.Element {
   const [query, setQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<EntityCategory | 'all'>('all')
+  const [collapsed, setCollapsed] = useState<Partial<Record<EntityCategory, boolean>>>({})
   const placingAssetId = useStore((s) => s.placingAssetId)
   const setPlacingAsset = useStore((s) => s.setPlacingAsset)
   const addEntity = useStore((s) => s.addEntity)
@@ -308,12 +371,17 @@ export function Library(): JSX.Element {
       q === '' ||
       a.name.toLowerCase().includes(q) ||
       a.category.toLowerCase().includes(q)
-    return CATEGORY_ORDER.map(({ key, title }) => ({
+    return CATEGORY_ORDER.filter(
+      ({ key }) => categoryFilter === 'all' || key === categoryFilter
+    ).map(({ key, title }) => ({
       key,
       title,
       items: ASSET_CATALOG.filter((a) => a.category === key && matches(a))
     })).filter((g) => g.items.length > 0)
-  }, [query])
+  }, [query, categoryFilter])
+
+  const toggleCollapsed = (key: EntityCategory): void =>
+    setCollapsed((c) => ({ ...c, [key]: !c[key] }))
 
   const onPick = (id: string): void => {
     if (placingAssetId === id) setPlacingAsset(null)
@@ -360,21 +428,67 @@ export function Library(): JSX.Element {
         />
       </div>
 
+      {/* Browse controls: filter to one category, or place from a list. */}
+      <div className="panel-section" style={{ paddingBottom: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value as EntityCategory | 'all')}
+            title="Show one category at a time"
+          >
+            <option value="all">All categories</option>
+            {CATEGORY_ORDER.map((c) => (
+              <option key={c.key} value={c.key}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+          <select
+            value={placingAssetId && ASSET_CATALOG.some((a) => a.id === placingAssetId) ? placingAssetId : ''}
+            onChange={(e) => setPlacingAsset(e.target.value || null)}
+            title="Pick from the full list — then click the floor to place it"
+          >
+            <option value="">Place from list…</option>
+            {CATEGORY_ORDER.map((c) => (
+              <optgroup key={c.key} label={c.title}>
+                {ASSET_CATALOG.filter((a) => a.category === c.key).map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {thumbFor(a.id)} {a.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {groups.map((group) => (
         <div className="panel-section" key={group.key}>
-          <div className="panel-title">{group.title}</div>
-          <div className="library-grid">
-            {group.items.map((asset) => (
-              <div
-                key={asset.id}
-                className={`library-item${placingAssetId === asset.id ? ' placing' : ''}`}
-                onClick={() => onPick(asset.id)}
-              >
-                <span className="thumb">{thumbFor(asset.id)}</span>
-                <span className="name">{asset.name}</span>
-              </div>
-            ))}
+          <div
+            className="panel-title"
+            style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', justifyContent: 'space-between' }}
+            onClick={() => toggleCollapsed(group.key)}
+            title={collapsed[group.key] ? 'Expand' : 'Collapse'}
+          >
+            <span>
+              {group.title} <span style={{ opacity: 0.5 }}>({group.items.length})</span>
+            </span>
+            <span style={{ opacity: 0.6 }}>{collapsed[group.key] ? '▸' : '▾'}</span>
           </div>
+          {collapsed[group.key] ? null : (
+            <div className="library-grid">
+              {group.items.map((asset) => (
+                <div
+                  key={asset.id}
+                  className={`library-item${placingAssetId === asset.id ? ' placing' : ''}`}
+                  onClick={() => onPick(asset.id)}
+                >
+                  <span className="thumb">{thumbFor(asset.id)}</span>
+                  <span className="name">{asset.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
 

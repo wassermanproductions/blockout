@@ -271,9 +271,9 @@ const REFERENCE: { section: string; items: [string, string][] }[] = [
   {
     section: 'Stage mode',
     items: [
-      ['Library', 'Click an item, click the floor to place. ⌥-click places multiples. Search at the top.'],
+      ['Library', 'Click an item, click the floor to place. ⌥-click places multiples. Search at the top, filter by category, collapse sections by clicking their headers, or pick from the "Place from list…" dropdown.'],
       ['Stage Presets', 'Save the current staging (set + characters + blocking) globally — "Dinner scene", "Driving scene" — and Stage it as a fresh scene in any project. The original never changes.'],
-      ['Environments', 'One-click set shells: restaurant, hospital, classroom, gym, courtroom, subway, beach, forest, bar, stage, city street, house, nightclub, car interior, plane cabin…'],
+      ['Environments', '50+ one-click sets: interiors (train car, boat cabin, diner, coffee shop, supermarket, post office, movie theater, mall, hotel, casino, church, police station, school, airport, restaurant, hospital…) and exteriors (residential street, downtown, strip/outdoor mall, backyard w/ pool, playground, park, gas station, train station, stadium, construction site, cemetery, beach, forest, sky for aerials…). Search the Library.'],
       ['⬇ Ground', 'Rest the selection on whatever is beneath it — floor, tabletop, truck bed.'],
       ['Import 3D Model…', 'Bring in your own GLB/glTF; it is copied into the project.'],
       ['✨ Populate from reference…', 'AI stages the scene from a photo/video frame (needs Claude API key).'],
