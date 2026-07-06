@@ -186,6 +186,18 @@ export function Viewport(): JSX.Element {
           {mode === 'shoot' && (
             <div className="tool-row">
               <button
+                className="btn small primary"
+                onClick={() => {
+                  const s = useStore.getState()
+                  s.setLookThrough(true)
+                  s.setTime(0)
+                  s.setPlaying(true)
+                }}
+                title="Watch the shot: plays from the top through the shot camera (the designed frame, exactly as it will export)"
+              >
+                ▶ Play shot
+              </button>
+              <button
                 className={`btn small ${lookThrough ? 'active' : ''}`}
                 onClick={() => setLookThrough(!lookThrough)}
                 title="Look through the shot camera (C)"

@@ -1077,7 +1077,14 @@ export class SceneManager {
       }
     })
     s.setSelection({ kind: 'camera' })
-    s.toast(`Camera move recorded — ${marks.length} marks over ${length.toFixed(1)}s.`, 'success')
+    // Instant dailies: show the filmmaker THE SHOT, not the editor view.
+    s.setLookThrough(true)
+    s.setTime(0)
+    s.setPlaying(true)
+    s.toast(
+      `Recorded ${length.toFixed(1)}s — playing back your shot. Press C to exit the camera view.`,
+      'success'
+    )
   }
 
   /** Convert a puppeteered entity performance into actor marks. */
@@ -1137,6 +1144,9 @@ export class SceneManager {
       }
     })
     s.setSelection({ kind: 'entity', entityId })
+    // Replay the performance immediately so the take can be judged.
+    s.setTime(0)
+    s.setPlaying(true)
     s.toast(
       `Performance recorded — ${marks.length} marks over ${length.toFixed(1)}s. Now select the camera and ● Record to fly it while this replays.`,
       'success'

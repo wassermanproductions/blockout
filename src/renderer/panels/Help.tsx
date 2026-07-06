@@ -158,12 +158,15 @@ const TUTORIAL: { section: string; steps: Step[] }[] = [
         )
       },
       {
-        title: 'Check the frame constantly',
+        title: 'Watch the shot',
         body: (
           <>
-            The <b>SHOT PREVIEW</b> box (bottom-right) always shows what the shot camera sees —
-            resize it S/M/L or hide it. Press <Kbd>Space</Kbd> to play, <Kbd>1–9</Kbd> to jump to
-            camera marks. Amber warnings appear if you asked a human to walk at car speed.
+            <b>▶ Play shot</b> (top-right) plays the shot from the top <i>through the shot
+            camera</i> — the exact frame that will export. After a camera recording this happens
+            automatically. The <b>SHOT PREVIEW</b> box (bottom-right) shows the same view live
+            while you work in the free view. <Kbd>Space</Kbd> plays/pauses, <Kbd>C</Kbd> toggles
+            the camera view, <Kbd>1–9</Kbd> jump to camera marks. Amber warnings appear if you
+            asked a human to walk at car speed.
           </>
         )
       },

@@ -197,12 +197,22 @@ test('camera recording replays existing blocking and stops at shot end', async (
     return {
       recording: store.recording,
       camMarks: store.shot().camera.marks.length,
-      duration: store.shot().duration
+      duration: store.shot().duration,
+      lookThrough: store.lookThrough,
+      playing: store.playing
     }
   })
   expect(result.recording).toBe(false) // auto-stopped
   expect(result.camMarks).toBeGreaterThan(4)
   expect(result.duration).toBeCloseTo(durationBefore, 1) // synced rec keeps duration
+  // Instant dailies: the shot plays back through the camera automatically.
+  expect(result.lookThrough).toBe(true)
+  expect(result.playing).toBe(true)
+  await page.evaluate(() => {
+    const store = (window as any).__blockout.store.getState()
+    store.setPlaying(false)
+    store.setLookThrough(false)
+  })
 })
 
 test('excludeFromExport hides an entity from rendered frames', async () => {
