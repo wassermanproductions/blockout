@@ -1274,7 +1274,7 @@ function envCityStreet(group: THREE.Group): EnvResult {
   const S = 30
   group.add(ground(S, S, 0x6e6e74))
   // Asphalt strip down Z.
-  const asphalt = box(8, 0.02, S, 0x3a3a40)
+  const asphalt = box(8, 0.02, S, 0x53545c)
   asphalt.position.y = 0.011
   asphalt.receiveShadow = true
   asphalt.castShadow = false

@@ -9,6 +9,7 @@ import { useStore } from '../store'
 import { emit } from '../bus'
 import { SceneManager } from './SceneManager'
 import { registerSceneManager } from '../export/scene-access'
+import { ReferenceUnderlay, ReferenceControls } from './ReferenceUnderlay'
 import { LENS_SET, SHOT_SIZES } from '@engine/camera'
 import type { AspectId, ShotSizeId } from '@engine/types'
 
@@ -166,8 +167,10 @@ export function Viewport(): JSX.Element {
           >
             + Marks
           </button>
+          <ReferenceControls />
         </div>
       )}
+      {mode === 'shoot' && <ReferenceUnderlay />}
       {mode === 'shoot' && <ShotSizeBar />}
 
       {showLetterbox && viewRect && (

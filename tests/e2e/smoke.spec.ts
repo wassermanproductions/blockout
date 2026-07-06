@@ -101,6 +101,24 @@ test('playback advances deterministic state', async () => {
   expect(positions).toBe(true)
 })
 
+test('rendering is deterministic: same t → byte-identical frames', async () => {
+  const report = await page.evaluate(async () => {
+    const w = window as unknown as { __blockout: { renderRawForTest: any } }
+    // Interleave awaits so the live animation loop runs between renders —
+    // exactly the conditions of a real export.
+    const a: number[] = w.__blockout.renderRawForTest(1.7)
+    await new Promise((r) => setTimeout(r, 100))
+    w.__blockout.renderRawForTest(3.9)
+    await new Promise((r) => setTimeout(r, 100))
+    const b: number[] = w.__blockout.renderRawForTest(1.7)
+    let diffs = 0
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diffs++
+    return { diffs, length: a.length }
+  })
+  expect(report.length).toBe(320 * 180 * 4)
+  expect(report.diffs).toBe(0)
+})
+
 test('exports a real package: video + stills + prompt + metadata', async () => {
   test.setTimeout(300_000)
   const result = await page.evaluate(async () => {

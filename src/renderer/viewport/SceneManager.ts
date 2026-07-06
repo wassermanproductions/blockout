@@ -67,6 +67,8 @@ export class SceneManager {
   private lastFrameAt = 0
   private disposed = false
   private unsubscribers: (() => void)[] = []
+  /** True while an export owns the scene — the live loop stands down. */
+  suspendLive = false
 
   /** Set by Viewport for overlay layout (letterbox rect in CSS px). */
   onViewRect?: (rect: { x: number; y: number; w: number; h: number } | null) => void
@@ -77,6 +79,8 @@ export class SceneManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMappingExposure = 1.45
 
     this.scene.background = new THREE.Color(0x1a1c20)
 
@@ -91,11 +95,12 @@ export class SceneManager {
     this.controls.maxPolarAngle = Math.PI / 2 - 0.02
     this.controls.target.set(0, 1, 0)
 
-    // Ground: soft grid + shadow-catching plane
+    // Ground: soft grid (editor chrome — lives in overlay so exports never
+    // include it) + shadow-catching plane (stays: contact shadows read well)
     const grid = new THREE.GridHelper(60, 60, 0x33343a, 0x27282d)
     ;(grid.material as THREE.Material).transparent = true
     ;(grid.material as THREE.Material).opacity = 0.6
-    this.scene.add(grid)
+    this.overlay.add(grid)
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(200, 200),
       new THREE.ShadowMaterial({ opacity: 0.3 })
@@ -389,12 +394,12 @@ export class SceneManager {
       LightingPresetId,
       { sky: number; sun: number; sunColor: number; ambient: number; bg: number; club: number }
     > = {
-      day: { sky: 0xbfd4e6, sun: 2.4, sunColor: 0xfff4e0, ambient: 0.75, bg: 0x23262c, club: 0 },
-      goldenHour: { sky: 0xf5c396, sun: 2.0, sunColor: 0xff9a3c, ambient: 0.5, bg: 0x2a2118, club: 0 },
-      night: { sky: 0x2c3e5a, sun: 0.5, sunColor: 0x7a9cc6, ambient: 0.28, bg: 0x0d1016, club: 0 },
-      interiorWarm: { sky: 0xffe0b3, sun: 1.1, sunColor: 0xffd9a0, ambient: 0.6, bg: 0x1c1a17, club: 0 },
-      interiorCool: { sky: 0xd0e4f5, sun: 1.2, sunColor: 0xe8f2ff, ambient: 0.65, bg: 0x171a1c, club: 0 },
-      club: { sky: 0x281a35, sun: 0.15, sunColor: 0x8844ff, ambient: 0.2, bg: 0x0b0810, club: 30 }
+      day: { sky: 0xcfe0ef, sun: 3.2, sunColor: 0xfff4e0, ambient: 1.15, bg: 0x394048, club: 0 },
+      goldenHour: { sky: 0xf5c396, sun: 2.8, sunColor: 0xff9a3c, ambient: 0.8, bg: 0x3a2d1e, club: 0 },
+      night: { sky: 0x2c3e5a, sun: 0.7, sunColor: 0x7a9cc6, ambient: 0.4, bg: 0x11151c, club: 0 },
+      interiorWarm: { sky: 0xffe0b3, sun: 1.6, sunColor: 0xffd9a0, ambient: 0.95, bg: 0x27231d, club: 0 },
+      interiorCool: { sky: 0xd0e4f5, sun: 1.7, sunColor: 0xe8f2ff, ambient: 1.0, bg: 0x212528, club: 0 },
+      club: { sky: 0x281a35, sun: 0.2, sunColor: 0x8844ff, ambient: 0.3, bg: 0x0b0810, club: 40 }
     }
     const p = presets[env.lighting]
     this.ambient.color.set(p.sky)
@@ -706,10 +711,10 @@ export class SceneManager {
     for (const es of state.entities) {
       const visual = this.visuals.get(es.entityId)
       if (!visual) continue
-      visual.root.position.set(es.position.x, es.position.y + visual.entity.transform.position.y * 0, es.position.z)
-      // Static entities keep their authored Y (tables on floors); tracked
-      // entities travel on the ground plane.
-      if (es.speed === 0 && es.distanceTravelled === 0 && !this.entityHasTrack(es.entityId)) {
+      visual.root.position.set(es.position.x, es.position.y, es.position.z)
+      // Static entities keep their authored Y (a lamp stays on its table);
+      // tracked entities travel on the ground plane.
+      if (!this.entityHasTrack(es.entityId)) {
         visual.root.position.y = visual.entity.transform.position.y
       }
       visual.root.rotation.y = es.heading
@@ -748,6 +753,9 @@ export class SceneManager {
     const now = performance.now()
     const dt = Math.min(0.1, (now - this.lastFrameAt) / 1000)
     this.lastFrameAt = now
+    // While exporting, the export loop owns scene state; rendering the live
+    // view concurrently would perturb it mid-frame.
+    if (this.suspendLive) return
 
     const s = this.currentState()
     if (s.playing && this.shot) {
@@ -799,10 +807,17 @@ export class SceneManager {
       this.onViewRect?.(null)
     }
 
-    // Keep selection box tracking its object
-    if (this.selectionBox.visible) {
+    // Keep selection box tracking its object. Hide it entirely in
+    // look-through/deliver (a camera-selection helper drawn from inside the
+    // camera reads as a stray line across the frame).
+    if (s.lookThrough || s.mode === 'deliver') {
+      this.selectionBox.visible = false
+    } else if (s.selection) {
       const obj = this.selectedObject()
-      if (obj) this.selectionBox.setFromObject(obj)
+      if (obj) {
+        this.selectionBox.setFromObject(obj)
+        this.selectionBox.visible = true
+      }
     }
   }
 
@@ -823,6 +838,12 @@ export class SceneManager {
     this.applyTime(t)
     const overlayWas = this.overlay.visible
     this.overlay.visible = false
+    // Editor chrome must never reach an export: selection box + gizmo.
+    const selectionWas = this.selectionBox.visible
+    this.selectionBox.visible = false
+    const gizmo = this.transform.getHelper ? this.transform.getHelper() : (this.transform as unknown as THREE.Object3D)
+    const gizmoWas = gizmo.visible
+    gizmo.visible = false
     const labelStates: [THREE.Sprite, boolean][] = []
     for (const v of this.visuals.values()) {
       if (v.label) {
@@ -849,12 +870,18 @@ export class SceneManager {
     }
     exportRenderer.setSize(width, height, false)
     exportRenderer.setViewport(0, 0, width, height)
+    // Render twice: the first render after another GL context has touched
+    // shared three.js state can differ by one warm-up frame; the second is
+    // always converged. Byte-determinism is worth one extra rasterization.
+    exportRenderer.render(this.scene, cam)
     exportRenderer.render(this.scene, cam)
 
     this.scene.overrideMaterial = null
     this.scene.background = bgWas
     this.scene.fog = fogWas
     this.overlay.visible = overlayWas
+    this.selectionBox.visible = selectionWas
+    gizmo.visible = gizmoWas
     for (const [sprite, was] of labelStates) sprite.visible = was
   }
 

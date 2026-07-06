@@ -190,11 +190,16 @@ ipcMain.handle(
   ) => {
     const ffmpegPath = await resolveFfmpeg()
     await mkdir(dirname(outPath), { recursive: true })
+    // Raw RGBA in: byte-deterministic (no per-frame PNG encode) and fast.
+    // WebGL readPixels is bottom-up, hence vflip.
     const args = [
       '-y',
-      '-f', 'image2pipe',
+      '-f', 'rawvideo',
+      '-pix_fmt', 'rgba',
+      '-s', `${opts.width}x${opts.height}`,
       '-framerate', String(opts.fps),
       '-i', '-',
+      '-vf', 'vflip',
       '-c:v', 'libx264',
       '-preset', 'medium',
       '-crf', '18',

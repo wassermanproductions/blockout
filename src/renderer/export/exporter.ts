@@ -110,6 +110,8 @@ async function renderPassToMp4(
   })
   const closed = waitForClose(jobId)
 
+  const gl = renderer.getContext()
+  const pixels = new Uint8Array(width * height * 4)
   for (let i = 0; i < totalFrames; i++) {
     if (isCancelled()) {
       await window.blockout.exportCancel(jobId)
@@ -117,8 +119,10 @@ async function renderPassToMp4(
     }
     const t = i / shot.fps
     manager.renderFrameAt(renderer, t, width, height, pass, { showLabels })
-    const png = await canvasPng(canvas)
-    await window.blockout.exportFrame(jobId, png)
+    // Raw RGBA straight from the framebuffer — deterministic bytes, no
+    // canvas PNG encode in the hot loop. ffmpeg vflips (GL is bottom-up).
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    await window.blockout.exportFrame(jobId, pixels.slice().buffer)
     progress(i + 1)
     // Yield so the progress UI paints.
     if (i % 4 === 0) await new Promise((r) => setTimeout(r, 0))
@@ -184,6 +188,36 @@ function buildMetadata(scene: Scene, shot: Shot, profile: GeneratorProfile): str
   return JSON.stringify(meta, null, 2) + '\n'
 }
 
+/**
+ * Test hook: render one clean frame at time t and return the PNG bytes.
+ * The smoke test calls this twice and asserts byte-identical output — the
+ * cheap, strong check that state(t) rendering is deterministic.
+ */
+export async function renderStillPngForTest(t: number, width = 320, height = 180): Promise<ArrayBuffer> {
+  const manager = getSceneManager()
+  if (!manager) throw new Error('no scene manager')
+  const { canvas, renderer } = getExportRenderer()
+  canvas.width = width
+  canvas.height = height
+  manager.renderFrameAt(renderer, t, width, height, 'clean', { showLabels: true })
+  return canvasPng(canvas)
+}
+
+/** Raw-pixel variant for the determinism diagnostic. */
+export function renderRawForTest(t: number, width = 320, height = 180, doubleRender = false): number[] {
+  const manager = getSceneManager()
+  if (!manager) throw new Error('no scene manager')
+  const { canvas, renderer } = getExportRenderer()
+  canvas.width = width
+  canvas.height = height
+  manager.renderFrameAt(renderer, t, width, height, 'clean', { showLabels: true })
+  if (doubleRender) manager.renderFrameAt(renderer, t, width, height, 'clean', { showLabels: true })
+  const gl = renderer.getContext()
+  const px = new Uint8Array(width * height * 4)
+  gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, px)
+  return Array.from(px)
+}
+
 export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
   const s = useStore.getState()
   const doc = s.doc
@@ -192,7 +226,14 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
   const folder = s.projectFolder
   const manager = getSceneManager()
   if (!doc || !scene || !shot || !folder || !manager) {
-    return { ok: false, error: 'No open shot to export.' }
+    const missing = !doc
+      ? 'no project open'
+      : !scene || !shot
+        ? 'no shot selected'
+        : !folder
+          ? 'project has no folder'
+          : 'viewport not ready'
+    return { ok: false, error: `Cannot export: ${missing}.` }
   }
   const profile = getProfile(opts.profileId)
   const { width, height } = exportDims(profile, shot.aspect)
@@ -216,6 +257,7 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
   })
   const isCancelled = (): boolean => useStore.getState().exportProgress.cancelRequested
 
+  manager.suspendLive = true
   try {
     let done = 0
     for (const pass of passes) {
@@ -310,6 +352,8 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
     const error = e instanceof Error ? e.message : String(e)
     s.setExportProgress({ running: false, error })
     return { ok: false, error }
+  } finally {
+    manager.suspendLive = false
   }
 }
 
