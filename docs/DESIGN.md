@@ -102,7 +102,7 @@ Export runs **deterministically offline**: the timeline is stepped at exactly th
 TheHeist/Scene-01/Shot-1A/export-2026-07-05/
 ├── 1A_reference.mp4          # clean shaded pass, chosen aspect/res/fps
 ├── 1A_depth.mp4              # depth pass (for ComfyUI depth workflows)  [toggle]
-├── 1A_outline.mp4            # toon/outline pass                          [toggle]
+├── 1A_normal.mp4             # normal pass (ControlNet-friendly)          [toggle]
 ├── stills/
 │   ├── 1A_mark-1.png … mark-N.png   # frame at every camera mark
 │   ├── 1A_first.png / 1A_last.png   # first/last frame (image-to-video anchors)
@@ -179,11 +179,11 @@ Dark, quiet UI (near-black chrome, one accent color) so the viewport is the star
 |---|---|---|
 | Shell | **Electron + electron-builder** | True desktop app, one codebase → mac/win/linux installers, easiest for collaborators and AI agents to work on; mature ffmpeg/node integration for export |
 | UI | **React + TypeScript (strict)** | Ubiquitous, agent-friendly, component model fits the Inspector/Library patterns |
-| 3D | **Three.js via react-three-fiber + drei** | Best web-3D ecosystem; skinned mesh + animation retargeting supported; deterministic offline rendering is straightforward |
-| State | **Zustand + immer**, single store, command-pattern undo | Deep undo/redo for free; serializes cleanly to project files |
-| Video encode | **ffmpeg** (bundled via ffmpeg-static) fed PNG frames from an offscreen render target | Deterministic fixed-fps output; also does the depth/outline passes and animatic stitching |
-| Assets | CC0 low-poly packs (Kenney, Quaternius) + Mixamo-compatible mannequin rigs, all stored as GLB in-repo | Zero licensing risk when sharing; consistent grey-box look |
-| Tests | Vitest (unit) + Playwright (e2e) + golden-frame image regression | See docs/ROADMAP.md QA plan |
+| 3D | **Three.js (plain, imperative)** managed by a single SceneManager; React stays UI-only | The scene is driven by the deterministic `state(t)` evaluator, which fits imperative three better than r3f's declarative graph; one owner for all GL state |
+| State | **Zustand**, single store, snapshot-based undo through `store.mutate` | Deep undo/redo for free; serializes cleanly to project files |
+| Video encode | **ffmpeg** (bundled via ffmpeg-static, system fallback) fed **raw RGBA frames** from the offscreen framebuffer | Byte-deterministic fixed-fps output (no per-frame PNG encode); also depth/normal passes and animatic stitching |
+| Assets | **Procedurally generated grey-box models in code** (articulated capsule mannequins, parametric vehicles/furniture/environment kits) | Zero asset licensing, zero binary blobs in git, deterministic, consistent look; a walk cycle is math, not mocap |
+| Tests | Vitest (unit) + Playwright e2e smoke (real export, ffprobe-verified) + byte-determinism render test | See docs/ROADMAP.md QA plan |
 
 *Considered and rejected:* **Tauri** (lighter, but Rust sidecar friction for ffmpeg/3D and fewer agents fluent in it), **Unity/Godot** (heavier toolchain, worse GitHub/agent ergonomics, overkill for grey-box), **Blender add-on** (inherits Blender's UI complexity — the exact thing this app exists to escape).
 
