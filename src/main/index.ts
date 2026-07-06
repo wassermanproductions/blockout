@@ -179,6 +179,16 @@ ipcMain.handle('shell:showFolder', async (_e, path: string) => {
   shell.showItemInFolder(path)
 })
 
+const EXTERNAL_LINK_ALLOWLIST = new Set(['wassermanproductions.com', 'wasserman.ai'])
+
+ipcMain.handle('shell:openExternal', async (_e, url: string) => {
+  const parsed = new URL(url)
+  const host = parsed.hostname.replace(/^www\./, '')
+  if (parsed.protocol !== 'https:' || !EXTERNAL_LINK_ALLOWLIST.has(host)) return false
+  await shell.openExternal(url)
+  return true
+})
+
 /* ------------------------------ export jobs ----------------------------- */
 
 interface ExportJob {

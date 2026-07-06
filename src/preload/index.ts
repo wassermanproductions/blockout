@@ -20,6 +20,7 @@ export interface BlockoutAPI {
   importAsset(folder: string, sourcePath: string): Promise<{ relativePath: string; name: string }>
   readProjectFile(folder: string, relativePath: string): Promise<ArrayBuffer>
   showFolder(path: string): Promise<void>
+  openExternal(url: string): Promise<boolean>
   exportBegin(
     jobId: string,
     outPath: string,
@@ -66,6 +67,7 @@ const api: BlockoutAPI = {
   importAsset: (folder, sourcePath) => ipcRenderer.invoke('project:importAsset', folder, sourcePath),
   readProjectFile: (folder, rel) => ipcRenderer.invoke('file:readAbsolute', folder, rel),
   showFolder: (path) => ipcRenderer.invoke('shell:showFolder', path),
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
   exportBegin: (jobId, outPath, opts) => ipcRenderer.invoke('export:begin', jobId, outPath, opts),
   exportFrame: (jobId, png) => ipcRenderer.invoke('export:frame', jobId, png),
   exportEnd: (jobId) => ipcRenderer.invoke('export:end', jobId),

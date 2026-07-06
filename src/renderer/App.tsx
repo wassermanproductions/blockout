@@ -13,6 +13,43 @@ import { Timeline } from './panels/Timeline'
 import { DeliverPanel } from './panels/DeliverPanel'
 import { Toasts } from './panels/Toasts'
 
+function CreditLink({ url, children }: { url: string; children: string }): JSX.Element {
+  return (
+    <a
+      href="#"
+      onClick={(e) => {
+        e.preventDefault()
+        void window.blockout.openExternal(url)
+      }}
+      style={{ color: 'var(--accent)', textDecoration: 'none', cursor: 'pointer' }}
+      onMouseEnter={(e) => (e.currentTarget.style.textDecoration = 'underline')}
+      onMouseLeave={(e) => (e.currentTarget.style.textDecoration = 'none')}
+    >
+      {children}
+    </a>
+  )
+}
+
+export function Credits({ compact = false }: { compact?: boolean }): JSX.Element {
+  return (
+    <div
+      style={{
+        color: 'var(--text-faint)',
+        fontSize: compact ? 10 : 12,
+        textAlign: 'center',
+        lineHeight: 1.6,
+        padding: compact ? '10px 12px' : 0
+      }}
+    >
+      Created by Sam Wasserman
+      {compact ? <br /> : ' · '}
+      <CreditLink url="https://wassermanproductions.com">wassermanproductions.com</CreditLink>
+      {' · '}
+      <CreditLink url="https://wasserman.ai">wasserman.ai</CreditLink>
+    </div>
+  )
+}
+
 function Welcome(): JSX.Element {
   const newProject = useStore((s) => s.newProject)
   const loadFromJson = useStore((s) => s.loadFromJson)
@@ -62,6 +99,7 @@ function Welcome(): JSX.Element {
           Open Project…
         </button>
       </div>
+      <Credits />
     </div>
   )
 }
@@ -199,6 +237,7 @@ export function App(): JSX.Element {
           <div className="panel">
             <ProjectRail />
             {mode === 'stage' && <Library />}
+            <Credits compact />
           </div>
           <div className="center-column">
             <div className="viewport-wrap">

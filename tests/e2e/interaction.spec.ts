@@ -210,6 +210,13 @@ test('pose-per-mark: joints on marks flow through the store and evaluator', asyn
   }
 })
 
+test('credits with site links render in-app', async () => {
+  await page.evaluate(() => (window as any).__blockout.store.getState().setMode('stage'))
+  await expect(page.getByText('Created by Sam Wasserman')).toBeVisible()
+  await expect(page.getByText('wassermanproductions.com')).toBeVisible()
+  await expect(page.getByText('wasserman.ai')).toBeVisible()
+})
+
 test('analyzeReference IPC wiring returns a structured error without credentials', async () => {
   test.setTimeout(120_000)
   // 1x1 PNG written through the export IPC, then analyzed.
