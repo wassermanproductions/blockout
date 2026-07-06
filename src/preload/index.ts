@@ -11,7 +11,12 @@ export interface BlockoutAPI {
   pickFile(filters: { name: string; extensions: string[] }[]): Promise<string | null>
   saveProject(folder: string, json: string): Promise<boolean>
   saveBackup(folder: string, json: string): Promise<boolean>
-  loadProject(folder: string): Promise<{ json: string | null; backupJson: string | null; folder: string }>
+  loadProject(folder: string): Promise<{
+    json: string | null
+    backupJson: string | null
+    backupNewer: boolean
+    folder: string
+  }>
   importAsset(folder: string, sourcePath: string): Promise<{ relativePath: string; name: string }>
   readProjectFile(folder: string, relativePath: string): Promise<ArrayBuffer>
   showFolder(path: string): Promise<void>

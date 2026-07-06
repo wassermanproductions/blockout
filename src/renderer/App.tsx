@@ -30,12 +30,17 @@ function Welcome(): JSX.Element {
   const onOpen = useCallback(async () => {
     const folder = await window.blockout.openProjectDialog()
     if (!folder) return
-    const { json, backupJson } = await window.blockout.loadProject(folder)
+    const { json, backupJson, backupNewer } = await window.blockout.loadProject(folder)
     if (!json && !backupJson) {
       toast('No project.json found in that folder.', 'error')
       return
     }
-    // Prefer the main file; fall back to autosave after a crash.
+    // A meaningfully-newer autosave means the app died with unsaved work —
+    // restore it (undo history is fresh either way; ⌘S makes it permanent).
+    if (backupNewer && backupJson && loadFromJson(folder, backupJson)) {
+      toast('Restored unsaved work from the autosave backup — Save to keep it.', 'success')
+      return
+    }
     if (json && loadFromJson(folder, json)) return
     if (backupJson && loadFromJson(folder, backupJson)) {
       toast('Recovered from autosave backup.', 'success')

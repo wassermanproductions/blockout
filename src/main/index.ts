@@ -6,8 +6,8 @@
 
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
-import { mkdir, readFile, writeFile, copyFile, access } from 'fs/promises'
-import { join, dirname, basename, extname } from 'path'
+import { mkdir, readFile, writeFile, copyFile, access, stat } from 'fs/promises'
+import { join, dirname, basename, extname, resolve, sep } from 'path'
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL
 
@@ -135,17 +135,24 @@ ipcMain.handle('project:saveBackup', async (_e, folder: string, json: string) =>
 ipcMain.handle('project:load', async (_e, folder: string) => {
   const main = join(folder, 'project.json')
   const backup = join(folder, '.autosave', 'project.autosave.json')
-  const out: { json: string | null; backupJson: string | null; folder: string } = {
-    json: null,
-    backupJson: null,
-    folder
-  }
+  const out: {
+    json: string | null
+    backupJson: string | null
+    backupNewer: boolean
+    folder: string
+  } = { json: null, backupJson: null, backupNewer: false, folder }
+  let mainTime = 0
+  let backupTime = 0
   try {
     out.json = await readFile(main, 'utf-8')
+    mainTime = (await stat(main)).mtimeMs
   } catch {}
   try {
     out.backupJson = await readFile(backup, 'utf-8')
+    backupTime = (await stat(backup)).mtimeMs
   } catch {}
+  // A meaningfully-newer autosave means the app died with unsaved work.
+  out.backupNewer = backupTime > mainTime + 1500 && out.backupJson !== out.json
   return out
 })
 
@@ -159,9 +166,11 @@ ipcMain.handle('project:importAsset', async (_e, folder: string, sourcePath: str
 })
 
 ipcMain.handle('file:readAbsolute', async (_e, folder: string, relativePath: string) => {
-  // Only serve files inside the project folder.
-  const full = join(folder, relativePath)
-  if (!full.startsWith(folder)) throw new Error('path escapes project folder')
+  // Only serve files inside the project folder (resolve + separator check
+  // so "/a/b" can't leak "/a/bad" and "../" can't escape).
+  const base = resolve(folder)
+  const full = resolve(base, relativePath)
+  if (full !== base && !full.startsWith(base + sep)) throw new Error('path escapes project folder')
   const data = await readFile(full)
   return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
 })
