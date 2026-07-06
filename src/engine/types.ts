@@ -108,6 +108,13 @@ export interface ActorMark extends MarkBase {
   gait: GaitId
   /** If set, face this heading (yaw) on arrival; otherwise keep travel heading. */
   arriveHeading?: number
+  /**
+   * Per-joint pose offsets (radians) held AT this mark and interpolated
+   * while travelling between marks — keyframed limb choreography for
+   * fight/dance blocking. Keys match the renderer's joint override names
+   * (shoulderLX, elbowR, torsoX, headY, …). Missing keys read as 0.
+   */
+  joints?: Record<string, number>
 }
 
 export interface CameraMark extends MarkBase {
@@ -211,6 +218,8 @@ export interface EntityState {
   distanceTravelled: number
   /** Current speed m/s (0 when holding). */
   speed: number
+  /** Interpolated per-joint pose offsets from the marks (radians). */
+  joints?: Record<string, number>
 }
 
 /** Result of evaluating the camera at time t (rig noise already applied). */

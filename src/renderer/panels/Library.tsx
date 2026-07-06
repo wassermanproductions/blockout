@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react'
 import { ASSET_CATALOG, type AssetSpec } from '@engine/assets'
 import type { EntityCategory } from '@engine/types'
 import { useStore } from '../store'
+import { populateFromReference } from '../ai/populate'
 
 /** Emoji thumb per catalog id. '📦' is the fallback for anything unmapped. */
 const THUMBS: Record<string, string> = {
@@ -174,6 +175,14 @@ export function Library(): JSX.Element {
       ))}
 
       <div className="panel-section">
+        <button
+          className="btn primary"
+          style={{ width: '100%', marginBottom: 8 }}
+          onClick={() => void populateFromReference()}
+          title="Give Claude a reference photo or video frame — it stages the scene to match: people, furniture, poses, lighting, and a camera to match the framing"
+        >
+          ✨ Populate from reference…
+        </button>
         <button className="btn" style={{ width: '100%' }} onClick={() => void onImport()}>
           Import 3D Model…
         </button>

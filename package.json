@@ -20,6 +20,7 @@
     "package:all": "npm run build && electron-builder -mwl --config electron-builder.yml"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
     "three": "^0.170.0",
     "zustand": "^5.0.2"
   },

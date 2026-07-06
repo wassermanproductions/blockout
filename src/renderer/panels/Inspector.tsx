@@ -775,6 +775,8 @@ function MarkInspector({
         </div>
       )}
 
+      {actorMark && <MarkPoseSection mark={actorMark} editMark={editMark} />}
+
       {cameraMark && (
         <div className="panel-section">
           <div className="panel-title">Optics</div>
@@ -994,6 +996,75 @@ function PoseSection({
           }
         >
           Reset limbs
+        </button>
+      </details>
+    </div>
+  )
+}
+
+/**
+ * Pose at a mark: joint offsets held at this mark and interpolated between
+ * marks by the evaluator — keyframed limb choreography (fights, dances).
+ * Reuses the same JOINTS table as the entity-level PoseSection.
+ */
+function MarkPoseSection({
+  mark,
+  editMark
+}: {
+  mark: ActorMark
+  editMark: (label: string, fn: (m: CameraMark | ActorMark) => void) => void
+}): JSX.Element {
+  const hasPose = Object.values(mark.joints ?? {}).some((v) => v !== 0)
+
+  return (
+    <div className="panel-section">
+      <div className="panel-title">Pose at this mark</div>
+      <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>
+        Limbs blend from the previous mark's pose to this one while travelling — set different
+        poses on successive marks to choreograph a move.
+      </p>
+      <details open={hasPose}>
+        <summary
+          style={{ cursor: 'pointer', fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8 }}
+        >
+          Joint keyframes
+        </summary>
+        {JOINTS.map((j) => {
+          const rad = mark.joints?.[j.key] ?? 0
+          const deg = Math.round(rad * DEG)
+          return (
+            <div className="field" key={j.key} style={{ marginBottom: 6 }}>
+              <label>
+                {j.label} ({deg}°)
+              </label>
+              <input
+                type="range"
+                min={-j.range}
+                max={j.range}
+                step={1}
+                value={deg}
+                onChange={(e) => {
+                  const v = Number(e.target.value)
+                  if (Number.isNaN(v)) return
+                  editMark('mark pose', (m) => {
+                    const am = m as ActorMark
+                    am.joints = { ...am.joints, [j.key]: v / DEG }
+                  })
+                }}
+              />
+            </div>
+          )
+        })}
+        <button
+          className="btn small"
+          style={{ width: '100%', marginTop: 4 }}
+          onClick={() =>
+            editMark('reset mark pose', (m) => {
+              delete (m as ActorMark).joints
+            })
+          }
+        >
+          Reset pose at this mark
         </button>
       </details>
     </div>

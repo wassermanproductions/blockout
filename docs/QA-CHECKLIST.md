@@ -22,6 +22,12 @@ Then the manual script, in order. Check each box.
 - [ ] Import a custom GLB; it appears and persists (copied into project assets/).
 - [ ] 50 mixed undo operations (⌘Z) walk state back correctly; redo replays them.
 
+## AI & choreography (added after user feedback round 2)
+- [ ] Pose per mark: set different joint poses on two marks — limbs blend between them during travel; export shows the move.
+- [ ] ✨ Populate from reference: pick a photo of a staged scene — entities land in matching positions with poses/labels, lighting is set, and (on an empty shot) Camera Mark 1 approximates the reference framing.
+- [ ] Populate with a video file: a frame is extracted and analyzed the same way.
+- [ ] Populate without credentials: clean error toast with the three auth options (no hang/crash).
+
 ## Interaction (added after user feedback round 1)
 - [ ] Gizmo-drag an entity with the mouse (arrows AND planes); position persists after save/reopen.
 - [ ] Select the camera and gizmo-drag its body; the active camera mark updates (R rotates → pan/tilt update).
