@@ -212,19 +212,10 @@ function ShotSection({ scene, shot }: { scene: Scene; shot: Shot }): JSX.Element
             mutate('shot duration', (doc) => {
               const sh = findShot(doc, scene.id, shot.id)
               if (!sh) return
+              // Duration only — never clamp marks: the blocking take is
+              // shared across shots (coverage model) and out-of-range marks
+              // are harmless to the evaluator.
               sh.duration = next
-              for (const m of sh.camera.marks) {
-                m.time = clamp(m.time, 0, next)
-                m.hold = clamp(m.hold, 0, next - m.time)
-              }
-              const sc = findScene(doc, scene.id)
-              const tk = sc?.blocking.find((b) => b.id === sh.blockingTakeId)
-              tk?.tracks.forEach((tr) =>
-                tr.marks.forEach((m) => {
-                  m.time = clamp(m.time, 0, next)
-                  m.hold = clamp(m.hold, 0, next - m.time)
-                })
-              )
             })
             if (time > next) setTime(next)
           }}
@@ -497,6 +488,11 @@ function EntityInspector({
               sc.entities = sc.entities.filter((e) => e.id !== entityId)
               for (const take2 of sc.blocking) {
                 take2.tracks = take2.tracks.filter((t) => t.entityId !== entityId)
+              }
+              // Unmount any camera parented to the deleted entity — its
+              // local-frame marks would otherwise re-base to world space.
+              for (const sh of sc.shots) {
+                if (sh.camera.mountEntityId === entityId) delete sh.camera.mountEntityId
               }
             })
             setSelection(null)

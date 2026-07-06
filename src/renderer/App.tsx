@@ -67,17 +67,21 @@ function Welcome(): JSX.Element {
 }
 
 function useAutosave(): void {
-  const doc = useStore((s) => s.doc)
+  // Depend on WHETHER a doc is open, not on the doc object — every mutation
+  // replaces the doc, and re-arming a 60s timer on each edit means autosave
+  // never fires for anyone actively working (the exact crash window it
+  // exists to cover). The tick reads the latest doc from the store.
+  const hasDoc = useStore((s) => s.doc !== null)
   const folder = useStore((s) => s.projectFolder)
 
   useEffect(() => {
-    if (!doc || !folder) return
+    if (!hasDoc || !folder) return
     const interval = setInterval(() => {
       const json = currentProjectJson()
       if (json) void window.blockout.saveBackup(folder, json)
     }, 60_000)
     return () => clearInterval(interval)
-  }, [doc, folder])
+  }, [hasDoc, folder])
 }
 
 function useKeyboard(): void {

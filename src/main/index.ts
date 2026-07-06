@@ -6,7 +6,7 @@
 
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
-import { mkdir, readFile, writeFile, copyFile, access, stat } from 'fs/promises'
+import { mkdir, readFile, writeFile, copyFile, access, stat, rm } from 'fs/promises'
 import { join, dirname, basename, extname, resolve, sep } from 'path'
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL
@@ -185,6 +185,9 @@ interface ExportJob {
   ffmpeg: ChildProcess
   framesExpected: number
   framesReceived: number
+  /** Set when ffmpeg dies or its stdin errors — writes must stop failing loudly, not crash. */
+  dead: boolean
+  deadReason: string
 }
 
 const jobs = new Map<string, ExportJob>()
@@ -221,13 +224,30 @@ ipcMain.handle(
     child.stderr?.on('data', (d: Buffer) => {
       stderrTail = (stderrTail + d.toString()).slice(-4000)
     })
-    const job: ExportJob = { ffmpeg: child, framesExpected: opts.framesExpected, framesReceived: 0 }
+    const job: ExportJob = {
+      ffmpeg: child,
+      framesExpected: opts.framesExpected,
+      framesReceived: 0,
+      dead: false,
+      deadReason: ''
+    }
     jobs.set(jobId, job)
+    // If ffmpeg exits or its pipe breaks mid-stream (disk full, encoder
+    // error, missing binary), later writes would raise unhandled EPIPE and
+    // take down the main process — absorb it and mark the job dead instead.
+    child.stdin?.on('error', (err) => {
+      job.dead = true
+      job.deadReason = `encoder pipe error: ${String(err)}`
+    })
     child.on('close', (code) => {
-      mainWindow?.webContents.send('export:closed', jobId, code, stderrTail)
+      job.dead = true
+      job.deadReason = job.deadReason || `ffmpeg exited ${code}`
+      mainWindow?.webContents.send('export:closed', jobId, code ?? -1, stderrTail)
       jobs.delete(jobId)
     })
     child.on('error', (err) => {
+      job.dead = true
+      job.deadReason = String(err)
       mainWindow?.webContents.send('export:closed', jobId, -1, String(err))
       jobs.delete(jobId)
     })
@@ -235,14 +255,27 @@ ipcMain.handle(
   }
 )
 
-ipcMain.handle('export:frame', async (_e, jobId: string, png: ArrayBuffer) => {
+ipcMain.handle('export:frame', async (_e, jobId: string, frame: ArrayBuffer) => {
   const job = jobs.get(jobId)
   if (!job) throw new Error(`no export job ${jobId}`)
+  if (job.dead) throw new Error(job.deadReason || 'encoder terminated')
   job.framesReceived++
-  const buf = Buffer.from(png)
+  const buf = Buffer.from(frame)
   const stdin = job.ffmpeg.stdin!
   if (!stdin.write(buf)) {
-    await new Promise<void>((resolve) => stdin.once('drain', resolve))
+    // Wait for drain, but never hang if the pipe dies while parked.
+    await new Promise<void>((resolve) => {
+      const done = (): void => {
+        stdin.removeListener('drain', done)
+        stdin.removeListener('error', done)
+        stdin.removeListener('close', done)
+        resolve()
+      }
+      stdin.once('drain', done)
+      stdin.once('error', done)
+      stdin.once('close', done)
+    })
+    if (job.dead) throw new Error(job.deadReason || 'encoder terminated')
   }
   return true
 })
@@ -277,7 +310,7 @@ ipcMain.handle(
     const listPath = join(dirname(outPath), `.concat-${Date.now()}.txt`)
     const listBody = inputPaths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join('\n')
     await writeFile(listPath, listBody, 'utf-8')
-    return await new Promise<{ ok: boolean; error?: string }>((resolve) => {
+    const result = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
       const child = spawn(ffmpegPath, [
         '-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', outPath
       ])
@@ -286,6 +319,10 @@ ipcMain.handle(
       child.on('close', (code) => resolve(code === 0 ? { ok: true } : { ok: false, error: err }))
       child.on('error', (e2) => resolve({ ok: false, error: String(e2) }))
     })
+    try {
+      await rm(listPath)
+    } catch {}
+    return result
   }
 )
 

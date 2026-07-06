@@ -14,9 +14,7 @@ import { buildAsset } from '../viewport/builders'
 import { exportDims } from './exporter'
 import { getProfile } from '@engine/profiles'
 
-function sanitize(name: string): string {
-  return name.replace(/[^\w\d-]+/g, '-').replace(/^-+|-+$/g, '')
-}
+import { sanitizeName as sanitize, uniqueName } from '@engine/strings'
 
 export async function exportGlb(profileId: string): Promise<{ ok: boolean; packagePath?: string; error?: string }> {
   const s = useStore.getState()
@@ -30,11 +28,14 @@ export async function exportGlb(profileId: string): Promise<{ ok: boolean; packa
   root.name = `Blockout_${sanitize(shot.name)}`
 
   // Rebuild entities fresh (clean graph, no selection/overlay state).
+  // Node names must be unique — animation tracks target nodes BY NAME, so
+  // two entities both labeled "Thug" would drive the wrong body otherwise.
+  const usedNames = new Set<string>()
   const nodes = new Map<string, THREE.Group>()
   for (const entity of scene.entities) {
     const built = buildAsset(entity.assetId, entity.params)
     const g = new THREE.Group()
-    g.name = sanitize(entity.label?.text || entity.name || entity.id)
+    g.name = uniqueName(sanitize(entity.label?.text || entity.name || entity.id), usedNames)
     g.add(built.group)
     g.position.set(entity.transform.position.x, entity.transform.position.y, entity.transform.position.z)
     g.rotation.y = entity.transform.rotationY

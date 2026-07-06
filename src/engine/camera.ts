@@ -10,13 +10,15 @@ export interface SensorFormat {
   name: string
   /** Active gate width in mm. */
   width: number
+  /** Active gate height in mm — a crop can never exceed this. */
+  height: number
 }
 
 export const SENSORS: Record<SensorId, SensorFormat> = {
-  super16: { id: 'super16', name: 'Super 16', width: 12.52 },
-  super35: { id: 'super35', name: 'Super 35', width: 24.89 },
-  fullFrame: { id: 'fullFrame', name: 'Full Frame / VistaVision', width: 36.0 },
-  imax65: { id: 'imax65', name: '65mm / IMAX', width: 52.63 }
+  super16: { id: 'super16', name: 'Super 16', width: 12.52, height: 7.41 },
+  super35: { id: 'super35', name: 'Super 35', width: 24.89, height: 18.66 },
+  fullFrame: { id: 'fullFrame', name: 'Full Frame / VistaVision', width: 36.0, height: 24.0 },
+  imax65: { id: 'imax65', name: '65mm / IMAX', width: 52.63, height: 23.01 }
 }
 
 export const LENS_SET = [12, 16, 24, 35, 50, 85, 100, 135]
@@ -30,15 +32,17 @@ export const ASPECT_RATIOS: Record<AspectId, number> = {
 }
 
 /**
- * Vertical FOV in radians. The sensor's usable height is derived from its
- * width and the delivery aspect (crop-to-aspect model — matches how a wider
- * delivery aspect crops vertically and reads "wider" horizontally).
+ * Vertical FOV in radians, crop-to-aspect model: a wide delivery aspect
+ * crops the gate vertically; a portrait aspect crops it horizontally. The
+ * used height is therefore bounded by the physical gate height — a 9:16
+ * crop of Super 35 uses the full 18.66mm height with a narrowed width, it
+ * does not invent a 44mm-tall sensor.
  */
 export function verticalFov(sensorId: SensorId, focalLength: number, aspect: AspectId): number {
   const sensor = SENSORS[sensorId]
   const aspectRatio = ASPECT_RATIOS[aspect]
-  const sensorHeight = sensor.width / aspectRatio
-  return 2 * Math.atan(sensorHeight / (2 * focalLength))
+  const usedHeight = Math.min(sensor.height, sensor.width / aspectRatio)
+  return 2 * Math.atan(usedHeight / (2 * focalLength))
 }
 
 export function horizontalFov(sensorId: SensorId, focalLength: number): number {

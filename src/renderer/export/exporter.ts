@@ -27,9 +27,7 @@ export interface ExportResult {
   error?: string
 }
 
-function sanitize(name: string): string {
-  return name.replace(/[^\w\d-]+/g, '-').replace(/^-+|-+$/g, '')
-}
+import { sanitizeName as sanitize } from '@engine/strings'
 
 function evenDim(n: number): number {
   const r = Math.round(n)
@@ -112,13 +110,16 @@ async function renderPassToMp4(
 
   const gl = renderer.getContext()
   const pixels = new Uint8Array(width * height * 4)
+  // Depth normalization range is fixed across the whole shot so the
+  // gradient doesn't pump as subjects approach the camera.
+  const depthRange = pass === 'depth' ? manager.computeShotDepthRange(shot.duration) : undefined
   for (let i = 0; i < totalFrames; i++) {
     if (isCancelled()) {
       await window.blockout.exportCancel(jobId)
       return { ok: false, error: 'cancelled' }
     }
     const t = i / shot.fps
-    manager.renderFrameAt(renderer, t, width, height, pass, { showLabels })
+    manager.renderFrameAt(renderer, t, width, height, pass, { showLabels, depthRange })
     // Raw RGBA straight from the framebuffer — deterministic bytes, no
     // canvas PNG encode in the hot loop. ffmpeg vflips (GL is bottom-up).
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
@@ -241,7 +242,7 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
   const profile = getProfile(opts.profileId)
   const { width, height } = exportDims(profile, shot.aspect)
 
-  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
   const pkg = `${folder}/exports/${sanitize(scene.name)}/Shot-${sanitize(shot.name)}/export-${stamp}`
 
   const passes: ('clean' | 'depth' | 'normal')[] = []
@@ -366,6 +367,15 @@ export async function exportAnimatic(profileId: string): Promise<ExportResult> {
   const scene = s.scene()
   const folder = s.projectFolder
   if (!scene || !folder) return { ok: false, error: 'No scene.' }
+  // Stream-copy concat requires uniform codec parameters — mixed aspects or
+  // frame rates would produce a file most players choke on.
+  const formats = new Set(scene.shots.map((sh) => `${sh.aspect}@${sh.fps}`))
+  if (formats.size > 1) {
+    return {
+      ok: false,
+      error: `Shots mix formats (${[...formats].join(', ')}) — set every shot in the scene to the same aspect and fps before exporting an animatic.`
+    }
+  }
   const originalShot = s.shotId
 
   const clips: string[] = []
@@ -425,19 +435,30 @@ export async function exportContactSheet(): Promise<ExportResult> {
     const shot = scene.shots[i]!
     s.selectShot(shot.id)
     await new Promise((r) => setTimeout(r, 50))
-    manager.renderFrameAt(renderer, 0, cell.w, cell.h, 'clean', { showLabels: true })
+    // Render at the shot's own aspect, contain-fit into the cell — a 9:16
+    // shot must show its real framing, not a 16:9 crop of it.
+    const ratio = ASPECT_RATIOS[shot.aspect]
+    let tw = cell.w
+    let th = Math.round(cell.w / ratio)
+    if (th > cell.h) {
+      th = cell.h
+      tw = Math.round(cell.h * ratio)
+    }
+    canvas.width = tw
+    canvas.height = th
+    manager.renderFrameAt(renderer, 0, tw, th, 'clean', { showLabels: true })
     const col = i % cols
     const row = Math.floor(i / cols)
-    const x = pad + col * (cell.w + pad)
-    const y = 60 + pad + row * (cell.h + captionH + pad)
-    ctx.drawImage(canvas, x, y)
+    const cellX = pad + col * (cell.w + pad)
+    const cellY = 60 + pad + row * (cell.h + captionH + pad)
+    ctx.drawImage(canvas, cellX + Math.floor((cell.w - tw) / 2), cellY + Math.floor((cell.h - th) / 2))
     ctx.fillStyle = '#9b9ba6'
     ctx.font = '600 16px -apple-system, sans-serif'
     const lens = [...shot.camera.marks].sort((a, b) => a.time - b.time)[0]?.focalLength ?? 35
     ctx.fillText(
       `${shot.name} · ${Math.round(lens)}mm · ${shot.duration.toFixed(1)}s · ${shot.aspect}`,
-      x,
-      y + cell.h + 26
+      cellX,
+      cellY + cell.h + 26
     )
   }
   if (originalShot) s.selectShot(originalShot)

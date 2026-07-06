@@ -45,7 +45,9 @@ function buildLegs<M extends MarkBase>(marks: M[]): Leg<M>[] {
   for (let i = 0; i < sorted.length - 1; i++) {
     const from = sorted[i]!
     const to = sorted[i + 1]!
-    const departTime = from.time + from.hold
+    // A hold reaching past the next mark's arrival would leave a 1ms
+    // teleport; truncate the hold so there is always a real travel window.
+    const departTime = Math.min(from.time + from.hold, Math.max(from.time, to.time - 0.1))
     const arriveTime = Math.max(to.time, departTime + 0.001)
     const points: V3[] = [from.position, ...(to.via ?? []), to.position]
     const path = new Path(points)
@@ -72,7 +74,10 @@ function evaluateTrack<M extends MarkBase>(
 } {
   const sorted = [...marks].sort((a, b) => a.time - b.time)
   const first = sorted[0]!
-  if (legs.length === 0 || t <= first.time + first.hold) {
+  // Only handle "before the first mark" here — holding AT a mark is the
+  // legs loop's job, which respects the truncated departure time (a hold
+  // reaching past the next mark's arrival is shortened, not honored).
+  if (legs.length === 0 || t <= first.time) {
     return {
       position: first.position,
       travelHeading: null,

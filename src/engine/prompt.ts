@@ -24,6 +24,27 @@ function fmtTime(t: number): string {
   return `${Math.round(t * 10) / 10}s`
 }
 
+/** Wrap an angle delta to (-π, π] so seam-crossing moves read correctly. */
+function wrapAngle(d: number): number {
+  let a = d % (Math.PI * 2)
+  if (a > Math.PI) a -= Math.PI * 2
+  if (a < -Math.PI) a += Math.PI * 2
+  return a
+}
+
+/** Human verb for a gait, present tense. */
+const GAIT_VERBS: Record<string, string> = {
+  stand: 'stands',
+  walk: 'walks',
+  jog: 'jogs',
+  run: 'runs',
+  sit: 'sits',
+  lie: 'lies down',
+  crouch: 'crouches',
+  gesture: 'gestures',
+  fall: 'falls'
+}
+
 /** Describe the camera's travel between two marks in operator language. */
 function describeCameraLeg(from: CameraMark, to: CameraMark): string {
   const parts: string[] = []
@@ -44,9 +65,11 @@ function describeCameraLeg(from: CameraMark, to: CameraMark): string {
   if (Math.abs(lateral) > 0.3) parts.push(`tracks ${lateral > 0 ? 'right' : 'left'}`)
   if (Math.abs(dy) > 0.3) parts.push(`booms ${dy > 0 ? 'up' : 'down'}`)
 
-  const panDelta = to.pan - from.pan
-  if (Math.abs(panDelta) > 0.12) parts.push(`pans ${panDelta > 0 ? 'right' : 'left'}`)
-  const tiltDelta = to.tilt - from.tilt
+  // Increasing pan rotates the camera LEFT under the heading convention
+  // (rotation.y = pan), and deltas must be seam-wrapped.
+  const panDelta = wrapAngle(to.pan - from.pan)
+  if (Math.abs(panDelta) > 0.12) parts.push(`pans ${panDelta > 0 ? 'left' : 'right'}`)
+  const tiltDelta = wrapAngle(to.tilt - from.tilt)
   if (Math.abs(tiltDelta) > 0.12) parts.push(`tilts ${tiltDelta > 0 ? 'up' : 'down'}`)
 
   if (Math.abs(to.focalLength - from.focalLength) > 2) {
@@ -103,12 +126,21 @@ export function generatePrompt(scene: Scene, shot: Shot, profile: GeneratorProfi
       const sorted = [...track.marks].sort((a, b) => a.time - b.time)
       if (sorted.length === 1) {
         const gait = GAITS[sorted[0]!.gait]
-        subjectLines.push(`${name} ${gait.travels ? 'stands' : gait.name.toLowerCase() + 's'} in place`)
+        subjectLines.push(
+          `${name} ${gait.travels ? 'stands' : (GAIT_VERBS[gait.id] ?? 'stands')} in place`
+        )
       } else {
         const movePhrases: string[] = []
         for (let i = 1; i < sorted.length; i++) {
           const m = sorted[i]!
-          const gaitWord = m.gait === 'stand' ? 'moves' : GAITS[m.gait].name.toLowerCase() + 's'
+          // Travel legs with a non-travel gait render as walking (matching
+          // the evaluator's coercion), so describe them that way.
+          const gaitWord =
+            m.gait === 'stand'
+              ? 'moves'
+              : GAITS[m.gait].travels
+                ? (GAIT_VERBS[m.gait] ?? 'moves')
+                : 'walks'
           movePhrases.push(`${gaitWord} to mark ${i + 1}, arriving at ${fmtTime(m.time)}`)
         }
         subjectLines.push(`${name} starts at mark 1, ${movePhrases.join(', then ')}`)

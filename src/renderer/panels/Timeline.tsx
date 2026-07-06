@@ -110,21 +110,11 @@ export function Timeline(): JSX.Element {
       const sc = doc.scenes.find((s) => s.id === scene.id)
       const sh = sc?.shots.find((s) => s.id === shot.id)
       if (!sc || !sh) return
+      // Duration only — NEVER clamp marks. The blocking take is SHARED
+      // across shots (coverage model): clamping would silently destroy
+      // every other shot's choreography, and the evaluator handles marks
+      // beyond the duration fine (they're simply not reached).
       sh.duration = next
-      // Clamp all mark times/holds into the new duration.
-      for (const m of sh.camera.marks) {
-        m.time = clamp(m.time, 0, next)
-        m.hold = clamp(m.hold, 0, next - m.time)
-      }
-      const tk = sc.blocking.find((b) => b.id === sh.blockingTakeId)
-      if (tk) {
-        for (const tr of tk.tracks) {
-          for (const m of tr.marks) {
-            m.time = clamp(m.time, 0, next)
-            m.hold = clamp(m.hold, 0, next - m.time)
-          }
-        }
-      }
     })
     if (time > next) setTime(next)
   }

@@ -104,6 +104,21 @@ interface BlockoutState {
 
 const MAX_UNDO = 100
 
+/** Coalesce rapid same-label mutations (slider swipes) into one undo step. */
+let lastMutateLabel = ''
+let lastMutateAt = 0
+const COALESCE_MS = 800
+
+/** After restoring a snapshot, make scene/shot ids point at real objects. */
+function reconcileSelection(doc: ProjectDoc, sceneId: string | null, shotId: string | null): {
+  sceneId: string | null
+  shotId: string | null
+} {
+  const scene = doc.scenes.find((s) => s.id === sceneId) ?? doc.scenes[0] ?? null
+  const shot = scene?.shots.find((s) => s.id === shotId) ?? scene?.shots[0] ?? null
+  return { sceneId: scene?.id ?? null, shotId: shot?.id ?? null }
+}
+
 export const useStore = create<BlockoutState>((set, get) => ({
   mode: 'stage',
   projectFolder: null,
@@ -165,13 +180,24 @@ export const useStore = create<BlockoutState>((set, get) => ({
 
   markSaved: () => set({ dirty: false }),
 
-  setMode: (mode) => set({ mode, placingAssetId: null, droppingMarks: false }),
+  setMode(mode) {
+    // Mode switches remount the viewport and scene/shot switches rebuild the
+    // evaluator — both would corrupt an in-flight export.
+    if (get().exportProgress.running) return
+    set({ mode, placingAssetId: null, droppingMarks: false })
+  },
   selectScene(sceneId) {
+    if (get().exportProgress.running) return
     const doc = get().doc
     const scene = doc?.scenes.find((s) => s.id === sceneId)
     set({ sceneId, shotId: scene?.shots[0]?.id ?? null, selection: null, time: 0, playing: false })
   },
-  selectShot: (shotId) => set({ shotId, time: 0, playing: false }),
+  selectShot(shotId) {
+    // exportAnimatic/contact-sheet iterate shots internally; they bypass this
+    // guard by toggling exportProgress around each hop. User clicks land here.
+    if (get().exportProgress.running) return
+    set({ shotId, time: 0, playing: false })
+  },
   setSelection: (selection) => set({ selection, droppingMarks: false }),
   setPlacingAsset: (placingAssetId) => set({ placingAssetId }),
   setDroppingMarks: (droppingMarks) => set({ droppingMarks }),
@@ -186,23 +212,39 @@ export const useStore = create<BlockoutState>((set, get) => ({
   },
   setTime: (time) => set({ time }),
 
-  mutate(_label, fn) {
-    const { doc, undoStack } = get()
+  mutate(label, fn) {
+    const { doc, undoStack, exportProgress } = get()
     if (!doc) return
-    const snapshot = serializeProject(doc)
+    if (exportProgress.running) {
+      // The export loop is reading this document frame by frame; editing it
+      // mid-export would change the video partway through.
+      get().toast('Editing is locked while an export is running.', 'info')
+      return
+    }
     const next = structuredClone(doc)
     fn(next)
-    set({
-      doc: next,
-      dirty: true,
-      undoStack: [...undoStack.slice(-MAX_UNDO + 1), snapshot],
-      redoStack: []
-    })
+    const now = Date.now()
+    const coalesce = label === lastMutateLabel && now - lastMutateAt < COALESCE_MS
+    lastMutateLabel = label
+    lastMutateAt = now
+    if (coalesce) {
+      // Keep the snapshot taken at the start of the swipe; just move the doc.
+      set({ doc: next, dirty: true })
+    } else {
+      const snapshot = serializeProject(doc)
+      set({
+        doc: next,
+        dirty: true,
+        undoStack: [...undoStack.slice(-MAX_UNDO + 1), snapshot],
+        redoStack: []
+      })
+    }
   },
 
   undo() {
-    const { doc, undoStack, redoStack } = get()
-    if (!doc || undoStack.length === 0) return
+    const { doc, undoStack, redoStack, sceneId, shotId, exportProgress } = get()
+    if (!doc || undoStack.length === 0 || exportProgress.running) return
+    lastMutateLabel = '' // an undo ends any coalescing run
     const prev = undoStack[undoStack.length - 1]!
     const { doc: restored } = parseProject(prev)
     if (!restored) return
@@ -211,14 +253,17 @@ export const useStore = create<BlockoutState>((set, get) => ({
       undoStack: undoStack.slice(0, -1),
       redoStack: [...redoStack, serializeProject(doc)],
       dirty: true,
-      // Keep selection only if it still resolves.
-      selection: null
+      selection: null,
+      // The restored doc may not contain the current scene/shot (e.g. undo
+      // of "add shot") — point at real objects so the UI never goes blank.
+      ...reconcileSelection(restored, sceneId, shotId)
     })
   },
 
   redo() {
-    const { doc, undoStack, redoStack } = get()
-    if (!doc || redoStack.length === 0) return
+    const { doc, undoStack, redoStack, sceneId, shotId, exportProgress } = get()
+    if (!doc || redoStack.length === 0 || exportProgress.running) return
+    lastMutateLabel = ''
     const next = redoStack[redoStack.length - 1]!
     const { doc: restored } = parseProject(next)
     if (!restored) return
@@ -227,7 +272,8 @@ export const useStore = create<BlockoutState>((set, get) => ({
       redoStack: redoStack.slice(0, -1),
       undoStack: [...undoStack, serializeProject(doc)],
       dirty: true,
-      selection: null
+      selection: null,
+      ...reconcileSelection(restored, sceneId, shotId)
     })
   },
 

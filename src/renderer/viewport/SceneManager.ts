@@ -63,6 +63,34 @@ export class SceneManager {
   private docScene: DocScene | null = null
   private shot: Shot | null = null
 
+  /**
+   * Depth pass material: LINEAR view-space depth normalized to the scene's
+   * actual near/far range, white-near black-far (the inverted-depth
+   * convention depth ControlNets expect). Three's MeshDepthMaterial packs
+   * non-linear frag depth, which over a 0.05..500 camera range crushes
+   * everything past arm's length into a handful of gray levels — useless
+   * for conditioning. Cached; uniforms set per frame (finding of the audit).
+   */
+  private depthMaterial = new THREE.ShaderMaterial({
+    uniforms: { uNear: { value: 0.5 }, uFar: { value: 30 } },
+    vertexShader: `
+      varying float vViewZ;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vViewZ = -mv.z;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform float uNear;
+      uniform float uFar;
+      varying float vViewZ;
+      void main() {
+        float d = 1.0 - clamp((vViewZ - uNear) / (uFar - uNear), 0.0, 1.0);
+        gl_FragColor = vec4(vec3(d), 1.0);
+      }`
+  })
+  private normalMaterial = new THREE.MeshNormalMaterial()
+
   private raf = 0
   private lastFrameAt = 0
   private disposed = false
@@ -331,6 +359,8 @@ export class SceneManager {
   private syncLabel(visual: EntityVisual): void {
     if (visual.label) {
       visual.root.remove(visual.label)
+      visual.label.material.map?.dispose()
+      visual.label.material.dispose()
       visual.label = undefined
     }
     const label = visual.entity.label
@@ -347,7 +377,22 @@ export class SceneManager {
   private markObjects: THREE.Object3D[] = []
 
   private rebuildOverlay(): void {
-    for (const o of this.markObjects) this.overlay.remove(o)
+    // This runs on every mutation — dispose or the mark sprites' canvas
+    // textures and path geometries pile up on the GPU all session.
+    for (const o of this.markObjects) {
+      this.overlay.remove(o)
+      o.traverse((child) => {
+        if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+          child.geometry.dispose()
+          const mats = Array.isArray(child.material) ? child.material : [child.material]
+          for (const m of mats) m.dispose()
+        }
+        if (child instanceof THREE.Sprite) {
+          child.material.map?.dispose()
+          child.material.dispose()
+        }
+      })
+    }
     this.markObjects = []
     const scene = this.docScene
     const shot = this.shot
@@ -489,7 +534,9 @@ export class SceneManager {
     for (const v of this.visuals.values()) pickables.push(v.root)
     pickables.push(this.cameraBody)
     const hits = this.raycaster.intersectObjects(pickables, true)
-    const hit = hits.find((h) => !(h.object instanceof THREE.Sprite) || true)
+    // Label sprites float above heads — picking through them selects what
+    // the user actually aimed at.
+    const hit = hits.find((h) => !(h.object instanceof THREE.Sprite))
     if (hit) {
       let o: THREE.Object3D | null = hit.object
       while (o) {
@@ -606,6 +653,11 @@ export class SceneManager {
         scene.entities = scene.entities.filter((e) => e.id !== id)
         for (const take of scene.blocking) {
           take.tracks = take.tracks.filter((t) => t.entityId !== id)
+        }
+        // A camera mounted to the deleted entity would silently re-base its
+        // local-frame marks to world space — unmount instead.
+        for (const shot of scene.shots) {
+          if (shot.camera.mountEntityId === id) delete shot.camera.mountEntityId
         }
       }
     })
@@ -839,6 +891,41 @@ export class SceneManager {
 
   /* -------------------------- export render hook ------------------------ */
 
+  /** Camera-to-scene distance range at the CURRENT applied time. */
+  private measureDepthRange(): { near: number; far: number } {
+    const camPos = this.shotCam.position
+    let minD = Infinity
+    let maxD = 0
+    const box = new THREE.Box3()
+    for (const v of this.visuals.values()) {
+      box.setFromObject(v.root)
+      if (box.isEmpty()) continue
+      minD = Math.min(minD, Math.max(0.1, box.distanceToPoint(camPos)))
+      const center = box.getCenter(new THREE.Vector3())
+      const radius = box.getSize(new THREE.Vector3()).length() / 2
+      maxD = Math.max(maxD, camPos.distanceTo(center) + radius)
+    }
+    if (!isFinite(minD)) return { near: 0.5, far: 30 }
+    return { near: minD, far: maxD }
+  }
+
+  /**
+   * Shot-wide depth range: union of per-frame ranges sampled across the
+   * duration, so the exported depth gradient never re-normalizes mid-shot.
+   */
+  computeShotDepthRange(duration: number, samples = 24): { near: number; far: number } {
+    let near = Infinity
+    let far = 0
+    for (let i = 0; i <= samples; i++) {
+      this.applyTime((i / samples) * duration)
+      const r = this.measureDepthRange()
+      near = Math.min(near, r.near)
+      far = Math.max(far, r.far)
+    }
+    if (!isFinite(near)) return { near: 0.5, far: 30 }
+    return { near, far }
+  }
+
   /**
    * Deterministically render one frame at time t into an export renderer.
    * Used by the exporter (offscreen canvas) and stills/diagram generation.
@@ -849,7 +936,9 @@ export class SceneManager {
     width: number,
     height: number,
     pass: RenderPass,
-    opts: { showLabels: boolean; camera?: THREE.Camera } = { showLabels: true }
+    opts: { showLabels: boolean; camera?: THREE.Camera; depthRange?: { near: number; far: number } } = {
+      showLabels: true
+    }
   ): void {
     this.applyTime(t)
     const overlayWas = this.overlay.visible
@@ -870,11 +959,16 @@ export class SceneManager {
     const bgWas = this.scene.background
     const fogWas = this.scene.fog
     if (pass === 'depth') {
-      this.scene.overrideMaterial = new THREE.MeshDepthMaterial()
+      // Use the shot-wide range when provided (exporter precomputes it so
+      // the gradient is temporally stable); fall back to this frame's range.
+      const range = opts.depthRange ?? this.measureDepthRange()
+      this.depthMaterial.uniforms.uNear!.value = range.near
+      this.depthMaterial.uniforms.uFar!.value = Math.max(range.far, range.near + 1)
+      this.scene.overrideMaterial = this.depthMaterial
       this.scene.background = new THREE.Color(0x000000)
       this.scene.fog = null
     } else if (pass === 'normal') {
-      this.scene.overrideMaterial = new THREE.MeshNormalMaterial()
+      this.scene.overrideMaterial = this.normalMaterial
       this.scene.background = new THREE.Color(0x000000)
       this.scene.fog = null
     }
