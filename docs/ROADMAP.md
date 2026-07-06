@@ -2,6 +2,8 @@
 
 Companion to [DESIGN.md](DESIGN.md). This is the execution plan: milestones with acceptance criteria, the QA/audit program for a Grade-A bar, repo layout, docs, packaging, and risks.
 
+> **Status (2026-07-06): Phases 0–6 complete for v0.1.** All automated gates green (typecheck, lint, 45 unit tests, 6-step e2e smoke with ffprobe-verified export and byte-determinism check), DMGs build and boot, 50-entity perf probe at 120fps. Deferred to post-1.0 as planned: pose extraction from reference video, camera solve, direct API send, USD. One manual gate remains for the user: feed an exported package to a real generator and judge blocking adherence (QA-CHECKLIST "product gate").
+
 ---
 
 ## 1. Repository layout
