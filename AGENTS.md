@@ -50,7 +50,7 @@ assets/         (profiles as code in engine/profiles.ts; 3D assets are procedura
 
 The renderer exposes `window.__blockout` (not a public API — for tests/agents):
 
-- `__blockout.store` — the zustand store. `getState()` gives you every action: `addEntity(assetId, pos)`, `dropActorMark(entityId, pos)`, `dropCameraMark(pos, pan, tilt, focal)`, `setTime(t)`, `setMode(...)`, `mutate(label, fn)`, `scene()`, `shot()`.
+- `__blockout.store` — the zustand store. `getState()` gives you every action: `addEntity(assetId, pos)`, `dropActorMark(entityId, pos)`, `dropCameraMark(pos, pan, tilt, focal)`, `setTime(t)`, `setMode(...)`, `mutate(label, fn)`, `scene()`, `shot()`; round-3 additions: `marryEntities(childIds, parentId)` / `unmarryEntities(ids)`, `switchCamera(name)` / `addCameraToShot()` / `clearCameraMarks()`, `saveDraftOfShot()` / `promoteDraft(id)` / `deleteDraft(id)`, `toggleEntitySelected(id)` / `toggleMarkSelected(entityId, markId)`, `setRecording(bool)` (records the selected performer, or the camera — playback-synced when other motion exists).
 - `__blockout.exportShot({profileId, passes, labels})` — run a real export; resolves `{ok, packagePath}`.
 - `__blockout.renderStillPngForTest(t, w, h)` / `renderRawForTest(t, w, h)` — deterministic frame renders.
 - `window.__blockout_scene` — the live SceneManager (transform gizmo, freeCam, shotCam) for interaction tests; see `tests/e2e/interaction.spec.ts` for real-mouse gizmo-drag and camera-recording patterns.
