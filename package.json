@@ -1,0 +1,48 @@
+{
+  "name": "blockout",
+  "version": "0.1.0",
+  "description": "Desktop previs tool for AI-native filmmaking — stage scenes, choreograph camera & character blocking with marks, export motion-reference packages for AI video generators.",
+  "main": "out/main/index.js",
+  "author": "Sam Wasserman",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "lint": "eslint src tests --ext .ts,.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "smoke": "npm run build && playwright test tests/e2e/smoke.spec.ts",
+    "e2e": "npm run build && playwright test",
+    "package": "npm run build && electron-builder --mac --config electron-builder.yml",
+    "package:all": "npm run build && electron-builder -mwl --config electron-builder.yml"
+  },
+  "dependencies": {
+    "three": "^0.170.0",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.170.0",
+    "@typescript-eslint/eslint-plugin": "^8.16.0",
+    "@typescript-eslint/parser": "^8.16.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "eslint": "^8.57.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  },
+  "optionalDependencies": {
+    "ffmpeg-static": "^5.2.0"
+  }
+}
