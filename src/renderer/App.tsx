@@ -156,7 +156,9 @@ function useKeyboard(): void {
       } else if (e.key === 'm' || e.key === 'M') {
         if (s.mode === 'shoot' && s.selection) s.setDroppingMarks(!s.droppingMarks)
       } else if (e.key === 'c' || e.key === 'C') {
-        if (s.mode === 'shoot') s.setLookThrough(!s.lookThrough)
+        // Toggle everywhere except Deliver (which is always the shot view) —
+        // being stuck in look-through with no exit was a real trap.
+        if (s.mode !== 'deliver') s.setLookThrough(!s.lookThrough)
       } else if (e.key === '?') {
         s.setHelpOpen(!s.helpOpen)
       } else if (e.key === 'Escape') {

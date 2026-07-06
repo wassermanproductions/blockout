@@ -187,9 +187,90 @@ export class ShotEvaluator {
           marks: track.marks,
           legs: track.marks.length >= 2 ? buildLegs(track.marks) : []
         })
+        const sorted = [...track.marks].sort((a, b) => a.time - b.time)
+        this.trackFirstTime.set(entity.id, sorted[0]!.time)
+        // Boarding marks: on arrival, the entity rides the target entity.
+        for (const mark of sorted) {
+          if (mark.attachTo) {
+            this.boardMarks.set(entity.id, [...(this.boardMarks.get(entity.id) ?? []), mark])
+          }
+        }
       }
     }
     this.staticEntities = scene.entities.filter((e) => !tracked.has(e.id))
+  }
+
+  /** First mark time per tracked entity (marriage applies before this). */
+  private trackFirstTime = new Map<string, number>()
+  /** Boarding marks per entity, in time order. */
+  private boardMarks = new Map<string, import('./types').ActorMark[]>()
+  /** Cached boarding offsets, keyed by mark id (pure per document). */
+  private boardOffsets = new Map<string, { x: number; y: number; z: number; rotY: number }>()
+
+  /** Position + heading of one entity at time t (for boarding offsets). */
+  private poseOf(entityId: string, t: number): { position: V3; heading: number } {
+    const trackInfo = this.entityLegs.get(entityId)
+    if (trackInfo) {
+      const r = evaluateTrack(trackInfo.marks, trackInfo.legs, t)
+      const heading =
+        r.travelHeading ??
+        r.atMark?.arriveHeading ??
+        this.lastTravelHeading(trackInfo.legs, t) ??
+        trackInfo.entity.transform.rotationY
+      return { position: r.position, heading }
+    }
+    const entity = this.scene.entities.find((e) => e.id === entityId)
+    return entity
+      ? { position: entity.transform.position, heading: entity.transform.rotationY }
+      : { position: { x: 0, y: 0, z: 0 }, heading: 0 }
+  }
+
+  /**
+   * Boarding: after arriving at a mark with attachTo, the entity follows the
+   * target vehicle at the offset captured at boarding time — walk to the bus
+   * door at mark 3, then ride the bus wherever it goes.
+   */
+  private resolveBoardings(entities: EntityState[], time: number): void {
+    if (this.boardMarks.size === 0) return
+    const byId = new Map(entities.map((e) => [e.entityId, e]))
+    for (const [entityId, marks] of this.boardMarks) {
+      // Latest boarding already reached at this time wins.
+      let active: import('./types').ActorMark | null = null
+      for (const m of marks) if (time >= m.time) active = m
+      if (!active?.attachTo) continue
+      const rider = byId.get(entityId)
+      const vehicle = byId.get(active.attachTo)
+      if (!rider || !vehicle) continue
+
+      let offset = this.boardOffsets.get(active.id)
+      if (!offset) {
+        const vAtBoard = this.poseOf(active.attachTo, active.time)
+        const dx = active.position.x - vAtBoard.position.x
+        const dz = active.position.z - vAtBoard.position.z
+        const cos = Math.cos(vAtBoard.heading)
+        const sin = Math.sin(vAtBoard.heading)
+        offset = {
+          x: dx * cos - dz * sin,
+          y: active.position.y - vAtBoard.position.y,
+          z: dx * sin + dz * cos,
+          rotY: active.arriveHeading !== undefined ? active.arriveHeading - vAtBoard.heading : 0
+        }
+        this.boardOffsets.set(active.id, offset)
+      }
+
+      const cos = Math.cos(vehicle.heading)
+      const sin = Math.sin(vehicle.heading)
+      rider.position = {
+        x: vehicle.position.x + offset.x * cos + offset.z * sin,
+        y: vehicle.position.y + offset.y,
+        z: vehicle.position.z - offset.x * sin + offset.z * cos
+      }
+      rider.heading = vehicle.heading + offset.rotY
+      rider.gait = 'stand'
+      rider.speed = vehicle.speed
+      rider.distanceTravelled = vehicle.distanceTravelled
+      if (active.joints) rider.joints = { ...active.joints }
+    }
   }
 
   evaluate(t: number): ShotState {
@@ -239,7 +320,8 @@ export class ShotEvaluator {
       })
     }
 
-    this.resolveMarriages(entities)
+    this.resolveBoardings(entities, time)
+    this.resolveMarriages(entities, time)
 
     return { time, camera: this.evaluateCamera(time, entities), entities }
   }
@@ -250,13 +332,17 @@ export class ShotEvaluator {
    * Multiple passes resolve chains (rider on cart on truck); marry-time
    * cycle guards keep this finite.
    */
-  private resolveMarriages(entities: EntityState[]): void {
+  private resolveMarriages(entities: EntityState[], time: number): void {
     const byId = new Map(entities.map((e) => [e.entityId, e]))
     for (let pass = 0; pass < 4; pass++) {
       let changed = false
       for (const entity of this.scene.entities) {
         if (!entity.attachedTo || !entity.attachedLocal) continue
-        if (this.entityLegs.has(entity.id)) continue // own marks win
+        // Own marks win — but only once they begin: a married rider with a
+        // track starting at t=8 rides the vehicle until 8s, then walks its
+        // own marks (stepping OFF the plane after it lands).
+        const firstMark = this.trackFirstTime.get(entity.id)
+        if (firstMark !== undefined && time >= firstMark) continue
         const child = byId.get(entity.id)
         const parent = byId.get(entity.attachedTo)
         if (!child || !parent) continue
@@ -404,6 +490,48 @@ export class ShotEvaluator {
       })
     }
     return out
+  }
+
+  /**
+   * 180°-rule check: if consecutive camera marks sit on opposite sides of
+   * the axis of action (the line between the two principal people, sampled
+   * at each mark's time), the cut/move crosses the line and screen direction
+   * flips. Returns the mark indices (1-based) of each crossing.
+   */
+  lineCrossings(): { fromMark: number; toMark: number }[] {
+    const people = this.scene.entities.filter((e) => e.assetId.startsWith('person.'))
+    if (people.length < 2) return []
+    const a = people[0]!.id
+    const b = people[1]!.id
+    const marks = [...this.shot.camera.marks].sort((x, y) => x.time - y.time)
+    if (marks.length < 2) return []
+
+    const sideAt = (camPos: V3, t: number): number => {
+      const pa = this.poseOf(a, t).position
+      const pb = this.poseOf(b, t).position
+      const axisX = pb.x - pa.x
+      const axisZ = pb.z - pa.z
+      if (axisX * axisX + axisZ * axisZ < 0.01) return 0 // subjects overlap
+      const relX = camPos.x - pa.x
+      const relZ = camPos.z - pa.z
+      const cross = axisX * relZ - axisZ * relX
+      return Math.abs(cross) < 0.2 ? 0 : Math.sign(cross)
+    }
+
+    const crossings: { fromMark: number; toMark: number }[] = []
+    let prevSide = 0
+    let prevIndex = 0
+    marks.forEach((mark, i) => {
+      const side = sideAt(mark.position, mark.time)
+      if (side !== 0) {
+        if (prevSide !== 0 && side !== prevSide) {
+          crossings.push({ fromMark: prevIndex + 1, toMark: i + 1 })
+        }
+        prevSide = side
+        prevIndex = i
+      }
+    })
+    return crossings
   }
 
   /** Path polylines for viewport/diagram rendering. */

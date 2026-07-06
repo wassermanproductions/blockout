@@ -21,6 +21,7 @@ export type EntityCategory =
   | 'animals'
   | 'vehicles'
   | 'furniture'
+  | 'props'
   | 'environment'
   | 'primitives'
   | 'custom'
@@ -125,6 +126,13 @@ export interface ActorMark extends MarkBase {
    * (shoulderLX, elbowR, torsoX, headY, …). Missing keys read as 0.
    */
   joints?: Record<string, number>
+  /**
+   * Boarding: on arriving at this mark, attach to the named entity for the
+   * rest of the shot — walk to the bus door, then ride the bus. The offset
+   * is captured from this mark's position relative to the vehicle at that
+   * moment. Marks after a boarding mark are ignored while attached.
+   */
+  attachTo?: string
 }
 
 export interface CameraMark extends MarkBase {

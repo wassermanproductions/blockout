@@ -64,6 +64,58 @@ Headless/dialog-free driving: launch with env `BLOCKOUT_SMOKE_DIR=/some/dir` —
 - **Add an export pass**: extend `RenderPass` in `SceneManager.renderFrameAt`, wire a toggle in `DeliverPanel.tsx` and the pass loop in `export/exporter.ts`.
 - **Change the document schema**: bump nothing lightly — update types in `engine/types.ts`, factories/validation in `engine/schema.ts`, and the round-trip test. Never break `parseProject` on existing files; migrate instead.
 
+## Agent control (MCP)
+
+Blockout ships an MCP server so you can drive a **running** app from Claude Code, Codex, Hermes, or any MCP client — stage entities, drop marks, reframe, scrub, and grab a viewport screenshot without touching the UI.
+
+**How it works.** On launch the main process starts a localhost-only HTTP control server (`src/main/control.ts`) on a random port with a bearer token, and writes discovery + auth to `~/.config/blockout/control.json` (`{ port, token, pid }`, mode 0600, deleted on quit). The MCP bridge `mcp/blockout-mcp.mjs` (zero-dependency Node ≥18 stdio server) reads that file and forwards each tool call to the control server, which relays it to the renderer over the `control:invoke` / `control:result` IPC pair. Discovery and auth are automatic — nothing to configure, and if the app isn't running the tools return "Blockout isn't running — launch the app first."
+
+**Register with Claude Code** (one line — use this repo's absolute path):
+
+```bash
+claude mcp add blockout -- node /Users/eklpse1/Desktop/blockout/mcp/blockout-mcp.mjs
+```
+
+**Generic stdio config** (Codex, Hermes, or any MCP client that takes a JSON server list):
+
+```json
+{
+  "mcpServers": {
+    "blockout": {
+      "command": "node",
+      "args": ["/Users/eklpse1/Desktop/blockout/mcp/blockout-mcp.mjs"]
+    }
+  }
+}
+```
+
+**Tools** (each maps to a control action of the same name; coordinates in meters, +X right, −Z forward/away, heading 0 faces −Z, `rotationDeg` clockwise from above):
+
+| Tool | Params | Does |
+|---|---|---|
+| `get_state` | — | Project/scene/shot summary incl. entity + mark listings (call first) |
+| `list_assets` | `category?` | The placeable asset catalog |
+| `add_entity` | `assetId, x, z, label?, rotationDeg?` | Place something |
+| `move_entity` | `entityId, x, z, y?, rotationDeg?` | Reposition an entity |
+| `delete_entity` | `entityId` | Remove an entity |
+| `add_actor_mark` | `entityId, x, z, time, gait?` | Drop an actor timeline mark |
+| `add_camera_mark` | `x, y, z, panDeg, tiltDeg, time, focalLength?` | Drop a camera mark |
+| `clear_camera_marks` | — | Clear the active shot's camera marks |
+| `set_shot` | `name?, duration?, aspect?, fps?` | Update shot settings |
+| `new_shot` | `name?` | New shot, same blocking |
+| `apply_framing` | `kind: 2S\|OTS\|REV\|TOP\|LOW\|DUTCH` | Auto-frame the camera |
+| `snap_to_ground` | `entityId` | Rest an entity on the ground |
+| `set_time` / `play` / `stop` | `t` / — / — | Scrub, play, stop |
+| `screenshot` | — | Current viewport as a PNG (image result) |
+| `list_presets` / `save_preset` / `apply_preset` | — / `name` / `id` | Global stage presets |
+
+**Example (Claude Code):**
+
+1. Launch the app (`npm run dev`) so the control server comes up.
+2. `get_state` — see the current scene, entities, and marks.
+3. `add_entity` with `{ "assetId": "person.man", "x": 0, "z": -3, "label": "HERO" }`.
+4. `screenshot` — confirm the placement in the viewport.
+
 ## Gotchas
 
 - `ffmpeg` resolution order: `BLOCKOUT_FFMPEG` env → bundled `ffmpeg-static` (unpacked from asar) → `ffmpeg` on PATH.

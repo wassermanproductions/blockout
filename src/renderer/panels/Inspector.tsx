@@ -12,6 +12,9 @@ import { useState } from 'react'
 import { SENSORS, LENS_SET } from '@engine/camera'
 import { GAITS } from '@engine/gaits'
 import { RIGS } from '@engine/rigs'
+import { MOTION_PRESETS, type MotionPreset } from '@engine/motions'
+import { ShotEvaluator } from '@engine/evaluate'
+import { newId } from '@engine/ids'
 import type {
   ActorMark,
   CameraMark,
@@ -517,6 +520,10 @@ function EntityInspector({
         </div>
       )}
 
+      {mode === 'shoot' && entity.assetId.startsWith('person.') && (
+        <MotionPresetsSection scene={scene} shot={shot} entity={entity} />
+      )}
+
       <div className="panel-section">
         <div className="panel-title">Danger zone</div>
         <button
@@ -542,6 +549,112 @@ function EntityInspector({
           Delete entity
         </button>
       </div>
+    </div>
+  )
+}
+
+/* ------------------------- motion presets ------------------------------ */
+
+const MOTION_CATEGORIES: { key: MotionPreset['category']; label: string }[] = [
+  { key: 'fight', label: 'Fight' },
+  { key: 'dance', label: 'Dance' },
+  { key: 'gesture', label: 'Gesture' },
+  { key: 'stunt', label: 'Stunt' }
+]
+
+/**
+ * Mixamo-style motion library: applying a preset lays down pose keyframes
+ * as marks starting at the playhead — punch, dance, dodge without hand-
+ * animating every joint. Marks stay editable afterwards.
+ */
+function MotionPresetsSection({
+  scene,
+  shot,
+  entity
+}: {
+  scene: Scene
+  shot: Shot
+  entity: Entity
+}): JSX.Element {
+  const mutate = useMutate()
+  const time = useStore((s) => s.time)
+  const toast = useStore((s) => s.toast)
+  const [category, setCategory] = useState<MotionPreset['category']>('fight')
+
+  const apply = (preset: MotionPreset): void => {
+    // Where the character stands at the playhead — the motion plays in place.
+    const state = new ShotEvaluator(scene, shot).evaluate(time)
+    const es = state.entities.find((e) => e.entityId === entity.id)
+    const pos = es
+      ? { x: es.position.x, y: es.position.y, z: es.position.z }
+      : { ...entity.transform.position }
+    let added = 0
+    mutate(`motion: ${preset.name}`, (doc) => {
+      const sc = findScene(doc, scene.id)
+      const sh = findShot(doc, scene.id, shot.id)
+      const take = sc?.blocking.find((b) => b.id === sh?.blockingTakeId)
+      if (!sc || !sh || !take) return
+      let track = take.tracks.find((t) => t.entityId === entity.id)
+      if (!track) {
+        track = { entityId: entity.id, marks: [] }
+        take.tracks.push(track)
+      }
+      for (const kf of preset.keyframes) {
+        const t = time + kf.t
+        if (t > sh.duration + 1e-6) break
+        track.marks.push({
+          id: newId('mark'),
+          time: t,
+          hold: 0,
+          easeIn: 0,
+          easeOut: 0,
+          position: { ...pos },
+          gait: 'stand',
+          joints: { ...kf.joints }
+        })
+        added++
+      }
+    })
+    if (added > 0) {
+      toast(
+        `${preset.name} from ${time.toFixed(1)}s (${added} poses${added < preset.keyframes.length ? ' — extend the shot for the rest' : ''}). Press ▶ to watch.`,
+        'success'
+      )
+    } else {
+      toast('No room before the end of the shot — move the playhead earlier.', 'info')
+    }
+  }
+
+  const items = MOTION_PRESETS.filter((p) => p.category === category)
+  return (
+    <div className="panel-section">
+      <div className="panel-title">Motion presets</div>
+      <div className="seg" style={{ marginBottom: 8 }}>
+        {MOTION_CATEGORIES.map((c) => (
+          <button
+            key={c.key}
+            className={category === c.key ? 'active' : ''}
+            onClick={() => setCategory(c.key)}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+      {items.map((p) => (
+        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <span style={{ flex: 1, fontSize: 12 }}>
+            {p.name}
+            <span style={{ opacity: 0.55 }}> · {p.duration.toFixed(1)}s</span>
+          </span>
+          <button
+            className="btn small"
+            onClick={() => apply(p)}
+            title={`Insert the ${p.name} move at the playhead as editable pose marks`}
+          >
+            Apply
+          </button>
+        </div>
+      ))}
     </div>
   )
 }
@@ -1100,6 +1213,47 @@ function MarkInspector({
                 {g}
               </button>
             ))}
+          </div>
+          <div className="field" style={{ marginTop: 8 }}>
+            <label>Altitude (m) — 0 is the ground; raise it to fly</label>
+            <input
+              type="number"
+              min={0}
+              max={200}
+              step={0.1}
+              value={actorMark.position.y}
+              onChange={(e) => {
+                const v = num(e.target.value)
+                if (v !== null) editMark('mark altitude', (m) => (m.position.y = clamp(v, 0, 200)))
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {actorMark && (
+        <div className="panel-section">
+          <div className="panel-title">Board on arrival</div>
+          <div className="field">
+            <label>After reaching this mark, ride…</label>
+            <select
+              value={actorMark.attachTo ?? ''}
+              onChange={(e) =>
+                editMark('board target', (m) => {
+                  (m as ActorMark).attachTo = e.target.value || undefined
+                })
+              }
+              title="Boarding: walk to this mark, then attach to a vehicle/prop and move with it — step onto a bus and ride away"
+            >
+              <option value="">— stay on foot —</option>
+              {scene.entities
+                .filter((e) => e.id !== entityId)
+                .map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+            </select>
           </div>
         </div>
       )}

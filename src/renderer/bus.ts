@@ -5,9 +5,13 @@
 
 import type { ShotSizeId } from '@engine/types'
 
+export type FramingKind = '2S' | 'OTS' | 'REV' | 'TOP' | 'LOW' | 'DUTCH'
+
 export interface BusEvents {
   /** Reframe the shot camera to a shot size on the selected subject. */
   frameSubject: { size: ShotSizeId }
+  /** One-click cinematography framings (two-shot, over-the-shoulder, …). */
+  applyFraming: { kind: FramingKind }
   /** Set the live camera focal length (updates current/last camera mark). */
   setLens: { focalLength: number }
   /** Point the free viewport camera at the current selection. */

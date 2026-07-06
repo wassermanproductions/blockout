@@ -80,7 +80,7 @@ test('choreographs marks, labels, and camera; project round-trips to disk', asyn
   })
 
   // Save via the titlebar button and verify project.json exists and parses.
-  await page.getByRole('button', { name: 'Save' }).click()
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
   await page.waitForTimeout(300)
   const projPath = join(smokeDir, 'Smoke.blockout', 'project.json')
   expect(existsSync(projPath)).toBe(true)

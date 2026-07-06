@@ -1095,6 +1095,462 @@ function buildFurniture(assetId: string): BuiltAsset {
       group.add(pane)
       break
     }
+    case 'furniture.fridge': {
+      height = 1.8
+      const body = box(0.7, 1.8, 0.7, 0x9a9aa2)
+      body.position.y = 0.9
+      group.add(body)
+      // Door split line + 2 handles.
+      const split = box(0.72, 0.02, 0.02, 0x60606a)
+      split.position.set(0, 1.15, 0.35)
+      group.add(split)
+      for (const y of [0.6, 1.5]) {
+        const handle = box(0.04, 0.35, 0.06, 0x50505a)
+        handle.position.set(0.28, y, 0.37)
+        group.add(handle)
+      }
+      break
+    }
+    case 'furniture.stove': {
+      height = 0.9
+      const body = box(0.7, 0.85, 0.65, 0x82828a)
+      body.position.y = 0.425
+      group.add(body)
+      const top = box(0.72, 0.05, 0.67, 0x3a3a42)
+      top.position.y = 0.875
+      group.add(top)
+      // 4 burners.
+      for (const [bx, bz] of [
+        [-0.16, -0.15],
+        [0.16, -0.15],
+        [-0.16, 0.15],
+        [0.16, 0.15]
+      ] as [number, number][]) {
+        const burner = cyl(0.09, 0.09, 0.02, 0x20202a, 12)
+        burner.position.set(bx, 0.9, bz)
+        group.add(burner)
+      }
+      // Oven door.
+      const door = box(0.6, 0.45, 0.03, 0x6a6a72)
+      door.position.set(0, 0.35, 0.33)
+      group.add(door)
+      break
+    }
+    case 'furniture.sinkCounter': {
+      height = 0.9
+      const body = box(1.2, 0.85, 0.6, 0x7a7a82)
+      body.position.y = 0.425
+      group.add(body)
+      const top = box(1.24, 0.06, 0.64, 0x9a9aa2)
+      top.position.y = 0.88
+      group.add(top)
+      // Recessed basin.
+      const basin = box(0.5, 0.12, 0.4, 0x50505a)
+      basin.position.set(0, 0.86, 0)
+      group.add(basin)
+      // Faucet.
+      const spout = cyl(0.02, 0.02, 0.2, 0xb0b0b8, 8)
+      spout.position.set(0, 1.0, -0.18)
+      group.add(spout)
+      const spoutArm = box(0.03, 0.03, 0.14, 0xb0b0b8)
+      spoutArm.position.set(0, 1.09, -0.12)
+      group.add(spoutArm)
+      break
+    }
+    case 'furniture.toilet': {
+      height = 0.75
+      const base = box(0.36, 0.4, 0.5, 0x9a9aa2)
+      base.position.set(0, 0.2, 0.05)
+      group.add(base)
+      const bowl = cyl(0.2, 0.18, 0.14, 0xa4a4ac, 12)
+      bowl.position.set(0, 0.42, -0.05)
+      group.add(bowl)
+      const tank = box(0.38, 0.4, 0.16, 0x9a9aa2)
+      tank.position.set(0, 0.55, 0.28)
+      group.add(tank)
+      break
+    }
+    case 'furniture.bathtub': {
+      height = 0.6
+      const shell = box(1.7, 0.6, 0.8, 0x9a9aa2)
+      shell.position.y = 0.3
+      group.add(shell)
+      const inner = box(1.5, 0.4, 0.62, 0xb4b4bc)
+      inner.position.y = 0.42
+      group.add(inner)
+      break
+    }
+    case 'furniture.showerStall': {
+      height = 2.1
+      const tray = box(0.9, 0.1, 0.9, 0x9a9aa2)
+      tray.position.y = 0.05
+      group.add(tray)
+      // 2 glass walls (back +Z, side -X).
+      const back = box(0.9, 2.0, 0.04, 0xbcc4cc)
+      back.position.set(0, 1.05, 0.43)
+      group.add(back)
+      const side = box(0.04, 2.0, 0.9, 0xbcc4cc)
+      side.position.set(-0.43, 1.05, 0)
+      group.add(side)
+      const head = cyl(0.06, 0.06, 0.05, 0xb0b0b8, 10)
+      head.position.set(-0.35, 1.9, 0.35)
+      group.add(head)
+      break
+    }
+    case 'furniture.officeChair': {
+      height = 1.1
+      // 5-star wheeled base.
+      const column = cyl(0.03, 0.03, 0.45, 0x40404a)
+      column.position.y = 0.4
+      group.add(column)
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * TAU
+        const spoke = box(0.05, 0.04, 0.28, 0x40404a)
+        spoke.position.set(Math.sin(a) * 0.14, 0.06, Math.cos(a) * 0.14)
+        spoke.rotation.y = a
+        group.add(spoke)
+        const caster = cyl(0.04, 0.04, 0.04, 0x2c2c32, 8)
+        caster.rotation.z = Math.PI / 2
+        caster.position.set(Math.sin(a) * 0.28, 0.04, Math.cos(a) * 0.28)
+        group.add(caster)
+      }
+      const seat = box(0.46, 0.1, 0.46, 0x40404a)
+      seat.position.y = 0.65
+      group.add(seat)
+      const backrest = box(0.44, 0.55, 0.08, 0x40404a)
+      backrest.position.set(0, 0.95, 0.2)
+      group.add(backrest)
+      break
+    }
+    case 'furniture.filingCabinet': {
+      height = 1.3
+      const body = box(0.45, 1.3, 0.6, 0x82828a)
+      body.position.y = 0.65
+      group.add(body)
+      for (let i = 0; i < 3; i++) {
+        const drawer = box(0.42, 0.02, 0.02, 0x50505a)
+        drawer.position.set(0, 0.35 + i * 0.42, 0.31)
+        group.add(drawer)
+        const handle = box(0.14, 0.03, 0.04, 0x50505a)
+        handle.position.set(0, 0.45 + i * 0.42, 0.32)
+        group.add(handle)
+      }
+      break
+    }
+    case 'furniture.whiteboard': {
+      height = 1.8
+      // Stand legs.
+      for (const sx of [-0.7, 0.7]) {
+        const leg = box(0.05, 1.8, 0.05, 0x70707a)
+        leg.position.set(sx, 0.9, 0)
+        group.add(leg)
+      }
+      const board = box(1.6, 1.0, 0.05, 0xe8e8ec)
+      board.position.set(0, 1.2, 0.03)
+      group.add(board)
+      const frame = box(1.7, 1.1, 0.03, 0x70707a)
+      frame.position.set(0, 1.2, 0.0)
+      group.add(frame)
+      break
+    }
+    case 'furniture.podium': {
+      height = 1.15
+      const body = box(0.55, 1.1, 0.4, 0x7a6a52)
+      body.position.y = 0.55
+      group.add(body)
+      const top = box(0.6, 0.06, 0.45, 0x8a7a62)
+      top.position.set(0, 1.12, 0)
+      top.rotation.x = -0.15
+      group.add(top)
+      break
+    }
+    case 'furniture.monitor': {
+      height = 0.55
+      const base = box(0.2, 0.02, 0.15, 0x40404a)
+      base.position.y = 0.01
+      group.add(base)
+      const stand = box(0.04, 0.2, 0.04, 0x40404a)
+      stand.position.y = 0.12
+      group.add(stand)
+      const screen = box(0.6, 0.36, 0.03, 0x2a2a30)
+      screen.position.y = 0.4
+      group.add(screen)
+      break
+    }
+    case 'furniture.pianoUpright': {
+      height = 1.25
+      const body = box(1.5, 1.2, 0.6, 0x2c2c32)
+      body.position.y = 0.6
+      group.add(body)
+      // Keyboard shelf.
+      const keys = box(1.4, 0.06, 0.3, 0xe8e8ec)
+      keys.position.set(0, 0.78, 0.42)
+      group.add(keys)
+      const keysBack = box(1.4, 0.2, 0.15, 0x2c2c32)
+      keysBack.position.set(0, 0.85, 0.36)
+      group.add(keysBack)
+      break
+    }
+    case 'furniture.poolTable': {
+      height = 0.8
+      const bed = box(2.4, 0.2, 1.3, 0x2f6a3f)
+      bed.position.y = 0.7
+      group.add(bed)
+      // Rails.
+      const railT = box(2.5, 0.1, 0.1, 0x5a4a3a)
+      railT.position.set(0, 0.8, 0.65)
+      group.add(railT)
+      const railB = railT.clone()
+      railB.position.z = -0.65
+      group.add(railB)
+      const railL = box(0.1, 0.1, 1.3, 0x5a4a3a)
+      railL.position.set(-1.2, 0.8, 0)
+      group.add(railL)
+      const railR = railL.clone()
+      railR.position.x = 1.2
+      group.add(railR)
+      for (const [lx, lz] of [
+        [-1.1, -0.55],
+        [1.1, -0.55],
+        [-1.1, 0.55],
+        [1.1, 0.55]
+      ] as [number, number][]) {
+        const leg = box(0.14, 0.6, 0.14, 0x5a4a3a)
+        leg.position.set(lx, 0.3, lz)
+        group.add(leg)
+      }
+      break
+    }
+    case 'furniture.hospitalBed': {
+      height = 0.9
+      const frame = box(0.9, 0.2, 2.0, 0x9a9aa2)
+      frame.position.y = 0.5
+      group.add(frame)
+      const mattress = box(0.85, 0.15, 1.9, 0xb4b4bc)
+      mattress.position.y = 0.68
+      group.add(mattress)
+      // Raised head section.
+      const head = box(0.85, 0.15, 0.6, 0xb4b4bc)
+      head.position.set(0, 0.78, -0.75)
+      head.rotation.x = -0.4
+      group.add(head)
+      // Head & foot rails.
+      const headRail = box(0.9, 0.4, 0.05, 0x70707a)
+      headRail.position.set(0, 0.75, -1.0)
+      group.add(headRail)
+      const footRail = box(0.9, 0.35, 0.05, 0x70707a)
+      footRail.position.set(0, 0.7, 1.0)
+      group.add(footRail)
+      for (const [lx, lz] of [
+        [-0.4, -0.9],
+        [0.4, -0.9],
+        [-0.4, 0.9],
+        [0.4, 0.9]
+      ] as [number, number][]) {
+        const leg = box(0.06, 0.4, 0.06, 0x70707a)
+        leg.position.set(lx, 0.2, lz)
+        group.add(leg)
+      }
+      break
+    }
+    case 'furniture.wheelchair': {
+      height = 1.0
+      const seat = box(0.5, 0.08, 0.5, 0x40404a)
+      seat.position.y = 0.5
+      group.add(seat)
+      const backrest = box(0.5, 0.55, 0.06, 0x40404a)
+      backrest.position.set(0, 0.78, 0.25)
+      group.add(backrest)
+      // Large rear wheels.
+      for (const sx of [-0.32, 0.32]) {
+        const bw = wheel(0.3, 0.04, 0x2c2c32)
+        bw.position.set(sx, 0.3, 0.1)
+        group.add(bw)
+      }
+      // Small front casters.
+      for (const sx of [-0.24, 0.24]) {
+        const fw = wheel(0.1, 0.04, 0x2c2c32)
+        fw.position.set(sx, 0.1, -0.4)
+        group.add(fw)
+      }
+      // Armrests.
+      for (const sx of [-0.27, 0.27]) {
+        const arm = box(0.05, 0.3, 0.4, 0x50505a)
+        arm.position.set(sx, 0.65, 0)
+        group.add(arm)
+      }
+      break
+    }
+    case 'furniture.crib': {
+      height = 1.0
+      const mattress = box(0.7, 0.1, 1.2, 0xb4b4bc)
+      mattress.position.y = 0.45
+      group.add(mattress)
+      // Slatted rails on 4 sides.
+      const rail = (w: number, d: number, x: number, z: number) => {
+        const top = box(w, 0.05, d, 0x8a7a62)
+        top.position.set(x, 1.0, z)
+        group.add(top)
+        const bot = box(w, 0.05, d, 0x8a7a62)
+        bot.position.set(x, 0.35, z)
+        group.add(bot)
+      }
+      rail(0.8, 0.05, 0, -0.65)
+      rail(0.8, 0.05, 0, 0.65)
+      rail(0.05, 1.3, -0.4, 0)
+      rail(0.05, 1.3, 0.4, 0)
+      // A few vertical slats.
+      for (let i = -3; i <= 3; i++) {
+        const slat = box(0.03, 0.65, 0.03, 0x8a7a62)
+        slat.position.set(i * 0.11, 0.67, -0.65)
+        group.add(slat)
+        const slat2 = slat.clone()
+        slat2.position.z = 0.65
+        group.add(slat2)
+      }
+      break
+    }
+    case 'furniture.fireplace': {
+      height = 1.4
+      const body = box(1.6, 1.4, 0.6, 0x7a7a82)
+      body.position.y = 0.7
+      group.add(body)
+      // Recessed opening.
+      const opening = box(0.9, 0.8, 0.1, 0x1a1a1a)
+      opening.position.set(0, 0.55, 0.28)
+      group.add(opening)
+      // Emissive inner glow.
+      const glow = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8, 0.5, 0.15),
+        new THREE.MeshBasicMaterial({ color: 0xff6820, transparent: true, opacity: 0.85 })
+      )
+      glow.position.set(0, 0.4, 0.26)
+      glow.castShadow = false
+      glow.receiveShadow = false
+      group.add(glow)
+      // Mantel.
+      const mantel = box(1.7, 0.12, 0.7, 0x8a8a92)
+      mantel.position.set(0, 1.42, 0)
+      group.add(mantel)
+      break
+    }
+    case 'furniture.chandelier': {
+      height = 2.7
+      // Built from the top down so origin stays at floor; geometry hangs high.
+      const hangY = 2.4
+      const chain = cyl(0.02, 0.02, 0.3, 0x60606a, 6)
+      chain.position.y = hangY + 0.15
+      group.add(chain)
+      const hub = sphere(0.12, 0xc0a860, 10)
+      hub.position.y = hangY
+      group.add(hub)
+      // Ring of candle arms.
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU
+        const armX = Math.sin(a) * 0.35
+        const armZ = Math.cos(a) * 0.35
+        const arm = box(0.04, 0.04, 0.35, 0xc0a860)
+        arm.position.set(armX * 0.5, hangY - 0.05, armZ * 0.5)
+        arm.rotation.y = a
+        group.add(arm)
+        const cup = cyl(0.05, 0.04, 0.06, 0xc0a860, 8)
+        cup.position.set(armX, hangY - 0.08, armZ)
+        group.add(cup)
+        const flame = new THREE.Mesh(
+          new THREE.SphereGeometry(0.04, 8, 8),
+          new THREE.MeshBasicMaterial({ color: 0xffcc60 })
+        )
+        flame.position.set(armX, hangY + 0.02, armZ)
+        flame.castShadow = false
+        group.add(flame)
+      }
+      break
+    }
+    case 'furniture.rug': {
+      height = 0.02
+      const rug = new THREE.Mesh(new THREE.PlaneGeometry(2, 3), mat(0x8a5a52))
+      rug.rotation.x = -Math.PI / 2
+      rug.position.y = 0.01
+      rug.castShadow = false
+      rug.receiveShadow = true
+      ;(rug.userData as TintUserData).origColor = 0x8a5a52
+      group.add(rug)
+      // Inner border stripe.
+      const border = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 2.7), mat(0x9a6a62))
+      border.rotation.x = -Math.PI / 2
+      border.position.y = 0.011
+      border.castShadow = false
+      border.receiveShadow = true
+      ;(border.userData as TintUserData).origColor = 0x9a6a62
+      group.add(border)
+      break
+    }
+    case 'furniture.curtain': {
+      height = 2.4
+      // 3 offset wavy slabs suggesting folds.
+      const offsets = [-0.5, 0, 0.5]
+      const depths = [0.06, -0.06, 0.06]
+      for (let i = 0; i < 3; i++) {
+        const panel = box(0.55, 2.4, 0.05, 0x6a6a82)
+        panel.position.set(offsets[i] ?? 0, 1.2, depths[i] ?? 0)
+        panel.rotation.y = (i - 1) * 0.08
+        group.add(panel)
+      }
+      const rod = cyl(0.03, 0.03, 1.8, 0x8a7a62, 8)
+      rod.rotation.z = Math.PI / 2
+      rod.position.y = 2.42
+      group.add(rod)
+      break
+    }
+    case 'furniture.bookshelfFull': {
+      height = 1.9
+      const sideL = box(0.05, 1.9, 0.5, 0x74747c)
+      sideL.position.set(-0.45, 0.95, 0)
+      group.add(sideL)
+      const sideR = sideL.clone()
+      sideR.position.x = 0.45
+      group.add(sideR)
+      const bookColors = [0xb04030, 0x3060a0, 0x408040, 0xc0a040, 0x8040a0, 0x40a0a0]
+      for (let i = 0; i < 5; i++) {
+        const shelfY = 0.1 + i * 0.45
+        const shelf = box(0.9, 0.04, 0.5, 0x8a8a92)
+        shelf.position.set(0, shelfY, 0)
+        group.add(shelf)
+        // Row of colored book spines above each shelf.
+        for (let b = 0; b < 8; b++) {
+          const bw2 = 0.06 + (b % 3) * 0.015
+          const bh2 = 0.28 + ((b + i) % 3) * 0.03
+          const book = box(bw2, bh2, 0.32, bookColors[(b + i) % bookColors.length])
+          book.position.set(-0.38 + b * 0.1, shelfY + 0.02 + bh2 * 0.5, 0)
+          book.rotation.z = b === 6 ? 0.25 : 0
+          group.add(book)
+        }
+      }
+      break
+    }
+    case 'furniture.doorOpen': {
+      height = 2.1
+      const frameL = box(0.1, 2.1, 0.15, 0x74747c)
+      frameL.position.set(-0.45, 1.05, 0)
+      group.add(frameL)
+      const frameR = frameL.clone()
+      frameR.position.x = 0.45
+      group.add(frameR)
+      const frameTop = box(1.0, 0.12, 0.15, 0x74747c)
+      frameTop.position.set(0, 2.04, 0)
+      group.add(frameTop)
+      // Panel hinged at left jamb, swung 80° open toward -Z.
+      const hinge = grp(-0.4, 1.0, 0)
+      hinge.rotation.y = (80 * Math.PI) / 180
+      group.add(hinge)
+      const panel = box(0.8, 2.0, 0.06, 0x8a8a92)
+      panel.position.set(0.4, 0, 0)
+      hinge.add(panel)
+      const knob = sphere(0.04, 0xc0c0c8, 8)
+      knob.position.set(0.7, 0, 0.05)
+      hinge.add(knob)
+      break
+    }
     default: {
       // Unknown furniture id → simple box at spec height.
       const spec = assetSpec(assetId)
@@ -1149,6 +1605,1059 @@ function buildSimpleChair(group: THREE.Group): void {
     leg.position.set(sx, 0.225, sz)
     group.add(leg)
   }
+}
+
+// ---------------------------------------------------------------------------
+// PROPS — hand/table scale + outdoor/set dressing
+// ---------------------------------------------------------------------------
+
+/** Emissive (self-lit) mesh for flames/glows. Not tint-aware by design. */
+function emissive(geo: THREE.BufferGeometry, color: number, opacity = 1): THREE.Mesh {
+  const m = new THREE.Mesh(
+    geo,
+    new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity })
+  )
+  m.castShadow = false
+  m.receiveShadow = false
+  return m
+}
+
+function buildProp(assetId: string): BuiltAsset {
+  const group = new THREE.Group()
+  group.name = assetId
+  let height = 0.3
+  let animate: ((input: AnimInput) => void) | undefined
+
+  switch (assetId) {
+    case 'prop.phone': {
+      height = 0.15
+      const body = box(0.07, 0.15, 0.008, 0x2a2a30)
+      body.position.y = 0.075
+      group.add(body)
+      const screen = box(0.06, 0.13, 0.004, 0x4a6a9a)
+      screen.position.set(0, 0.075, 0.006)
+      group.add(screen)
+      break
+    }
+    case 'prop.laptop': {
+      height = 0.25
+      const base = box(0.34, 0.02, 0.24, 0x82828a)
+      base.position.set(0, 0.01, 0.12)
+      group.add(base)
+      const keys = box(0.3, 0.005, 0.18, 0x50505a)
+      keys.position.set(0, 0.022, 0.13)
+      group.add(keys)
+      // Open screen hinged at back (-Z).
+      const hinge = grp(0, 0.02, 0)
+      hinge.rotation.x = -1.9
+      group.add(hinge)
+      const lid = box(0.34, 0.24, 0.015, 0x82828a)
+      lid.position.set(0, 0.12, 0)
+      hinge.add(lid)
+      const disp = box(0.3, 0.2, 0.005, 0x3a5a8a)
+      disp.position.set(0, 0.12, 0.011)
+      hinge.add(disp)
+      break
+    }
+    case 'prop.cup': {
+      height = 0.1
+      const body = cyl(0.04, 0.032, 0.1, 0xd0d0d8, 12)
+      body.position.y = 0.05
+      group.add(body)
+      break
+    }
+    case 'prop.mug': {
+      height = 0.1
+      const body = cyl(0.042, 0.042, 0.1, 0xb0b0b8, 12)
+      body.position.y = 0.05
+      group.add(body)
+      const handle = new THREE.Mesh(
+        new THREE.TorusGeometry(0.03, 0.008, 6, 12),
+        mat(0xb0b0b8)
+      )
+      ;(handle.userData as TintUserData).origColor = 0xb0b0b8
+      handle.castShadow = true
+      handle.position.set(0.05, 0.05, 0)
+      group.add(handle)
+      break
+    }
+    case 'prop.bowl': {
+      height = 0.08
+      const body = new THREE.Mesh(
+        new THREE.SphereGeometry(0.09, 12, 8, 0, TAU, 0, Math.PI / 2),
+        mat(0xc0c0c8)
+      )
+      ;(body.userData as TintUserData).origColor = 0xc0c0c8
+      body.castShadow = true
+      body.receiveShadow = true
+      body.rotation.x = Math.PI
+      body.position.y = 0.08
+      group.add(body)
+      break
+    }
+    case 'prop.plate': {
+      height = 0.03
+      const body = cyl(0.13, 0.11, 0.02, 0xd0d0d8, 16)
+      body.position.y = 0.01
+      group.add(body)
+      const rim = cyl(0.09, 0.09, 0.015, 0xc0c0c8, 16)
+      rim.position.y = 0.02
+      group.add(rim)
+      break
+    }
+    case 'prop.bottle': {
+      height = 0.3
+      const body = cyl(0.04, 0.04, 0.2, 0x2f6a4f, 12)
+      body.position.y = 0.1
+      group.add(body)
+      const shoulder = cyl(0.018, 0.04, 0.06, 0x2f6a4f, 12)
+      shoulder.position.y = 0.23
+      group.add(shoulder)
+      const neck = cyl(0.015, 0.015, 0.06, 0x2f6a4f, 10)
+      neck.position.y = 0.28
+      group.add(neck)
+      break
+    }
+    case 'prop.wineglass': {
+      height = 0.2
+      const base = cyl(0.04, 0.04, 0.008, 0xc8ccd4, 12)
+      base.position.y = 0.004
+      group.add(base)
+      const stem = cyl(0.006, 0.006, 0.1, 0xc8ccd4, 8)
+      stem.position.y = 0.055
+      group.add(stem)
+      const bowl = new THREE.Mesh(
+        new THREE.SphereGeometry(0.045, 12, 8, 0, TAU, 0, Math.PI / 2),
+        mat(0xc8ccd4)
+      )
+      ;(bowl.userData as TintUserData).origColor = 0xc8ccd4
+      bowl.castShadow = true
+      bowl.rotation.x = Math.PI
+      bowl.position.y = 0.15
+      group.add(bowl)
+      break
+    }
+    case 'prop.book': {
+      height = 0.22
+      // Standing on a table, spine up.
+      const body = box(0.16, 0.22, 0.04, 0xb04030)
+      body.position.y = 0.11
+      group.add(body)
+      const pages = box(0.15, 0.2, 0.03, 0xe8e8e0)
+      pages.position.set(0.005, 0.11, 0)
+      group.add(pages)
+      break
+    }
+    case 'prop.newspaper': {
+      height = 0.02
+      const sheet = box(0.3, 0.02, 0.4, 0xd8d8d0)
+      sheet.position.y = 0.01
+      group.add(sheet)
+      const fold = box(0.3, 0.005, 0.01, 0x808078)
+      fold.position.set(0, 0.023, 0)
+      group.add(fold)
+      break
+    }
+    case 'prop.briefcase': {
+      height = 0.35
+      const body = box(0.44, 0.32, 0.12, 0x5a4a3a)
+      body.position.y = 0.16
+      group.add(body)
+      const handle = new THREE.Mesh(
+        new THREE.TorusGeometry(0.06, 0.012, 6, 12, Math.PI),
+        mat(0x3a2a1a)
+      )
+      ;(handle.userData as TintUserData).origColor = 0x3a2a1a
+      handle.castShadow = true
+      handle.position.set(0, 0.32, 0)
+      group.add(handle)
+      break
+    }
+    case 'prop.suitcase': {
+      height = 0.7
+      const body = box(0.45, 0.7, 0.24, 0x3a4a6a)
+      body.position.y = 0.35
+      group.add(body)
+      const handle = new THREE.Mesh(
+        new THREE.TorusGeometry(0.06, 0.012, 6, 12, Math.PI),
+        mat(0x2a2a30)
+      )
+      ;(handle.userData as TintUserData).origColor = 0x2a2a30
+      handle.castShadow = true
+      handle.position.set(0, 0.7, 0)
+      group.add(handle)
+      // Wheels.
+      for (const sx of [-0.18, 0.18]) {
+        const w = cyl(0.04, 0.04, 0.03, 0x2a2a30, 8)
+        w.rotation.z = Math.PI / 2
+        w.position.set(sx, 0.03, 0.1)
+        group.add(w)
+      }
+      break
+    }
+    case 'prop.backpack': {
+      height = 0.5
+      const body = box(0.3, 0.45, 0.18, 0x30506a)
+      body.position.y = 0.25
+      group.add(body)
+      const pocket = box(0.22, 0.2, 0.1, 0x3a5a74)
+      pocket.position.set(0, 0.18, 0.12)
+      group.add(pocket)
+      // Straps.
+      for (const sx of [-0.09, 0.09]) {
+        const strap = box(0.04, 0.35, 0.03, 0x28455c)
+        strap.position.set(sx, 0.28, -0.1)
+        group.add(strap)
+      }
+      break
+    }
+    case 'prop.umbrella': {
+      height = 0.9
+      const shaft = cyl(0.012, 0.012, 0.8, 0x40404a, 8)
+      shaft.position.y = 0.4
+      group.add(shaft)
+      // Furled canopy.
+      const canopy = cyl(0.04, 0.015, 0.55, 0x30303a, 8)
+      canopy.position.y = 0.62
+      group.add(canopy)
+      const handle = new THREE.Mesh(
+        new THREE.TorusGeometry(0.03, 0.01, 6, 10, Math.PI),
+        mat(0x5a4a3a)
+      )
+      ;(handle.userData as TintUserData).origColor = 0x5a4a3a
+      handle.castShadow = true
+      handle.rotation.y = Math.PI / 2
+      handle.position.set(0, 0.02, 0.03)
+      group.add(handle)
+      break
+    }
+    case 'prop.hat': {
+      height = 0.15
+      const brim = cyl(0.2, 0.2, 0.02, 0x3a2a2a, 16)
+      brim.position.y = 0.01
+      group.add(brim)
+      const crown = cyl(0.1, 0.11, 0.12, 0x3a2a2a, 14)
+      crown.position.y = 0.08
+      group.add(crown)
+      const band = cyl(0.113, 0.113, 0.03, 0x1a1a1a, 14)
+      band.position.y = 0.04
+      group.add(band)
+      break
+    }
+    case 'prop.baseballBat': {
+      height = 0.9
+      const bat = cyl(0.035, 0.015, 0.9, 0xa07a4a, 10)
+      bat.position.y = 0.45
+      group.add(bat)
+      break
+    }
+    case 'prop.sword': {
+      height = 1.0
+      const blade = box(0.03, 0.8, 0.008, 0xc0c4cc)
+      blade.position.y = 0.55
+      group.add(blade)
+      const guard = box(0.16, 0.03, 0.03, 0x8a7a3a)
+      guard.position.y = 0.14
+      group.add(guard)
+      const grip = cyl(0.018, 0.018, 0.12, 0x3a2a1a, 8)
+      grip.position.y = 0.07
+      group.add(grip)
+      const pommel = sphere(0.025, 0x8a7a3a, 8)
+      pommel.position.y = 0.0
+      group.add(pommel)
+      break
+    }
+    case 'prop.torch': {
+      height = 0.2
+      const body = cyl(0.025, 0.03, 0.16, 0x2a2a30, 12)
+      body.position.y = 0.08
+      group.add(body)
+      const head = cyl(0.04, 0.03, 0.05, 0x50505a, 12)
+      head.position.y = 0.185
+      group.add(head)
+      const lens = emissive(new THREE.CylinderGeometry(0.035, 0.035, 0.01, 12), 0xfff0c0)
+      lens.position.y = 0.21
+      group.add(lens)
+      break
+    }
+    case 'prop.candle': {
+      height = 0.15
+      const holder = cyl(0.04, 0.045, 0.02, 0xc0a860, 12)
+      holder.position.y = 0.01
+      group.add(holder)
+      const stick = cyl(0.02, 0.02, 0.1, 0xe8e0d0, 10)
+      stick.position.y = 0.07
+      group.add(stick)
+      const flame = emissive(new THREE.SphereGeometry(0.02, 8, 8), 0xffcc50)
+      flame.scale.y = 1.8
+      flame.position.y = 0.14
+      group.add(flame)
+      break
+    }
+    case 'prop.lantern': {
+      height = 0.3
+      const base = cyl(0.06, 0.07, 0.03, 0x40404a, 12)
+      base.position.y = 0.015
+      group.add(base)
+      const glass = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.05, 0.14, 12),
+        new THREE.MeshBasicMaterial({ color: 0xffdd80, transparent: true, opacity: 0.7 })
+      )
+      glass.castShadow = false
+      glass.position.y = 0.11
+      group.add(glass)
+      const top = cyl(0.04, 0.07, 0.05, 0x40404a, 12)
+      top.position.y = 0.2
+      group.add(top)
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.03, 0.006, 6, 10),
+        mat(0x40404a)
+      )
+      ;(ring.userData as TintUserData).origColor = 0x40404a
+      ring.rotation.x = Math.PI / 2
+      ring.position.y = 0.27
+      group.add(ring)
+      break
+    }
+    case 'prop.pictureFrame': {
+      height = 0.4
+      const frame = box(0.32, 0.4, 0.03, 0x8a7a4a)
+      frame.position.y = 0.2
+      group.add(frame)
+      const pic = box(0.26, 0.34, 0.01, 0x6a8aa0)
+      pic.position.set(0, 0.2, 0.02)
+      group.add(pic)
+      break
+    }
+    case 'prop.poster': {
+      height = 0.9
+      const sheet = box(0.6, 0.9, 0.01, 0xb04840)
+      sheet.position.y = 0.45
+      group.add(sheet)
+      const band = box(0.6, 0.2, 0.012, 0x304860)
+      band.position.set(0, 0.7, 0.006)
+      group.add(band)
+      break
+    }
+    case 'prop.mirror': {
+      height = 1.0
+      const frame = box(0.7, 1.0, 0.04, 0x9a8a6a)
+      frame.position.y = 0.5
+      group.add(frame)
+      const glass = new THREE.Mesh(
+        new THREE.BoxGeometry(0.6, 0.9, 0.02),
+        new THREE.MeshLambertMaterial({ color: 0xd0dce4 })
+      )
+      ;(glass.userData as TintUserData).origColor = 0xd0dce4
+      glass.castShadow = true
+      glass.position.set(0, 0.5, 0.03)
+      group.add(glass)
+      break
+    }
+    case 'prop.clock': {
+      height = 0.4
+      const face = cyl(0.2, 0.2, 0.04, 0xe8e8ec, 20)
+      face.rotation.x = Math.PI / 2
+      face.position.y = 0.2
+      group.add(face)
+      const rim = new THREE.Mesh(
+        new THREE.TorusGeometry(0.2, 0.02, 8, 24),
+        mat(0x40404a)
+      )
+      ;(rim.userData as TintUserData).origColor = 0x40404a
+      rim.castShadow = true
+      rim.position.y = 0.2
+      group.add(rim)
+      // Hands.
+      const hh = box(0.015, 0.1, 0.01, 0x20202a)
+      hh.position.set(0, 0.23, 0.03)
+      group.add(hh)
+      const mh = box(0.012, 0.15, 0.01, 0x20202a)
+      mh.position.set(0.05, 0.2, 0.03)
+      mh.rotation.z = -1.0
+      group.add(mh)
+      break
+    }
+    case 'prop.ball': {
+      height = 0.22
+      const b = sphere(0.11, 0xd05030, 16)
+      b.position.y = 0.11
+      group.add(b)
+      break
+    }
+    case 'prop.balloon': {
+      height = 0.4
+      const skin = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 14), mat(0xd03040))
+      ;(skin.userData as TintUserData).origColor = 0xd03040
+      skin.castShadow = true
+      skin.scale.y = 1.15
+      skin.position.y = 0.85
+      group.add(skin)
+      const knot = cyl(0.02, 0.005, 0.03, 0xd03040, 6)
+      knot.position.y = 0.7
+      group.add(knot)
+      // String down to ground.
+      const string = cyl(0.003, 0.003, 0.7, 0xcccccc, 4)
+      string.position.y = 0.35
+      group.add(string)
+      break
+    }
+    case 'prop.microphone': {
+      height = 1.5
+      // Tripod base.
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * TAU
+        const leg = cyl(0.015, 0.015, 0.3, 0x2a2a30, 6)
+        leg.position.set(Math.sin(a) * 0.12, 0.14, Math.cos(a) * 0.12)
+        leg.rotation.x = 0.35
+        leg.rotation.y = -a
+        group.add(leg)
+      }
+      const pole = cyl(0.018, 0.018, 1.35, 0x40404a, 8)
+      pole.position.y = 0.72
+      group.add(pole)
+      const mic = capsule(0.035, 0.08, 0x1a1a1a)
+      mic.position.y = 1.46
+      group.add(mic)
+      break
+    }
+    case 'prop.guitar': {
+      height = 1.0
+      // Body (rounded via flattened sphere).
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 12), mat(0x8a5a2a))
+      ;(body.userData as TintUserData).origColor = 0x8a5a2a
+      body.castShadow = true
+      body.scale.set(1, 1.15, 0.28)
+      body.position.y = 0.25
+      group.add(body)
+      const hole = cyl(0.05, 0.05, 0.06, 0x2a1a0a, 12)
+      hole.rotation.x = Math.PI / 2
+      hole.position.set(0, 0.28, 0.05)
+      group.add(hole)
+      const neck = box(0.05, 0.6, 0.03, 0x5a3a1a)
+      neck.position.y = 0.68
+      group.add(neck)
+      const head = box(0.07, 0.12, 0.025, 0x3a2a1a)
+      head.position.y = 1.0
+      group.add(head)
+      break
+    }
+    case 'prop.camera': {
+      height = 0.3
+      const body = box(0.2, 0.18, 0.16, 0x2a2a30)
+      body.position.y = 0.15
+      group.add(body)
+      const lens = cyl(0.06, 0.06, 0.1, 0x1a1a1a, 14)
+      lens.rotation.x = Math.PI / 2
+      lens.position.set(0, 0.15, -0.13)
+      group.add(lens)
+      // 2 film reels on top.
+      for (const sx of [-0.05, 0.05]) {
+        const reel = cyl(0.06, 0.06, 0.03, 0x40404a, 14)
+        reel.position.set(sx, 0.27, 0)
+        group.add(reel)
+      }
+      const handle = box(0.03, 0.12, 0.03, 0x40404a)
+      handle.position.set(0, 0.06, 0.1)
+      group.add(handle)
+      break
+    }
+    case 'prop.tripod': {
+      height = 1.5
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * TAU
+        const leg = cyl(0.02, 0.02, 1.5, 0x40404a, 6)
+        leg.position.set(Math.sin(a) * 0.35, 0.72, Math.cos(a) * 0.35)
+        leg.rotation.x = 0.24
+        leg.rotation.y = -a
+        group.add(leg)
+      }
+      const head = box(0.1, 0.08, 0.1, 0x2a2a30)
+      head.position.y = 1.46
+      group.add(head)
+      const plate = box(0.12, 0.02, 0.14, 0x2a2a30)
+      plate.position.y = 1.51
+      group.add(plate)
+      break
+    }
+    case 'prop.tree': {
+      height = 3.5
+      const trunk = cyl(0.18, 0.25, 1.6, 0x5a4030, 10)
+      trunk.position.y = 0.8
+      group.add(trunk)
+      const c1 = sphere(1.1, 0x4a7040, 12)
+      c1.position.y = 2.2
+      group.add(c1)
+      const c2 = sphere(0.85, 0x548048, 12)
+      c2.position.set(0.4, 2.9, -0.2)
+      group.add(c2)
+      break
+    }
+    case 'prop.bush': {
+      height = 0.8
+      const positions: [number, number, number, number][] = [
+        [0, 0.35, 0, 0.45],
+        [-0.35, 0.3, 0.1, 0.35],
+        [0.3, 0.3, -0.15, 0.38]
+      ]
+      for (const [x, y, z, r] of positions) {
+        const b = sphere(r, 0x4a6a3a, 10)
+        b.position.set(x, y, z)
+        group.add(b)
+      }
+      break
+    }
+    case 'prop.rock': {
+      height = 0.8
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5, 0), mat(0x7a7a80))
+      ;(rock.userData as TintUserData).origColor = 0x7a7a80
+      rock.castShadow = true
+      rock.receiveShadow = true
+      rock.scale.set(1.4, 0.85, 1.1)
+      rock.rotation.set(0.3, 0.7, 0.2)
+      rock.position.y = 0.35
+      group.add(rock)
+      break
+    }
+    case 'prop.streetlightSingle': {
+      height = 4.0
+      const base = cyl(0.14, 0.18, 0.3, 0x40404a, 10)
+      base.position.y = 0.15
+      group.add(base)
+      const pole = cyl(0.08, 0.1, 3.8, 0x55555f, 10)
+      pole.position.y = 2.0
+      group.add(pole)
+      // Arm reaching forward (-Z).
+      const arm = box(0.08, 0.08, 1.2, 0x55555f)
+      arm.position.set(0, 3.9, -0.5)
+      group.add(arm)
+      const lamp = box(0.35, 0.15, 0.5, 0x2a2a30)
+      lamp.position.set(0, 3.85, -1.0)
+      group.add(lamp)
+      const glow = emissive(new THREE.BoxGeometry(0.3, 0.05, 0.44), 0xfff0c0, 0.9)
+      glow.position.set(0, 3.77, -1.0)
+      group.add(glow)
+      break
+    }
+    case 'prop.trafficLight': {
+      height = 3.0
+      const pole = cyl(0.08, 0.1, 3.0, 0x40404a, 10)
+      pole.position.y = 1.5
+      group.add(pole)
+      const boxHousing = box(0.28, 0.8, 0.24, 0x2a2a30)
+      boxHousing.position.set(0, 2.8, 0.15)
+      group.add(boxHousing)
+      const lightColors = [0xd03030, 0xd0c030, 0x30b040]
+      for (let i = 0; i < 3; i++) {
+        const light = emissive(new THREE.CylinderGeometry(0.08, 0.08, 0.03, 12), lightColors[i] ?? 0xffffff, 0.95)
+        light.rotation.x = Math.PI / 2
+        light.position.set(0, 3.05 - i * 0.25, 0.28)
+        group.add(light)
+      }
+      break
+    }
+    case 'prop.stopSign': {
+      height = 2.1
+      const pole = cyl(0.04, 0.04, 2.1, 0x9a9aa2, 8)
+      pole.position.y = 1.05
+      group.add(pole)
+      const sign = cyl(0.3, 0.3, 0.03, 0xc02020, 8)
+      sign.rotation.x = Math.PI / 2
+      sign.position.y = 1.9
+      group.add(sign)
+      break
+    }
+    case 'prop.fireHydrant': {
+      height = 0.8
+      const body = cyl(0.12, 0.14, 0.55, 0xc03020, 12)
+      body.position.y = 0.28
+      group.add(body)
+      const cap = sphere(0.12, 0xc03020, 12)
+      cap.scale.y = 0.6
+      cap.position.y = 0.55
+      group.add(cap)
+      // Side nozzles.
+      for (const sx of [-1, 1]) {
+        const noz = cyl(0.05, 0.05, 0.08, 0xa02818, 8)
+        noz.rotation.z = Math.PI / 2
+        noz.position.set(sx * 0.14, 0.35, 0)
+        group.add(noz)
+      }
+      const front = cyl(0.05, 0.05, 0.08, 0xa02818, 8)
+      front.rotation.x = Math.PI / 2
+      front.position.set(0, 0.35, -0.14)
+      group.add(front)
+      break
+    }
+    case 'prop.mailbox': {
+      height = 1.1
+      const post = box(0.08, 0.9, 0.08, 0x5a4a3a)
+      post.position.y = 0.45
+      group.add(post)
+      const boxBody = box(0.25, 0.28, 0.45, 0x30506a)
+      boxBody.position.set(0, 1.0, 0.05)
+      group.add(boxBody)
+      // Rounded top hint.
+      const top = cyl(0.125, 0.125, 0.45, 0x30506a, 12)
+      top.rotation.z = Math.PI / 2
+      top.rotation.y = Math.PI / 2
+      top.position.set(0, 1.14, 0.05)
+      group.add(top)
+      break
+    }
+    case 'prop.trashcan': {
+      height = 0.9
+      const body = cyl(0.24, 0.2, 0.85, 0x556055, 14)
+      body.position.y = 0.425
+      group.add(body)
+      const lid = cyl(0.26, 0.26, 0.06, 0x445044, 14)
+      lid.position.y = 0.88
+      group.add(lid)
+      break
+    }
+    case 'prop.dumpster': {
+      height = 1.3
+      const body = box(2.0, 1.2, 1.3, 0x3a5a3a)
+      body.position.y = 0.6
+      group.add(body)
+      const lid = box(2.05, 0.1, 1.35, 0x2a4a2a)
+      lid.position.y = 1.25
+      group.add(lid)
+      // Small wheels.
+      for (const sx of [-0.85, 0.85]) {
+        const w = cyl(0.12, 0.12, 0.08, 0x1a1a1a, 8)
+        w.rotation.z = Math.PI / 2
+        w.position.set(sx, 0.12, 0.5)
+        group.add(w)
+      }
+      break
+    }
+    case 'prop.trafficCone': {
+      height = 0.5
+      const base = box(0.3, 0.03, 0.3, 0xd05020)
+      base.position.y = 0.015
+      group.add(base)
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.47, 12), mat(0xd85828))
+      ;(cone.userData as TintUserData).origColor = 0xd85828
+      cone.castShadow = true
+      cone.position.y = 0.26
+      group.add(cone)
+      const stripe = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.08, 12), mat(0xe8e8e8))
+      ;(stripe.userData as TintUserData).origColor = 0xe8e8e8
+      stripe.position.y = 0.32
+      group.add(stripe)
+      break
+    }
+    case 'prop.barrier': {
+      height = 1.1
+      // A-frame roadwork barrier.
+      const rail = box(2.0, 0.25, 0.06, 0xd05020)
+      rail.position.set(0, 0.95, 0)
+      group.add(rail)
+      const rail2 = box(2.0, 0.1, 0.06, 0xe8e8e8)
+      rail2.position.set(0, 0.55, 0)
+      group.add(rail2)
+      for (const sx of [-0.8, 0.8]) {
+        const legF = box(0.06, 1.0, 0.06, 0x9a9aa2)
+        legF.position.set(sx, 0.5, -0.25)
+        legF.rotation.x = -0.25
+        group.add(legF)
+        const legB = box(0.06, 1.0, 0.06, 0x9a9aa2)
+        legB.position.set(sx, 0.5, 0.25)
+        legB.rotation.x = 0.25
+        group.add(legB)
+      }
+      break
+    }
+    case 'prop.fence': {
+      height = 2.0
+      // 2m segment: 2 posts + slats.
+      for (const sx of [-0.55, 0.55]) {
+        const post = box(0.1, 2.0, 0.1, 0x6a5a4a)
+        post.position.set(sx, 1.0, 0)
+        group.add(post)
+      }
+      for (let i = 0; i < 7; i++) {
+        const slat = box(0.12, 1.7, 0.03, 0x8a7a5a)
+        slat.position.set(-0.5 + i * 0.166, 0.9, 0)
+        group.add(slat)
+      }
+      const railT = box(1.2, 0.06, 0.06, 0x6a5a4a)
+      railT.position.set(0, 1.6, 0)
+      group.add(railT)
+      const railB = railT.clone()
+      railB.position.y = 0.4
+      group.add(railB)
+      break
+    }
+    case 'prop.bench': {
+      height = 0.8
+      const seat = box(1.6, 0.06, 0.42, 0x7a5a3a)
+      seat.position.y = 0.45
+      group.add(seat)
+      const backrest = box(1.6, 0.35, 0.06, 0x7a5a3a)
+      backrest.position.set(0, 0.65, 0.2)
+      group.add(backrest)
+      for (const sx of [-0.7, 0.7]) {
+        const leg = box(0.08, 0.45, 0.4, 0x40404a)
+        leg.position.set(sx, 0.225, 0)
+        group.add(leg)
+      }
+      break
+    }
+    case 'prop.phoneBooth': {
+      height = 2.4
+      const body = box(1.0, 2.4, 1.0, 0xb02020)
+      body.position.y = 1.2
+      group.add(body)
+      // Glass panels (recessed).
+      for (const [x, z, w, d] of [
+        [0, -0.5, 0.8, 0.04],
+        [-0.5, 0, 0.04, 0.8],
+        [0.5, 0, 0.04, 0.8]
+      ] as [number, number, number, number][]) {
+        const pane = box(w, 1.6, d, 0xbcc4cc)
+        pane.position.set(x, 1.3, z)
+        group.add(pane)
+      }
+      const roof = box(1.1, 0.15, 1.1, 0x901818)
+      roof.position.y = 2.45
+      group.add(roof)
+      break
+    }
+    case 'prop.atm': {
+      height = 1.6
+      const body = box(0.6, 1.6, 0.5, 0x30506a)
+      body.position.y = 0.8
+      group.add(body)
+      const screen = box(0.4, 0.3, 0.04, 0x1a2a3a)
+      screen.position.set(0, 1.25, 0.26)
+      group.add(screen)
+      const keypad = box(0.35, 0.2, 0.03, 0x40404a)
+      keypad.position.set(0, 0.95, 0.26)
+      keypad.rotation.x = -0.4
+      group.add(keypad)
+      break
+    }
+    case 'prop.vendingMachine': {
+      height = 1.9
+      const body = box(0.9, 1.9, 0.75, 0xc02830)
+      body.position.y = 0.95
+      group.add(body)
+      // Glass front with product grid.
+      const glass = box(0.6, 1.4, 0.04, 0x223040)
+      glass.position.set(-0.1, 1.05, 0.38)
+      group.add(glass)
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 3; c++) {
+          const item = box(0.14, 0.14, 0.02, 0x8a8a92)
+          item.position.set(-0.28 + c * 0.18, 0.55 + r * 0.32, 0.4)
+          group.add(item)
+        }
+      }
+      const slot = box(0.22, 0.5, 0.04, 0x1a1a1a)
+      slot.position.set(0.28, 0.9, 0.38)
+      group.add(slot)
+      break
+    }
+    case 'prop.shoppingCart': {
+      height = 1.0
+      // Basket (open box of slats via a tapered box).
+      const basket = box(0.5, 0.4, 0.7, 0x9a9aa2)
+      basket.position.set(0, 0.65, 0.05)
+      group.add(basket)
+      const handle = box(0.5, 0.03, 0.03, 0xc03030)
+      handle.position.set(0, 0.95, 0.45)
+      group.add(handle)
+      // 4 caster wheels.
+      for (const [wx, wz] of [
+        [-0.22, -0.3],
+        [0.22, -0.3],
+        [-0.22, 0.35],
+        [0.22, 0.35]
+      ] as [number, number][]) {
+        const w = cyl(0.06, 0.06, 0.04, 0x1a1a1a, 8)
+        w.rotation.z = Math.PI / 2
+        w.position.set(wx, 0.06, wz)
+        group.add(w)
+      }
+      // Frame legs.
+      for (const [wx, wz] of [
+        [-0.22, -0.3],
+        [0.22, -0.3],
+        [-0.22, 0.35],
+        [0.22, 0.35]
+      ] as [number, number][]) {
+        const leg = box(0.03, 0.4, 0.03, 0x70707a)
+        leg.position.set(wx, 0.3, wz)
+        group.add(leg)
+      }
+      break
+    }
+    case 'prop.ladder': {
+      height = 2.4
+      // Leaning against something: tilt back around the foot.
+      const lean = grp(0, 0, 0)
+      lean.rotation.x = 0.25
+      group.add(lean)
+      for (const sx of [-0.25, 0.25]) {
+        const rail = box(0.05, 2.4, 0.05, 0xa0803a)
+        rail.position.set(sx, 1.2, 0)
+        lean.add(rail)
+      }
+      for (let i = 0; i < 7; i++) {
+        const rung = box(0.55, 0.04, 0.04, 0xb0904a)
+        rung.position.set(0, 0.3 + i * 0.32, 0)
+        lean.add(rung)
+      }
+      break
+    }
+    case 'prop.scaffold': {
+      height = 4.0
+      const W = 2.0
+      const D = 1.2
+      // 4 posts.
+      for (const [px, pz] of [
+        [-W / 2, -D / 2],
+        [W / 2, -D / 2],
+        [-W / 2, D / 2],
+        [W / 2, D / 2]
+      ] as [number, number][]) {
+        const post = box(0.08, 4.0, 0.08, 0x55555f)
+        post.position.set(px, 2.0, pz)
+        group.add(post)
+      }
+      // 2 platform levels + cross braces.
+      for (const level of [2.0, 4.0]) {
+        const deck = box(W, 0.08, D, 0x8a7a5a)
+        deck.position.set(0, level, 0)
+        group.add(deck)
+        // Rails on the upper deck edges.
+        const railF = box(W, 0.05, 0.05, 0x70707a)
+        railF.position.set(0, level + 1.0, -D / 2)
+        group.add(railF)
+        const railB = railF.clone()
+        railB.position.z = D / 2
+        group.add(railB)
+      }
+      break
+    }
+    case 'prop.crate': {
+      height = 0.8
+      const body = box(0.8, 0.8, 0.8, 0x9a7a4a)
+      body.position.y = 0.4
+      group.add(body)
+      // Edge frame slats.
+      for (const [ex, ez] of [
+        [-0.38, -0.38],
+        [0.38, -0.38],
+        [-0.38, 0.38],
+        [0.38, 0.38]
+      ] as [number, number][]) {
+        const edge = box(0.06, 0.82, 0.06, 0x7a5a2a)
+        edge.position.set(ex, 0.4, ez)
+        group.add(edge)
+      }
+      break
+    }
+    case 'prop.barrel': {
+      height = 0.9
+      const body = cyl(0.28, 0.28, 0.9, 0x8a6a3a, 14)
+      body.position.y = 0.45
+      group.add(body)
+      // Ring bands.
+      for (const y of [0.2, 0.7]) {
+        const band = cyl(0.29, 0.29, 0.05, 0x5a4a2a, 14)
+        band.position.y = y
+        group.add(band)
+      }
+      break
+    }
+    case 'prop.pallet': {
+      height = 0.15
+      // Top deck slats.
+      for (let i = 0; i < 5; i++) {
+        const slat = box(1.2, 0.03, 0.14, 0xa0803a)
+        slat.position.set(0, 0.13, -0.5 + i * 0.25)
+        group.add(slat)
+      }
+      // Bottom stringers.
+      for (const sx of [-0.5, 0, 0.5]) {
+        const stringer = box(0.12, 0.1, 1.2, 0x8a6a2a)
+        stringer.position.set(sx, 0.05, 0)
+        group.add(stringer)
+      }
+      break
+    }
+    case 'prop.tent': {
+      height = 1.4
+      // Ridge tent: 2 sloped sides forming an A.
+      const sideL = box(1.4, 0.04, 1.6, 0x2a6a4a)
+      sideL.position.set(-0.5, 0.65, 0)
+      sideL.rotation.z = -0.9
+      group.add(sideL)
+      const sideR = box(1.4, 0.04, 1.6, 0x2a6a4a)
+      sideR.position.set(0.5, 0.65, 0)
+      sideR.rotation.z = 0.9
+      group.add(sideR)
+      // Back wall triangle-ish.
+      const back = box(1.4, 1.2, 0.04, 0x226040)
+      back.position.set(0, 0.55, 0.8)
+      group.add(back)
+      break
+    }
+    case 'prop.campfire': {
+      height = 0.5
+      // Ring of stones.
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU
+        const stone = sphere(0.08, 0x707078, 8)
+        stone.position.set(Math.sin(a) * 0.28, 0.06, Math.cos(a) * 0.28)
+        group.add(stone)
+      }
+      // Crossed logs.
+      const log1 = cyl(0.05, 0.05, 0.5, 0x5a3a1a, 8)
+      log1.rotation.z = Math.PI / 2
+      log1.rotation.y = 0.4
+      log1.position.y = 0.08
+      group.add(log1)
+      const log2 = cyl(0.05, 0.05, 0.5, 0x4a3418, 8)
+      log2.rotation.z = Math.PI / 2
+      log2.rotation.y = -0.5
+      log2.position.y = 0.08
+      group.add(log2)
+      // Emissive flame cone.
+      const flame = emissive(new THREE.ConeGeometry(0.14, 0.45, 10), 0xff7020, 0.9)
+      flame.position.y = 0.35
+      group.add(flame)
+      const flameCore = emissive(new THREE.ConeGeometry(0.07, 0.3, 8), 0xffd040)
+      flameCore.position.y = 0.32
+      group.add(flameCore)
+      break
+    }
+    case 'prop.poolWater': {
+      height = 0.05
+      const slab = new THREE.Mesh(
+        new THREE.BoxGeometry(3, 0.05, 2),
+        new THREE.MeshLambertMaterial({ color: 0x3080c0, transparent: true, opacity: 0.6 })
+      )
+      ;(slab.userData as TintUserData).origColor = 0x3080c0
+      slab.castShadow = false
+      slab.receiveShadow = true
+      slab.position.y = 0.025
+      group.add(slab)
+      break
+    }
+    case 'prop.fountain': {
+      height = 1.6
+      // Basin.
+      const basin = cyl(1.1, 1.1, 0.5, 0x9a9aa2, 16)
+      basin.position.y = 0.25
+      group.add(basin)
+      const water = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.0, 1.0, 0.1, 16),
+        new THREE.MeshLambertMaterial({ color: 0x3080c0, transparent: true, opacity: 0.6 })
+      )
+      ;(water.userData as TintUserData).origColor = 0x3080c0
+      water.castShadow = false
+      water.position.y = 0.48
+      group.add(water)
+      // Central pedestal + tiers.
+      const pedestal = cyl(0.15, 0.2, 0.9, 0x8a8a92, 12)
+      pedestal.position.y = 0.9
+      group.add(pedestal)
+      const tier = cyl(0.5, 0.5, 0.1, 0x9a9aa2, 14)
+      tier.position.y = 1.1
+      group.add(tier)
+      const spout = emissive(new THREE.CylinderGeometry(0.03, 0.05, 0.5, 8), 0x90c0e0, 0.7)
+      spout.position.y = 1.45
+      group.add(spout)
+      break
+    }
+    case 'prop.flagpole': {
+      height = 6.0
+      const base = cyl(0.2, 0.25, 0.15, 0x40404a, 12)
+      base.position.y = 0.075
+      group.add(base)
+      const pole = cyl(0.05, 0.07, 6.0, 0xbcbcc4, 10)
+      pole.position.y = 3.0
+      group.add(pole)
+      const finial = sphere(0.09, 0xc0a860, 10)
+      finial.position.y = 6.0
+      group.add(finial)
+      // Flag near the top, extending -Z.
+      const flag = box(0.02, 0.7, 1.1, 0xc03030)
+      flag.position.set(0, 5.55, -0.55)
+      group.add(flag)
+      break
+    }
+    case 'prop.helicopter': {
+      height = 3.5
+      const flyH = 3.5
+      const fuselage = capsule(0.7, 2.0, 0x556070)
+      fuselage.rotation.x = Math.PI / 2
+      fuselage.position.set(0, flyH, 0)
+      group.add(fuselage)
+      // Cockpit glass at front (-Z).
+      const cockpit = sphere(0.55, 0x88aacc, 12)
+      cockpit.scale.set(0.9, 0.8, 1.1)
+      cockpit.position.set(0, flyH, -1.3)
+      group.add(cockpit)
+      // Tail boom (+Z).
+      const boom = cyl(0.12, 0.18, 2.6, 0x556070, 8)
+      boom.rotation.x = Math.PI / 2
+      boom.position.set(0, flyH + 0.1, 2.2)
+      group.add(boom)
+      const tailFin = box(0.06, 0.7, 0.5, 0x4a5060)
+      tailFin.position.set(0, flyH + 0.4, 3.4)
+      group.add(tailFin)
+      // Tail rotor.
+      const tailRotor = box(0.05, 0.7, 0.06, 0x2a2a30)
+      tailRotor.position.set(0.15, flyH + 0.4, 3.4)
+      group.add(tailRotor)
+      // Skids.
+      for (const sx of [-0.5, 0.5]) {
+        const skid = cyl(0.04, 0.04, 2.2, 0x40404a, 6)
+        skid.rotation.x = Math.PI / 2
+        skid.position.set(sx, flyH - 0.85, 0)
+        group.add(skid)
+        const strut1 = box(0.04, 0.4, 0.04, 0x40404a)
+        strut1.position.set(sx, flyH - 0.6, -0.5)
+        group.add(strut1)
+        const strut2 = strut1.clone()
+        strut2.position.z = 0.5
+        group.add(strut2)
+      }
+      // Main rotor — named group, spins around Y.
+      const rotor = grp(0, flyH + 0.85, 0)
+      rotor.name = 'rotor'
+      group.add(rotor)
+      const mast = cyl(0.06, 0.06, 0.25, 0x40404a, 8)
+      mast.position.y = -0.12
+      rotor.add(mast)
+      const blade1 = box(6.0, 0.05, 0.25, 0x2a2a30)
+      rotor.add(blade1)
+      const blade2 = box(0.25, 0.05, 6.0, 0x2a2a30)
+      rotor.add(blade2)
+      animate = (input: AnimInput) => {
+        // Always spin slowly; faster when moving.
+        const rate = input.speed > 0 ? 30 : 3
+        rotor.rotation.y = input.time * rate
+        tailRotor.rotation.x = input.time * rate * 2
+      }
+      break
+    }
+    default: {
+      const spec = assetSpec(assetId)
+      height = spec.height
+      const b = box(0.4, height, 0.4, 0x9a9aa2)
+      b.position.y = height * 0.5
+      group.add(b)
+    }
+  }
+
+  const setTint = makeSetTint(group)
+  return { group, height, animate, setTint }
 }
 
 // ---------------------------------------------------------------------------
@@ -1216,6 +2725,36 @@ function buildEnv(assetId: string): BuiltAsset {
       break
     case 'env.rooftop':
       res = envRooftop(group)
+      break
+    case 'env.restaurant':
+      res = envRestaurant(group)
+      break
+    case 'env.hospitalRoom':
+      res = envHospitalRoom(group)
+      break
+    case 'env.classroom':
+      res = envClassroom(group)
+      break
+    case 'env.gym':
+      res = envGym(group)
+      break
+    case 'env.courtroom':
+      res = envCourtroom(group)
+      break
+    case 'env.subwayPlatform':
+      res = envSubwayPlatform(group)
+      break
+    case 'env.beach':
+      res = envBeach(group)
+      break
+    case 'env.forest':
+      res = envForest(group)
+      break
+    case 'env.bar':
+      res = envBar(group)
+      break
+    case 'env.stage':
+      res = envStage(group)
       break
     default: {
       const b = box(2, spec.height, 2)
@@ -1755,6 +3294,405 @@ function envRooftop(group: THREE.Group): EnvResult {
   return { group, height: 1.2 }
 }
 
+/** Standard 3-wall shell (back +Z, left/right), front open for camera. */
+function shell(group: THREE.Group, S: number, wallH: number, floor: number, wall = 0x9a9aa2): void {
+  const t = 0.15
+  group.add(ground(S, S, floor))
+  const back = wallMesh(S, wallH, t, wall)
+  back.position.set(0, wallH * 0.5, S * 0.5)
+  group.add(back)
+  const left = wallMesh(t, wallH, S, wall)
+  left.position.set(-S * 0.5, wallH * 0.5, 0)
+  group.add(left)
+  const right = left.clone()
+  right.position.x = S * 0.5
+  group.add(right)
+}
+
+function envRestaurant(group: THREE.Group): EnvResult {
+  const S = 20
+  const wallH = 3
+  shell(group, S, wallH, 0x6a5a4a)
+  // 3×2 grid of dining tables with 4 chairs each.
+  for (let ix = 0; ix < 3; ix++) {
+    for (let iz = 0; iz < 2; iz++) {
+      const x = -5 + ix * 5
+      const z = -3 + iz * 5
+      const top = cyl(0.55, 0.55, 0.05, 0x9a8a72, 14)
+      top.position.set(x, 0.75, z)
+      group.add(top)
+      const stem = cyl(0.06, 0.08, 0.72, 0x70707a, 8)
+      stem.position.set(x, 0.36, z)
+      group.add(stem)
+      for (let c = 0; c < 4; c++) {
+        const a = (c / 4) * TAU
+        const chair = grp(x + Math.sin(a) * 0.8, 0, z + Math.cos(a) * 0.8)
+        chair.rotation.y = a + Math.PI
+        group.add(chair)
+        buildSimpleChair(chair)
+      }
+    }
+  }
+  // Bar along the left wall.
+  const bar = box(0.7, 1.1, 8, 0x5a4a3a)
+  bar.position.set(-S * 0.5 + 1.2, 0.55, 5)
+  group.add(bar)
+  // Kitchen pass (back-right): counter + opening.
+  const pass = box(5, 1.1, 0.7, 0x82828a)
+  pass.position.set(5, 0.55, S * 0.5 - 1.5)
+  group.add(pass)
+  const passTop = box(5, 0.05, 0.75, 0x9a9aa2)
+  passTop.position.set(5, 1.12, S * 0.5 - 1.5)
+  group.add(passTop)
+  return { group, height: wallH }
+}
+
+function envHospitalRoom(group: THREE.Group): EnvResult {
+  const S = 16
+  const wallH = 2.8
+  shell(group, S, wallH, 0xc4cad0, 0xdde4ea)
+  // Bed.
+  const bed = grp(-2, 0, 0)
+  group.add(bed)
+  const bframe = box(0.9, 0.4, 2.0, 0x9a9aa2)
+  bframe.position.y = 0.5
+  bed.add(bframe)
+  const mattress = box(0.85, 0.15, 1.9, 0xe8e8ec)
+  mattress.position.y = 0.72
+  bed.add(mattress)
+  const headSec = box(0.85, 0.15, 0.6, 0xe8e8ec)
+  headSec.position.set(0, 0.82, -0.75)
+  headSec.rotation.x = -0.4
+  bed.add(headSec)
+  // IV pole hint.
+  const ivBase = cyl(0.15, 0.15, 0.04, 0x9a9aa2, 8)
+  ivBase.position.set(-3.2, 0.02, -0.8)
+  group.add(ivBase)
+  const ivPole = cyl(0.02, 0.02, 2.0, 0xc0c0c8, 8)
+  ivPole.position.set(-3.2, 1.0, -0.8)
+  group.add(ivPole)
+  const ivBag = box(0.12, 0.25, 0.05, 0xd0e0d0)
+  ivBag.position.set(-3.2, 1.85, -0.7)
+  group.add(ivBag)
+  // Cabinet.
+  const cabinet = box(0.6, 1.2, 0.5, 0x8a8a92)
+  cabinet.position.set(3, 0.6, S * 0.5 - 0.5)
+  group.add(cabinet)
+  // Window on back wall.
+  const win = box(2.0, 1.2, 0.05, 0xbcc4cc)
+  win.position.set(0, 1.6, S * 0.5 - 0.09)
+  group.add(win)
+  return { group, height: wallH }
+}
+
+function envClassroom(group: THREE.Group): EnvResult {
+  const S = 20
+  const wallH = 2.8
+  shell(group, S, wallH, 0x9a9080)
+  // Rows of student desks (3 cols × 3 rows).
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      const x = -4 + c * 4
+      const z = 2 + r * 3
+      const top = box(1.0, 0.05, 0.5, 0x9a8a72)
+      top.position.set(x, 0.72, z)
+      group.add(top)
+      const legs = box(0.9, 0.68, 0.4, 0x70707a)
+      legs.position.set(x, 0.35, z)
+      group.add(legs)
+      const chair = grp(x, 0, z - 0.6)
+      group.add(chair)
+      buildSimpleChair(chair)
+    }
+  }
+  // Whiteboard on back wall.
+  const board = box(4, 1.2, 0.05, 0xe8e8ec)
+  board.position.set(0, 1.6, S * 0.5 - 0.1)
+  group.add(board)
+  // Teacher desk at front.
+  const tdesk = box(1.6, 0.75, 0.8, 0x7a6a52)
+  tdesk.position.set(0, 0.375, -6)
+  group.add(tdesk)
+  return { group, height: wallH }
+}
+
+function envGym(group: THREE.Group): EnvResult {
+  const S = 20
+  const wallH = 3.5
+  shell(group, S, wallH, 0x5a5a62)
+  // Mirror band along back wall.
+  const mirror = box(S - 1, 2.0, 0.05, 0xd0dce4)
+  mirror.position.set(0, 1.3, S * 0.5 - 0.1)
+  group.add(mirror)
+  // Weight benches.
+  for (const [x, z] of [
+    [-6, 0],
+    [-3, 0],
+    [0, 0]
+  ] as [number, number][]) {
+    const bench = box(0.4, 0.15, 1.2, 0x2a2a30)
+    bench.position.set(x, 0.5, z)
+    group.add(bench)
+    for (const sx of [-0.15, 0.15]) {
+      const leg = box(0.06, 0.45, 0.06, 0x40404a)
+      leg.position.set(x + sx, 0.22, z)
+      group.add(leg)
+    }
+  }
+  // Squat racks.
+  for (const x of [4, 7]) {
+    for (const sx of [-0.6, 0.6]) {
+      const post = box(0.1, 2.2, 0.1, 0x30303a)
+      post.position.set(x + sx, 1.1, 2)
+      group.add(post)
+    }
+    const bar = cyl(0.03, 0.03, 1.6, 0x9a9aa2, 8)
+    bar.rotation.z = Math.PI / 2
+    bar.position.set(x, 1.6, 2)
+    group.add(bar)
+  }
+  return { group, height: wallH }
+}
+
+function envCourtroom(group: THREE.Group): EnvResult {
+  const S = 20
+  const wallH = 4
+  shell(group, S, wallH, 0x6a5a42, 0x8a7a5a)
+  // Judge bench (raised) at back.
+  const bench = box(4, 1.4, 1.2, 0x5a4a32)
+  bench.position.set(0, 0.7, S * 0.5 - 2)
+  group.add(bench)
+  const platform = box(4.5, 0.4, 1.6, 0x4a3a22)
+  platform.position.set(0, 0.2, S * 0.5 - 2)
+  group.add(platform)
+  // Witness stand (side of bench).
+  const witness = box(1.2, 1.1, 1.0, 0x5a4a32)
+  witness.position.set(-3.5, 0.55, S * 0.5 - 3.5)
+  group.add(witness)
+  // Bar rail across the room.
+  const rail = box(10, 1.0, 0.1, 0x6a5a42)
+  rail.position.set(0, 0.5, -1)
+  group.add(rail)
+  // Gallery rows (benches).
+  for (let r = 0; r < 3; r++) {
+    const gb = box(8, 0.5, 0.5, 0x5a4a32)
+    gb.position.set(0, 0.4, 1 + r * 2)
+    group.add(gb)
+    const gback = box(8, 0.6, 0.1, 0x5a4a32)
+    gback.position.set(0, 0.7, 1.25 + r * 2)
+    group.add(gback)
+  }
+  return { group, height: wallH }
+}
+
+function envSubwayPlatform(group: THREE.Group): EnvResult {
+  const S = 30
+  const wallH = 4
+  // Platform slab (raised), tracks trench beside it.
+  group.add(ground(20, S, 0x3a3a40))
+  const platform = box(8, 1.2, S, 0x8a8a92)
+  platform.position.set(3, 0.6, 0)
+  group.add(platform)
+  // Yellow edge strip.
+  const edge = box(0.3, 0.02, S, 0xd0c040)
+  edge.position.set(-1.0, 1.21, 0)
+  group.add(edge)
+  // Track trench (lower) with 2 rails.
+  for (const rx of [-5.5, -3.5]) {
+    const trackrail = box(0.1, 0.15, S, 0x9a9aa2)
+    trackrail.position.set(rx, 0.08, 0)
+    group.add(trackrail)
+  }
+  // Pillars down the platform.
+  for (let z = -S * 0.5 + 3; z < S * 0.5; z += 5) {
+    const pillar = box(0.6, wallH, 0.6, 0x707078)
+    pillar.position.set(3, wallH * 0.5 + 1.2, z)
+    group.add(pillar)
+  }
+  // Signs.
+  for (const z of [-6, 6]) {
+    const sign = box(1.6, 0.5, 0.08, 0x304860)
+    sign.position.set(3, 3.2, z)
+    group.add(sign)
+  }
+  // Back wall behind tracks.
+  const wall = box(0.3, wallH, S, 0x55555f)
+  wall.position.set(-7, wallH * 0.5, 0)
+  group.add(wall)
+  return { group, height: wallH }
+}
+
+function envBeach(group: THREE.Group): EnvResult {
+  const S = 30
+  group.add(ground(S, S, 0xd8c890))
+  // Water slab band along +Z.
+  const water = new THREE.Mesh(
+    new THREE.BoxGeometry(S, 0.05, 10),
+    new THREE.MeshLambertMaterial({ color: 0x3080c0, transparent: true, opacity: 0.6 })
+  )
+  ;(water.userData as TintUserData).origColor = 0x3080c0
+  water.castShadow = false
+  water.receiveShadow = true
+  water.position.set(0, 0.03, S * 0.5 - 5)
+  group.add(water)
+  // 2 beach umbrellas (open canopy).
+  for (const [x, z] of [
+    [-6, -2],
+    [5, 2]
+  ] as [number, number][]) {
+    const pole = cyl(0.04, 0.04, 2.2, 0x9a9aa2, 8)
+    pole.position.set(x, 1.1, z)
+    group.add(pole)
+    const canopy = new THREE.Mesh(new THREE.ConeGeometry(1.6, 0.6, 12), mat(0xd04040))
+    ;(canopy.userData as TintUserData).origColor = 0xd04040
+    canopy.castShadow = true
+    canopy.position.set(x, 2.3, z)
+    group.add(canopy)
+  }
+  // Towels (flat mats).
+  for (const [x, z, col] of [
+    [-6, -3.5, 0x40a0c0],
+    [5, 0.5, 0xd0a040]
+  ] as [number, number, number][]) {
+    const towel = box(1.0, 0.02, 2.0, col)
+    towel.position.set(x, 0.02, z)
+    towel.receiveShadow = true
+    towel.castShadow = false
+    group.add(towel)
+  }
+  return { group, height: 0.1 }
+}
+
+function envForest(group: THREE.Group): EnvResult {
+  const S = 30
+  group.add(ground(S, S, 0x4a5a38))
+  // 12 trees at fixed positions with varied scale.
+  const treePos: [number, number, number][] = [
+    [-10, -8, 1.0],
+    [-4, -10, 1.2],
+    [3, -9, 0.85],
+    [9, -7, 1.1],
+    [-12, -2, 0.95],
+    [11, 0, 1.15],
+    [-8, 4, 1.05],
+    [-2, 6, 0.9],
+    [5, 5, 1.2],
+    [10, 8, 1.0],
+    [-11, 10, 1.1],
+    [1, 11, 0.95]
+  ]
+  for (const [x, z, sc] of treePos) {
+    const t = grp(x, 0, z)
+    t.scale.setScalar(sc)
+    group.add(t)
+    const trunk = cyl(0.18, 0.25, 1.6, 0x5a4030, 8)
+    trunk.position.y = 0.8
+    t.add(trunk)
+    const c1 = sphere(1.1, 0x3a5a2a, 10)
+    c1.position.y = 2.2
+    t.add(c1)
+    const c2 = sphere(0.85, 0x44662f, 10)
+    c2.position.set(0.4, 2.9, -0.2)
+    t.add(c2)
+  }
+  // A few rocks.
+  for (const [x, z] of [
+    [-6, 0],
+    [4, -3],
+    [8, 4]
+  ] as [number, number][]) {
+    const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5, 0), mat(0x7a7a80))
+    ;(rock.userData as TintUserData).origColor = 0x7a7a80
+    rock.castShadow = true
+    rock.receiveShadow = true
+    rock.scale.set(1.4, 0.8, 1.1)
+    rock.position.set(x, 0.3, z)
+    group.add(rock)
+  }
+  return { group, height: 5 }
+}
+
+function envBar(group: THREE.Group): EnvResult {
+  const S = 20
+  const wallH = 3
+  shell(group, S, wallH, 0x3a3038, 0x4a3a42)
+  // Long bar counter.
+  const bar = box(8, 1.1, 0.7, 0x4a3a2a)
+  bar.position.set(-2, 0.55, S * 0.5 - 3)
+  group.add(bar)
+  const barTop = box(8.2, 0.06, 0.8, 0x6a4a3a)
+  barTop.position.set(-2, 1.12, S * 0.5 - 3)
+  group.add(barTop)
+  // Back-wall shelves with bottles.
+  for (let s = 0; s < 3; s++) {
+    const shelf = box(8, 0.05, 0.3, 0x5a4a3a)
+    shelf.position.set(-2, 1.6 + s * 0.5, S * 0.5 - 0.4)
+    group.add(shelf)
+    for (let b = 0; b < 10; b++) {
+      const bottle = cyl(0.04, 0.04, 0.22, b % 2 === 0 ? 0x3a6a4a : 0x6a4a3a, 6)
+      bottle.position.set(-5.5 + b * 0.78, 1.75 + s * 0.5, S * 0.5 - 0.4)
+      group.add(bottle)
+    }
+  }
+  // Stools along the bar.
+  for (let i = 0; i < 5; i++) {
+    const x = -5.5 + i * 1.7
+    const seat = cyl(0.18, 0.18, 0.06, 0x2a2a30, 12)
+    seat.position.set(x, 0.9, S * 0.5 - 4)
+    group.add(seat)
+    const post = cyl(0.04, 0.05, 0.85, 0x40404a, 8)
+    post.position.set(x, 0.45, S * 0.5 - 4)
+    group.add(post)
+  }
+  // Booths along -X wall.
+  for (let i = 0; i < 2; i++) {
+    const z = -4 + i * 4
+    const seatB = box(0.6, 0.45, 1.6, 0x5a3a3a)
+    seatB.position.set(-S * 0.5 + 1, 0.45, z)
+    group.add(seatB)
+    const backB = box(0.3, 1.1, 1.6, 0x5a3a3a)
+    backB.position.set(-S * 0.5 + 0.6, 0.7, z)
+    group.add(backB)
+    const tableB = box(0.9, 0.05, 0.9, 0x7a6a52)
+    tableB.position.set(-S * 0.5 + 1.9, 0.72, z)
+    group.add(tableB)
+  }
+  return { group, height: wallH }
+}
+
+function envStage(group: THREE.Group): EnvResult {
+  const S = 20
+  const wallH = 5
+  group.add(ground(S, S, 0x2a2a30))
+  // Raised stage platform.
+  const platform = box(12, 1.0, 8, 0x5a4a3a)
+  platform.position.set(0, 0.5, 3)
+  group.add(platform)
+  const deck = box(12, 0.06, 8, 0x6a5a4a)
+  deck.position.set(0, 1.03, 3)
+  group.add(deck)
+  // Backdrop wall.
+  const backdrop = box(12, wallH, 0.3, 0x30303a)
+  backdrop.position.set(0, wallH * 0.5, S * 0.5 - 3)
+  group.add(backdrop)
+  // 2 light trusses overhead.
+  for (const z of [0, 4] ) {
+    const truss = box(12, 0.2, 0.2, 0x40404a)
+    truss.position.set(0, wallH - 0.5, z)
+    group.add(truss)
+    for (let i = 0; i < 5; i++) {
+      const x = -5 + i * 2.5
+      const lamp = box(0.25, 0.25, 0.25, 0x2a2a30)
+      lamp.position.set(x, wallH - 0.75, z)
+      group.add(lamp)
+      const glow = emissive(new THREE.CylinderGeometry(0.08, 0.12, 0.05, 10), 0xfff0c0, 0.85)
+      glow.position.set(x, wallH - 0.9, z)
+      group.add(glow)
+    }
+  }
+  return { group, height: wallH }
+}
+
 // ---------------------------------------------------------------------------
 // PRIMITIVES
 // ---------------------------------------------------------------------------
@@ -1935,6 +3873,7 @@ export function buildAsset(assetId: string, params?: Record<string, number | str
     }
   }
   if (assetId.startsWith('furniture.')) return buildFurniture(assetId)
+  if (assetId.startsWith('prop.')) return buildProp(assetId)
   if (assetId.startsWith('env.')) return buildEnv(assetId)
   if (assetId.startsWith('prim.')) return buildPrimitive(assetId)
   return buildFallback(assetId)

@@ -71,6 +71,53 @@ Requirements: Node 22+, and ffmpeg for exports (bundled via `ffmpeg-static` when
 
 See [docs/DESIGN.md](docs/DESIGN.md) (product + architecture), [docs/ROADMAP.md](docs/ROADMAP.md) (build plan + QA program), and [AGENTS.md](AGENTS.md) (how AI agents should build/run/modify this app). The deterministic core lives in `src/engine/` — pure TypeScript, no DOM, fully unit-tested; `state(t)` is a pure function shared by playback, video export, stills, and glTF baking.
 
+## Agent control (MCP)
+
+Blockout can be driven by an AI agent while it runs. Point **Claude Code, Codex, Hermes, or any MCP client** at the bundled MCP server and it can stage the scene, choreograph marks, reframe the camera, scrub the timeline, and pull a viewport screenshot — the same moves you'd make by hand.
+
+Register it with Claude Code in one line (use this repo's absolute path):
+
+```bash
+claude mcp add blockout -- node /Users/eklpse1/Desktop/blockout/mcp/blockout-mcp.mjs
+```
+
+For any other MCP client, add a stdio server:
+
+```json
+{
+  "mcpServers": {
+    "blockout": {
+      "command": "node",
+      "args": ["/Users/eklpse1/Desktop/blockout/mcp/blockout-mcp.mjs"]
+    }
+  }
+}
+```
+
+**Discovery and auth are automatic.** When Blockout launches it starts a localhost-only control server on a random port with a bearer token and writes both to `~/.config/blockout/control.json`. The MCP bridge (`mcp/blockout-mcp.mjs`, zero-dependency Node ≥18) reads that file — nothing to configure. If the app isn't running, the tools say so.
+
+Coordinates are in meters — +X right, −Z forward/away, heading 0 faces −Z, `rotationDeg` clockwise from above.
+
+| Tool | Params | Does |
+|---|---|---|
+| `get_state` | — | Project/scene/shot summary incl. entity + mark listings (call first) |
+| `list_assets` | `category?` | The placeable asset catalog |
+| `add_entity` | `assetId, x, z, label?, rotationDeg?` | Place something |
+| `move_entity` | `entityId, x, z, y?, rotationDeg?` | Reposition an entity |
+| `delete_entity` | `entityId` | Remove an entity |
+| `add_actor_mark` | `entityId, x, z, time, gait?` | Drop an actor timeline mark |
+| `add_camera_mark` | `x, y, z, panDeg, tiltDeg, time, focalLength?` | Drop a camera mark |
+| `clear_camera_marks` | — | Clear the active shot's camera marks |
+| `set_shot` | `name?, duration?, aspect?, fps?` | Update shot settings |
+| `new_shot` | `name?` | New shot, same blocking |
+| `apply_framing` | `kind: 2S\|OTS\|REV\|TOP\|LOW\|DUTCH` | Auto-frame the camera |
+| `snap_to_ground` | `entityId` | Rest an entity on the ground |
+| `set_time` / `play` / `stop` | `t` / — / — | Scrub, play, stop |
+| `screenshot` | — | Current viewport as a PNG (image result) |
+| `list_presets` / `save_preset` / `apply_preset` | — / `name` / `id` | Global stage presets |
+
+**Example:** launch the app (`npm run dev`) → `get_state` to see the scene → `add_entity` `{ "assetId": "person.man", "x": 0, "z": -3, "label": "HERO" }` → `screenshot` to confirm the placement.
+
 ## License & assets
 
 MIT. All 3D assets are procedurally generated in code — no external asset licenses involved.

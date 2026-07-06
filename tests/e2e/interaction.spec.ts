@@ -136,6 +136,10 @@ test('camera-move recording converts flight into camera marks', async () => {
 test('dragging the camera body commits to a camera mark', async () => {
   await page.evaluate(() => {
     const store = (window as any).__blockout.store.getState()
+    // The recording test ends in auto look-through playback (instant
+    // dailies); the camera BODY only exists in the editor view — exit first.
+    store.setPlaying(false)
+    store.setLookThrough(false)
     // Put the camera mark somewhere visible and reset the free view (the
     // recording test left both at arbitrary poses).
     store.mutate('reset cam', (doc: any) => {

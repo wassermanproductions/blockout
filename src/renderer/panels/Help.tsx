@@ -117,7 +117,32 @@ const TUTORIAL: { section: string; steps: Step[] }[] = [
             Faster than placing marks: select a character or car and press <b>● Record performer</b>.
             Move your cursor over the floor — they chase it, and your steering becomes marks with
             walking/jogging/running matched to your speed. <b>■ Stop</b> saves it. Re-record any
-            time; the new take replaces the old.
+            time; the new take replaces the old. While recording, the <b>scroll wheel is
+            altitude</b> — fly a plate across the room, land a plane, drop debris from a collapsing
+            building. A mark&apos;s exact height is editable later (<b>Altitude</b> on the mark).
+          </>
+        )
+      },
+      {
+        title: 'Board a bus, land a plane, get off',
+        body: (
+          <>
+            Action sequences chain with <b>Board on arrival</b>: select an actor&apos;s last mark and
+            set &quot;After reaching this mark, ride… the Bus&quot; — they walk on and move with it
+            from then on. The reverse (alighting) also works: <b>marry</b> a passenger to a parked
+            plane, then give the passenger marks that start after it lands — they ride until their
+            own marks begin, then step off and walk away.
+          </>
+        )
+      },
+      {
+        title: 'Fights, dances, stunts',
+        body: (
+          <>
+            Select a person and open <b>Motion presets</b> in the inspector: jab/cross, high kick,
+            knocked down, groove loop, robot, bow, dive dodge… <b>Apply</b> lays the move down as
+            pose marks starting at the playhead — then edit any of them like normal marks. Stage a
+            fight by applying strikes to one character and reactions to the other a beat later.
           </>
         )
       },
@@ -127,10 +152,15 @@ const TUTORIAL: { section: string; steps: Step[] }[] = [
           <>
             Select the camera (the white body in the viewport) and drag it, or press{' '}
             <Kbd>C</Kbd> to <b>look through</b> it and orbit the view to compose. Pick a lens
-            (12–135mm), or click a shot size (<b>WS/MS/CU</b>) to auto-frame your subject. Then{' '}
+            (12–135mm), or click a shot size (<b>WS/MS/CU</b>) to auto-frame your subject. For
+            coverage, the one-click framings do the classic setups: <b>2-SHOT</b> (select 3–4
+            people for a group shot), <b>OTS</b> over-the-shoulder, <b>REV</b> reverse angle,{' '}
+            <b>TOP</b> overhead, <b>LOW</b> hero angle, <b>DUTCH</b> tilted horizon. Then{' '}
             <b>+ Cam mark</b> drops camera Mark 1. Move, reframe, drop Mark 2 — the camera travels
             between them. Choose a <b>rig</b> for the motion feel: dolly, steadicam, handheld,
-            crane, drone, or car-mount (parents the camera to a moving vehicle).
+            crane, drone, or car-mount (parents the camera to a moving vehicle). If a move cuts
+            across your two leads&apos; eyeline, a <b>🎬 180° line</b> chip warns you on the
+            timeline.
           </>
         )
       },
@@ -242,7 +272,9 @@ const REFERENCE: { section: string; items: [string, string][] }[] = [
     section: 'Stage mode',
     items: [
       ['Library', 'Click an item, click the floor to place. ⌥-click places multiples. Search at the top.'],
-      ['Environments', 'One-click set shells: city street, house, nightclub, car interior, plane cabin…'],
+      ['Stage Presets', 'Save the current staging (set + characters + blocking) globally — "Dinner scene", "Driving scene" — and Stage it as a fresh scene in any project. The original never changes.'],
+      ['Environments', 'One-click set shells: restaurant, hospital, classroom, gym, courtroom, subway, beach, forest, bar, stage, city street, house, nightclub, car interior, plane cabin…'],
+      ['⬇ Ground', 'Rest the selection on whatever is beneath it — floor, tabletop, truck bed.'],
       ['Import 3D Model…', 'Bring in your own GLB/glTF; it is copied into the project.'],
       ['✨ Populate from reference…', 'AI stages the scene from a photo/video frame (needs Claude API key).'],
       ['Labels', 'Name + color a subject; tints the model and guides the AI generator.'],
@@ -263,6 +295,11 @@ const REFERENCE: { section: string; items: [string, string][] }[] = [
       ['Cameras A/B/C', '+ adds a camera with its own marks/rig/lens; chips switch; export uses the active one.'],
       ['Rigs', 'Sticks, dolly, steadicam, handheld (intensity), crane, drone, car-mount (parent to a vehicle).'],
       ['Auto-frame', 'WS/FS/MS/MCU/CU position the camera for that shot size on your subject at the current lens.'],
+      ['Framings', '2-SHOT / OTS / REV / TOP / LOW / DUTCH — classic setups in one click, on the selected characters.'],
+      ['Motion presets', 'Fight, dance, gesture, and stunt moves applied as editable pose marks at the playhead.'],
+      ['Board on arrival', 'On an actor mark: after reaching it, ride a vehicle/prop. Marry + later marks = get off.'],
+      ['Flying objects', 'While recording a performer, scroll = altitude; or set a mark’s Altitude by hand.'],
+      ['180° line', 'A 🎬 chip warns when the camera crosses your two leads’ axis between marks.'],
       ['Shot preview', 'Always-live picture-in-picture of the shot camera; S/M/L sizes.'],
       ['Drafts', '+ Draft on the shot row snapshots a version (1A v1); ▲ promotes it back; ✕ deletes.'],
       ['🎞 Ref', 'Ghost a reference video over the viewport, timeline-synced, to match its blocking.'],
@@ -287,7 +324,8 @@ const REFERENCE: { section: string; items: [string, string][] }[] = [
       ['Projects', 'A project is a folder of readable JSON — safe to back up, sync, or put in git.'],
       ['Autosave', 'A backup writes every minute; after a crash, Open Project restores unsaved work.'],
       ['Coverage', 'The scene owns the blocking; each shot owns a camera — shoot the same action from any angle without redoing moves.'],
-      ['AI setup', 'Populate-from-reference needs a Claude API key: `ant auth login`, or save it to ~/.config/blockout/anthropic-api-key.']
+      ['AI setup', 'Populate-from-reference needs a Claude API key: `ant auth login`, or save it to ~/.config/blockout/anthropic-api-key.'],
+      ['Agent control (MCP)', 'Other AI agents can drive Blockout: register mcp/blockout-mcp.mjs with Claude Code, Codex, or Hermes and they can stage scenes, frame shots, and screenshot the viewport. See AGENTS.md.']
     ]
   }
 ]

@@ -8,6 +8,8 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
 import { mkdir, readFile, writeFile, copyFile, access, stat, rm } from 'fs/promises'
 import { join, dirname, basename, extname, resolve, sep } from 'path'
+import { registerPresetsIpc } from './presets'
+import { startControlServer } from './control'
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL
 
@@ -44,6 +46,8 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   createWindow()
+  registerPresetsIpc()
+  void startControlServer(() => mainWindow)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

@@ -131,6 +131,10 @@ interface BlockoutState {
   clearCameraMarks(): void
   /** Snapshot the current shot as a draft version ("1A v2"). */
   saveDraftOfShot(): void
+  /** Save the current scene's staging as a reusable, globally persistent preset. */
+  saveStagePreset(name: string): Promise<void>
+  /** Stage a preset into a brand-new scene (originals stay untouched). */
+  applyStagePreset(id: string): Promise<void>
   /** Copy a draft's content back into its main shot. */
   promoteDraft(draftId: string): void
   deleteDraft(draftId: string): void
@@ -224,7 +228,17 @@ export const useStore = create<BlockoutState>((set, get) => ({
     // Mode switches remount the viewport and scene/shot switches rebuild the
     // evaluator — both would corrupt an in-flight export.
     if (get().exportProgress.running) return
-    set({ mode, placingAssetId: null, droppingMarks: false })
+    // Leaving for another mode must never trap the user in the camera view
+    // (look-through has no exit button outside Shoot) or keep a recording
+    // rolling against a viewport that no longer shows it.
+    set({
+      mode,
+      placingAssetId: null,
+      droppingMarks: false,
+      lookThrough: false,
+      recording: false,
+      playing: mode === 'deliver' ? get().playing : false
+    })
   },
   selectScene(sceneId) {
     if (get().exportProgress.running) return
@@ -666,6 +680,84 @@ export const useStore = create<BlockoutState>((set, get) => ({
       if (shotId === draftId) fallback = draft?.draftOf ?? scene.shots[0]?.id ?? null
     })
     if (fallback) set({ shotId: fallback, time: 0, playing: false })
+  },
+
+  async saveStagePreset(name) {
+    const scene = get().scene()
+    if (!scene) return
+    // A preset is the STAGING: entities + environment + blocking choreography.
+    // Shots/cameras stay with the project — presets are starting points.
+    const payload = {
+      presetVersion: 1,
+      name,
+      environment: structuredClone(scene.environment),
+      entities: structuredClone(scene.entities),
+      blocking: structuredClone(scene.blocking)
+    }
+    const res = await window.blockout.presetSave(name, JSON.stringify(payload))
+    if (res.ok) get().toast(`Preset "${name}" saved — reuse it from the Library in any project.`, 'success')
+    else get().toast(`Could not save preset: ${res.error ?? 'unknown error'}`, 'error')
+  },
+
+  async applyStagePreset(id) {
+    const json = await window.blockout.presetLoad(id)
+    if (!json) {
+      get().toast('Preset not found — it may have been deleted.', 'error')
+      return
+    }
+    let payload: {
+      name?: string
+      environment?: Scene['environment']
+      entities?: Scene['entities']
+      blocking?: Scene['blocking']
+    }
+    try {
+      payload = JSON.parse(json)
+    } catch {
+      get().toast('Preset file is corrupted.', 'error')
+      return
+    }
+    // Stage into a brand-new scene with fresh ids so the preset (and any
+    // scene it was saved from) is never mutated by later edits.
+    let newSceneId: string | null = null
+    get().mutate('apply stage preset', (doc) => {
+      const scene = createScene(doc.scenes.length + 1)
+      if (payload.name) scene.name = payload.name
+      if (payload.environment) scene.environment = structuredClone(payload.environment)
+      const idMap = new Map<string, string>()
+      for (const src of payload.entities ?? []) {
+        const e = structuredClone(src)
+        const fresh = newId('ent')
+        idMap.set(e.id, fresh)
+        e.id = fresh
+        scene.entities.push(e)
+      }
+      // Remap marriages and choreography onto the fresh entity ids.
+      for (const e of scene.entities) {
+        if (e.attachedTo) e.attachedTo = idMap.get(e.attachedTo) ?? undefined
+      }
+      const master = scene.blocking[0]!
+      for (const take of payload.blocking ?? []) {
+        for (const track of take.tracks) {
+          const entityId = idMap.get(track.entityId)
+          if (!entityId) continue
+          master.tracks.push({
+            entityId,
+            marks: track.marks.map((m) => ({
+              ...structuredClone(m),
+              id: newId('mark'),
+              attachTo: m.attachTo ? idMap.get(m.attachTo) : undefined
+            }))
+          })
+        }
+      }
+      doc.scenes.push(scene)
+      newSceneId = scene.id
+    })
+    if (newSceneId) {
+      get().selectScene(newSceneId)
+      get().toast(`Staged "${payload.name ?? 'preset'}" as a new scene — the original preset is untouched.`, 'success')
+    }
   },
 
   toast(text, kind = 'info') {

@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
-import { emit } from '../bus'
+import { emit, type FramingKind } from '../bus'
 import { SceneManager } from './SceneManager'
 import { registerSceneManager, getSceneManager as getSceneManagerSafe } from '../export/scene-access'
 import { ReferenceUnderlay, ReferenceControls } from './ReferenceUnderlay'
@@ -89,6 +89,27 @@ function ShotSizeRow(): JSX.Element {
           onClick={() => emit('frameSubject', { size })}
         >
           {size}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** One-click cinematography framings — writes the active camera mark. */
+function FramingRow(): JSX.Element {
+  const framings: { kind: FramingKind; label: string; title: string }[] = [
+    { kind: '2S', label: '2-SHOT', title: 'Two-shot: fit the two characters side by side (select 3–4 for a group shot)' },
+    { kind: 'OTS', label: 'OTS', title: 'Over-the-shoulder: behind the near character, looking at the other' },
+    { kind: 'REV', label: 'REV', title: 'Reverse angle: swing the camera 180° around the subjects' },
+    { kind: 'TOP', label: 'TOP', title: 'Overhead: straight down, fitting everyone in frame' },
+    { kind: 'LOW', label: 'LOW', title: 'Low angle: knee height, looking up at the subject' },
+    { kind: 'DUTCH', label: 'DUTCH', title: 'Dutch angle: tilt the horizon (click again to flip, again to level)' }
+  ]
+  return (
+    <div className="tool-row">
+      {framings.map((f) => (
+        <button key={f.kind} className="btn small" title={f.title} onClick={() => emit('applyFraming', { kind: f.kind })}>
+          {f.label}
         </button>
       ))}
     </div>
@@ -238,7 +259,18 @@ export function Viewport(): JSX.Element {
             </div>
           )}
           {mode === 'shoot' && <ShotSizeRow />}
+          {mode === 'shoot' && <FramingRow />}
           <GizmoModeRow />
+          <div className="tool-row">
+            <button
+              className="btn small"
+              disabled={!selection || (selection.kind !== 'entity' && selection.kind !== 'entities')}
+              onClick={() => getSceneManagerSafe()?.snapSelectionToGround()}
+              title="Rest the selection on whatever is beneath it — floor, table, truck bed"
+            >
+              ⬇ Ground
+            </button>
+          </div>
         </div>
       )}
       {mode === 'shoot' && <ReferenceUnderlay />}

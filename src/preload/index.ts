@@ -33,6 +33,16 @@ export interface BlockoutAPI {
   exportConcat(outPath: string, inputPaths: string[]): Promise<{ ok: boolean; error?: string }>
   onExportClosed(cb: (jobId: string, code: number, log: string) => void): () => void
   versions(): Promise<{ app: string; electron: string; node: string }>
+  /** Stage presets: reusable staging setups saved globally (~/.config/blockout/presets). */
+  presetsList(): Promise<{ id: string; name: string; savedAt: string; entityCount: number }[]>
+  presetSave(name: string, json: string): Promise<{ ok: boolean; id?: string; error?: string }>
+  presetLoad(id: string): Promise<string | null>
+  presetDelete(id: string): Promise<boolean>
+  /** Agent control server (MCP): renderer receives actions, replies with results. */
+  onControlInvoke(
+    cb: (id: string, action: string, params: unknown) => void
+  ): () => void
+  controlResult(id: string, result: { ok: boolean; data?: unknown; error?: string }): void
   /** Analyze a reference image/video with Claude and return a scene layout. */
   analyzeReference(filePath: string): Promise<
     | {
@@ -79,6 +89,17 @@ const api: BlockoutAPI = {
     ipcRenderer.on('export:closed', listener)
     return () => ipcRenderer.removeListener('export:closed', listener)
   },
+  presetsList: () => ipcRenderer.invoke('presets:list'),
+  presetSave: (name, json) => ipcRenderer.invoke('presets:save', name, json),
+  presetLoad: (id) => ipcRenderer.invoke('presets:load', id),
+  presetDelete: (id) => ipcRenderer.invoke('presets:delete', id),
+  onControlInvoke: (cb) => {
+    const listener = (_e: unknown, id: string, action: string, params: unknown) =>
+      cb(id, action, params)
+    ipcRenderer.on('control:invoke', listener)
+    return () => ipcRenderer.removeListener('control:invoke', listener)
+  },
+  controlResult: (id, result) => ipcRenderer.send('control:result', id, result),
   versions: () => ipcRenderer.invoke('app:versions'),
   analyzeReference: (filePath) => ipcRenderer.invoke('ai:analyzeReference', filePath)
 }

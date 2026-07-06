@@ -16,7 +16,12 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { ShotEvaluator } from '@engine/evaluate'
 import { newId } from '@engine/ids'
 import { GAITS } from '@engine/gaits'
-import { frameSubject as frameSubjectMath, ASPECT_RATIOS } from '@engine/camera'
+import {
+  frameSubject as frameSubjectMath,
+  ASPECT_RATIOS,
+  horizontalFov,
+  verticalFov
+} from '@engine/camera'
 import { entityHeight } from '@engine/assets'
 import { headingOf } from '@engine/path'
 import type { Entity, LightingPresetId, Scene as DocScene, Shot } from '@engine/types'
@@ -113,13 +118,15 @@ export class SceneManager {
 
   /** Live performance-recording state (camera flight or entity puppeteering). */
   private recSamples: { t: number; pos: THREE.Vector3; pan: number; tilt: number; roll: number }[] = []
-  private entitySamples: { t: number; x: number; z: number }[] = []
+  private entitySamples: { t: number; x: number; y: number; z: number }[] = []
   private recStartedAt = 0
   private recLens = 35
   /** 'camera' or the entity id being puppeteered. */
   private recTarget: string = 'camera'
   /** True when recording against the playback clock (other motion replays). */
   private recPlaybackSynced = false
+  /** Flight altitude of the puppeteered entity (scroll wheel adjusts it). */
+  private recHeight = 0
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -202,6 +209,7 @@ export class SceneManager {
 
     canvas.addEventListener('pointerdown', this.onPointerDown)
     canvas.addEventListener('pointermove', this.onPointerMove)
+    canvas.addEventListener('wheel', this.onWheel, { passive: false })
     window.addEventListener('keydown', this.onKeyDown)
 
     // Store subscriptions: rebuild world on doc/scene/shot change.
@@ -226,6 +234,7 @@ export class SceneManager {
 
     // Bus commands
     this.unsubscribers.push(on('frameSubject', ({ size }) => this.autoFrame(size)))
+    this.unsubscribers.push(on('applyFraming', ({ kind }) => this.applyFraming(kind)))
     this.unsubscribers.push(on('setLens', ({ focalLength }) => this.setLens(focalLength)))
     this.unsubscribers.push(on('dropCameraMarkAtView', () => this.dropCameraMarkAtView()))
     this.unsubscribers.push(
@@ -254,6 +263,7 @@ export class SceneManager {
     this.unsubscribers.forEach((u) => u())
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
     this.canvas.removeEventListener('pointermove', this.onPointerMove)
+    this.canvas.removeEventListener('wheel', this.onWheel)
     window.removeEventListener('keydown', this.onKeyDown)
     this.controls.dispose()
     this.transform.dispose()
@@ -520,6 +530,16 @@ export class SceneManager {
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
       -((e.clientY - rect.top) / rect.height) * 2 + 1
     )
+  }
+
+  /** While puppeteering, the scroll wheel is the ALTITUDE control — fly a
+   *  plate, a plane, or a chunk of collapsing building through the air. */
+  private onWheel = (e: WheelEvent): void => {
+    const s = this.currentState()
+    if (!s.recording || this.recTarget === 'camera') return // orbit zoom otherwise
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    this.recHeight = Math.min(60, Math.max(0, this.recHeight - e.deltaY * 0.01))
   }
 
   private onPointerMove = (e: PointerEvent): void => {
@@ -872,6 +892,49 @@ export class SceneManager {
     s.setSelection(null)
   }
 
+  /**
+   * Ground snap: rest each selected entity's base on whatever is under it
+   * (the floor, a table, a truck bed) — one click, no fiddling with Y.
+   */
+  snapSelectionToGround(): void {
+    const s = this.currentState()
+    const ids = selectedEntityIds(s.selection)
+    if (ids.length === 0) {
+      s.toast('Select something to snap to the ground first.', 'info')
+      return
+    }
+    const updates = new Map<string, number>()
+    for (const id of ids) {
+      const visual = this.visuals.get(id)
+      if (!visual) continue
+      const box = new THREE.Box3().setFromObject(visual.root)
+      if (box.isEmpty()) continue
+      // Surface under the entity's center, ignoring itself.
+      const center = box.getCenter(new THREE.Vector3())
+      const down = new THREE.Raycaster(
+        new THREE.Vector3(center.x, box.min.y - 0.01, center.z),
+        new THREE.Vector3(0, -1, 0)
+      )
+      const others: THREE.Object3D[] = []
+      for (const [otherId, v] of this.visuals) if (otherId !== id) others.push(v.root)
+      const hits = down
+        .intersectObjects(others, true)
+        .filter((h) => !(h.object instanceof THREE.Sprite))
+      const surfaceY = hits.length > 0 ? Math.max(0, hits[0]!.point.y) : 0
+      const newY = visual.root.position.y + (surfaceY - box.min.y)
+      updates.set(id, newY)
+    }
+    if (updates.size === 0) return
+    s.mutate('snap to ground', (doc) => {
+      for (const scene of doc.scenes) {
+        for (const [id, y] of updates) {
+          const entity = scene.entities.find((e) => e.id === id)
+          if (entity && !entity.attachedTo) entity.transform.position.y = y
+        }
+      }
+    })
+  }
+
   /* --------------------------- camera commands -------------------------- */
 
   private currentLens(): number {
@@ -978,6 +1041,230 @@ export class SceneManager {
     s.setSelection({ kind: 'camera' })
   }
 
+  /* --------------------------- framing presets --------------------------- */
+
+  /**
+   * Subjects for framing presets: the selected entities if any are people
+   * (or anything explicitly selected), otherwise every person in the scene.
+   * Evaluated at the playhead so mid-move blocking frames correctly.
+   */
+  private framingSubjects(): { id: string; pos: THREE.Vector3; height: number }[] {
+    if (!this.evaluator || !this.docScene) return []
+    const s = this.currentState()
+    const state = this.evaluator.evaluate(s.time)
+    const selected = selectedEntityIds(s.selection)
+    let entities = this.docScene.entities.filter((e) => selected.includes(e.id))
+    if (entities.length < 2) {
+      entities = this.docScene.entities.filter((e) => e.assetId.startsWith('person.'))
+    }
+    if (entities.length === 0) entities = this.docScene.entities.slice(0, 2)
+    const out: { id: string; pos: THREE.Vector3; height: number }[] = []
+    for (const e of entities) {
+      const es = state.entities.find((x) => x.entityId === e.id)
+      if (!es) continue
+      out.push({
+        id: e.id,
+        pos: new THREE.Vector3(es.position.x, es.position.y, es.position.z),
+        height: entityHeight(e.assetId, e.transform.scale, e.params)
+      })
+    }
+    return out
+  }
+
+  /** Write a full pose to the active camera mark (or drop one if none). */
+  private writeCameraPose(
+    label: string,
+    pos: THREE.Vector3,
+    pan: number,
+    tilt: number,
+    roll?: number
+  ): void {
+    const s = this.currentState()
+    const lens = this.currentLens()
+    const mark = this.activeCameraMark()
+    if (!mark) {
+      s.dropCameraMark({ x: pos.x, y: pos.y, z: pos.z }, pan, tilt, lens)
+      if (roll !== undefined) {
+        const fresh = this.activeCameraMark()
+        if (fresh) {
+          s.mutate(label, (doc) => {
+            for (const scene of doc.scenes)
+              for (const shot of scene.shots) {
+                const m = shot.camera.marks.find((x) => x.id === fresh.id)
+                if (m) m.roll = roll
+              }
+          })
+        }
+      }
+    } else {
+      s.mutate(label, (doc) => {
+        for (const scene of doc.scenes)
+          for (const shot of scene.shots) {
+            const m = shot.camera.marks.find((x) => x.id === mark.id)
+            if (m) {
+              m.position = { x: pos.x, y: pos.y, z: pos.z }
+              m.pan = pan
+              m.tilt = tilt
+              if (roll !== undefined) m.roll = roll
+            }
+          }
+      })
+    }
+    s.setSelection({ kind: 'camera' })
+  }
+
+  private panTiltToward(from: THREE.Vector3, to: THREE.Vector3): { pan: number; tilt: number } {
+    const pan = headingOf({ x: to.x - from.x, y: 0, z: to.z - from.z })
+    const flat = Math.hypot(to.x - from.x, to.z - from.z)
+    const tilt = Math.atan2(to.y - from.y, Math.max(flat, 1e-4))
+    return { pan, tilt }
+  }
+
+  /** One-click cinematography: 2-shot, OTS, reverse, overhead, low, dutch. */
+  applyFraming(kind: import('../bus').FramingKind): void {
+    const s = this.currentState()
+    if (!this.shot || !this.evaluator) return
+    const subjects = this.framingSubjects()
+    const camState = this.evaluator.evaluate(s.time).camera
+    const camPos = new THREE.Vector3(
+      camState.position.x,
+      camState.position.y,
+      camState.position.z
+    )
+    if (subjects.length === 0) {
+      s.toast('Place at least one character first.', 'info')
+      return
+    }
+    const primary = subjects[0]!
+    const lens = this.currentLens()
+    const aspect = this.shot.aspect
+    const sensor = this.shot.camera.sensorId
+
+    if (kind === 'DUTCH') {
+      // Cycle the tilt of the horizon: level → right → left → level.
+      const mark = this.activeCameraMark()
+      const current = mark?.roll ?? 0
+      const next = Math.abs(current) < 0.05 ? 0.35 : current > 0 ? -0.35 : 0
+      const { pan, tilt } = this.panTiltToward(
+        camPos,
+        primary.pos.clone().add(new THREE.Vector3(0, primary.height * 0.85, 0))
+      )
+      this.writeCameraPose(
+        'dutch angle',
+        camPos,
+        mark ? mark.pan : pan,
+        mark ? mark.tilt : tilt,
+        next
+      )
+      s.toast(next === 0 ? 'Horizon level' : `Dutch ${next > 0 ? 'right' : 'left'}`, 'info')
+      return
+    }
+
+    if (kind === 'REV') {
+      // Reverse angle: swing 180° about the subjects' midpoint, same distance.
+      const mid =
+        subjects.length >= 2
+          ? subjects[0]!.pos.clone().add(subjects[1]!.pos).multiplyScalar(0.5)
+          : primary.pos.clone()
+      const pos = new THREE.Vector3(2 * mid.x - camPos.x, camPos.y, 2 * mid.z - camPos.z)
+      const look = mid.clone().setY(primary.pos.y + primary.height * 0.75)
+      const { pan, tilt } = this.panTiltToward(pos, look)
+      this.writeCameraPose('reverse angle', pos, pan, tilt)
+      return
+    }
+
+    if (kind === 'OTS') {
+      if (subjects.length < 2) {
+        s.toast('Over-the-shoulder needs two characters — select both.', 'info')
+        return
+      }
+      // Foreground shoulder = the subject closer to the current camera.
+      const [a, b] = subjects
+      const near = camPos.distanceTo(a!.pos) <= camPos.distanceTo(b!.pos) ? a! : b!
+      const far = near === a ? b! : a!
+      const back = near.pos.clone().sub(far.pos).setY(0).normalize()
+      if (back.lengthSq() < 1e-6) back.set(0, 0, 1)
+      const side = new THREE.Vector3(back.z, 0, -back.x)
+      // Keep the camera's current side of the axis so cutting stays on-line.
+      const camSide = camPos.clone().sub(near.pos)
+      if (camSide.dot(side) < 0) side.negate()
+      const pos = near.pos
+        .clone()
+        .add(back.multiplyScalar(0.75))
+        .add(side.multiplyScalar(0.45))
+        .setY(near.pos.y + near.height * 0.92)
+      const look = far.pos.clone().setY(far.pos.y + far.height * 0.88)
+      const { pan, tilt } = this.panTiltToward(pos, look)
+      this.writeCameraPose('over-the-shoulder', pos, pan, tilt)
+      return
+    }
+
+    if (kind === 'TOP') {
+      // Overhead: fit everyone with the vertical FOV, looking straight down.
+      const mid = new THREE.Vector3()
+      for (const sub of subjects) mid.add(sub.pos)
+      mid.multiplyScalar(1 / subjects.length)
+      let span = 3
+      for (const sub of subjects) span = Math.max(span, mid.distanceTo(sub.pos) * 2 + 2)
+      const vfov = verticalFov(sensor, lens, aspect)
+      const h = Math.max(4, span / 2 / Math.tan(vfov / 2) + 1)
+      const pos = new THREE.Vector3(mid.x, mid.y + h, mid.z + 0.01)
+      this.writeCameraPose('overhead', pos, camState.pan, -Math.PI / 2 + 0.001)
+      return
+    }
+
+    if (kind === 'LOW') {
+      // Low angle: knee height, looking up at the primary subject's head.
+      const toCam = camPos.clone().sub(primary.pos).setY(0)
+      if (toCam.lengthSq() < 1e-4) toCam.set(0, 0, 1)
+      const dist = THREE.MathUtils.clamp(toCam.length(), 1.6, 4)
+      toCam.normalize()
+      const pos = primary.pos
+        .clone()
+        .add(toCam.multiplyScalar(dist))
+        .setY(primary.pos.y + 0.35)
+      const look = primary.pos.clone().setY(primary.pos.y + primary.height * 0.95)
+      const { pan, tilt } = this.panTiltToward(pos, look)
+      this.writeCameraPose('low angle', pos, pan, tilt)
+      return
+    }
+
+    // 2S — group framing perpendicular to the pair (works for 3/4-shots too:
+    // it fits however many subjects are selected).
+    if (subjects.length < 2) {
+      s.toast('A two-shot needs two characters — select them first.', 'info')
+      return
+    }
+    const a = subjects[0]!
+    const b = subjects[subjects.length - 1]!
+    const mid = new THREE.Vector3()
+    for (const sub of subjects) mid.add(sub.pos)
+    mid.multiplyScalar(1 / subjects.length)
+    const axis = b.pos.clone().sub(a.pos).setY(0)
+    if (axis.lengthSq() < 1e-6) axis.set(1, 0, 0)
+    axis.normalize()
+    const perp = new THREE.Vector3(axis.z, 0, -axis.x)
+    // Stay on the camera's current side of the line (the 180° rule).
+    if (camPos.clone().sub(mid).dot(perp) < 0) perp.negate()
+    let span = 0
+    for (const sub of subjects) {
+      span = Math.max(span, Math.abs(sub.pos.clone().sub(mid).dot(axis)) * 2)
+    }
+    span += 1.6 // shoulder margin on both ends
+    const tallest = Math.max(...subjects.map((sub) => sub.height))
+    const hfov = horizontalFov(sensor, lens)
+    const vfov = verticalFov(sensor, lens, aspect)
+    const dist = Math.max(
+      span / 2 / Math.tan(hfov / 2),
+      (tallest + 0.4) / 2 / Math.tan(vfov / 2),
+      1.5
+    )
+    const pos = mid.clone().add(perp.multiplyScalar(dist)).setY(mid.y + tallest * 0.62)
+    const look = mid.clone().setY(mid.y + tallest * 0.55)
+    const { pan, tilt } = this.panTiltToward(pos, look)
+    this.writeCameraPose(subjects.length > 2 ? 'group shot' : 'two-shot', pos, pan, tilt)
+  }
+
   /* ------------------------------ recording ----------------------------- */
 
   private beginRecording(): void {
@@ -1018,10 +1305,14 @@ export class SceneManager {
         'info'
       )
     } else {
+      // Start the flight plane at the entity's current altitude so props
+      // already in the air (or on tables) record from where they sit.
+      this.recHeight = this.visuals.get(this.recTarget)?.root.position.y ?? 0
+      this.controls.enableZoom = false // wheel = altitude while puppeteering
       s.toast(
         this.recPlaybackSynced
-          ? 'Recording performance — move the cursor over the floor to puppeteer while the rest replays.'
-          : 'Recording performance — move the cursor over the floor; the character follows it. Click ■ to stop.',
+          ? 'Recording performance — steer with the cursor while the rest replays. Scroll = altitude.'
+          : 'Recording performance — steer with the cursor; scroll wheel raises/lowers it (fly a plate, a plane, debris). Click ■ to stop.',
         'info'
       )
     }
@@ -1030,6 +1321,7 @@ export class SceneManager {
   private finishRecording(): void {
     const s = this.currentState()
     s.setPlaying(false)
+    this.controls.enableZoom = true
     if (this.recTarget !== 'camera') {
       this.finishEntityRecording()
       return
@@ -1121,7 +1413,7 @@ export class SceneManager {
         hold: 0,
         easeIn: 0,
         easeOut: 0,
-        position: { x: sm.x, y: 0, z: sm.z },
+        position: { x: sm.x, y: sm.y, z: sm.z }, // altitude preserved — flights replay
         gait
       })
       prev = { x: sm.x, z: sm.z }
@@ -1328,19 +1620,22 @@ export class SceneManager {
           roll: e.z
         })
       } else {
-        // Puppeteer: the selected entity chases the ground point under the
-        // cursor, facing its direction of travel.
+        // Puppeteer: the selected entity chases the point under the cursor
+        // on its FLIGHT PLANE (scroll wheel raises/lowers it — a plate can
+        // arc through the air, a plane can climb), facing travel direction.
         this.raycaster.setFromCamera(this.lastPointerNdc, this.freeCam)
-        const point = this.groundHit()
+        const flightPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.recHeight)
+        const point = new THREE.Vector3()
+        const hit = this.raycaster.ray.intersectPlane(flightPlane, point)
         const visual = this.visuals.get(this.recTarget)
-        if (point && visual) {
+        if (hit && visual) {
           const dx = point.x - visual.root.position.x
           const dz = point.z - visual.root.position.z
           if (dx * dx + dz * dz > 1e-6) {
             visual.root.rotation.y = headingOf({ x: dx, y: 0, z: dz })
           }
-          visual.root.position.set(point.x, 0, point.z)
-          this.entitySamples.push({ t, x: point.x, z: point.z })
+          visual.root.position.set(point.x, this.recHeight, point.z)
+          this.entitySamples.push({ t, x: point.x, y: this.recHeight, z: point.z })
         }
       }
       // Auto-stop: at the end of the shot when synced, at 60s otherwise.

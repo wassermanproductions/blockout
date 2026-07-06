@@ -252,6 +252,15 @@ export function Timeline(): JSX.Element {
           </select>
         </label>
         <div className="timeline-warnings">
+          {evaluator?.lineCrossings().map((c) => (
+            <span
+              key={`line-${c.fromMark}-${c.toMark}`}
+              className="warning-chip"
+              title="The camera crosses the 180° line (the axis between your two lead characters) between these marks — screen direction will flip. Intentional crossings are fine; otherwise keep coverage on one side."
+            >
+              🎬 180° line crossed: cam mark {c.fromMark} → {c.toMark}
+            </span>
+          ))}
           {evaluator?.warnings().map((w) => (
             <span
               key={`${w.entityId}-${w.legIndex}`}
