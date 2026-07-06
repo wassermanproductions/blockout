@@ -1,7 +1,7 @@
 /** v2.0: version bump and the expanded location/prop catalog. */
 
 import { _electron as electron, test, expect, type ElectronApplication, type Page } from '@playwright/test'
-import { mkdtempSync } from 'fs'
+import { mkdtempSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -24,9 +24,11 @@ test.afterAll(async () => {
   await app?.close()
 })
 
-test('app reports version 2.0.0', async () => {
+test('app reports the package.json version', async () => {
   const v = await page.evaluate(() => (window as any).blockout.versions())
-  expect(v.app).toBe('2.0.0')
+  // Read the source of truth so version bumps don't break the suite.
+  const pkg = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf8'))
+  expect(v.app).toBe(pkg.version)
 })
 
 test('v2 locations place and build without errors', async () => {

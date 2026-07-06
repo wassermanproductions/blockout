@@ -65,11 +65,22 @@ export function Timeline(): JSX.Element {
   const take = scene.blocking.find((b) => b.id === shot.blockingTakeId)
 
   /* --------------------------- build the lanes --------------------------- */
+  const selectAllMarksInLane = useStore.getState().selectAllMarksInLane
+  const laneLabelProps = (entityId: string | 'camera'): React.HTMLAttributes<HTMLSpanElement> => ({
+    onClick: () => selectAllMarksInLane(entityId),
+    style: { cursor: 'pointer' },
+    title: 'Click: select ALL marks in this lane (⌫ deletes them together)'
+  })
+
   const lanes: Lane[] = []
   lanes.push({
     key: 'camera',
     entityId: 'camera',
-    label: <span className="timeline-track-label">🎥 CAMERA</span>,
+    label: (
+      <span className="timeline-track-label" {...laneLabelProps('camera')}>
+        🎥 CAMERA
+      </span>
+    ),
     marks: shot.camera.marks
   })
   if (take) {
@@ -82,7 +93,7 @@ export function Timeline(): JSX.Element {
         key: entity.id,
         entityId: entity.id,
         label: (
-          <span className="timeline-track-label">
+          <span className="timeline-track-label" {...laneLabelProps(entity.id)}>
             <span
               style={{
                 width: 10,
@@ -251,6 +262,14 @@ export function Timeline(): JSX.Element {
             <option value={30}>30</option>
           </select>
         </label>
+        <button
+          className="btn small"
+          disabled={!anyMarks}
+          onClick={() => useStore.getState().selectAllMarks()}
+          title="Select every mark on every lane (⌘A) — then ⌫ deletes them all, or shift times together in the inspector"
+        >
+          Select all
+        </button>
         <div className="timeline-warnings">
           {evaluator?.lineCrossings().map((c) => (
             <span
@@ -366,7 +385,7 @@ function Lane({
             selection.entityId === lane.entityId &&
             selection.markId === mark.id) ||
           (selection?.kind === 'marks' &&
-            selection.entityId === lane.entityId &&
+            (selection.entityId === lane.entityId || selection.entityId === '*') &&
             selection.markIds.includes(mark.id))
         return (
           <div

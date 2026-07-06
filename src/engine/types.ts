@@ -170,6 +170,13 @@ export interface ShotCamera {
   seed: number
   /** Entity to parent the camera to (carMount rig). */
   mountEntityId?: string
+  /**
+   * Aim lock: keep the camera pointed at this entity no matter how the
+   * position moves (marks, recorded flights, presets). Pan/tilt from marks
+   * are ignored while set; roll and lens still apply. Focus follows the
+   * subject when no mark sets a focusDistance.
+   */
+  trackEntityId?: string
   marks: CameraMark[]
 }
 

@@ -172,6 +172,45 @@ const TOOLS = [
     }
   },
   {
+    name: 'list_camera_moves',
+    description:
+      'List the classic camera-move presets (orbits, cranes, drone follows, vertigo dolly-zoom, whip pan…) with ids, categories, and descriptions. Call before apply_camera_move.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+  },
+  {
+    name: 'apply_camera_move',
+    description:
+      "Apply a classic camera-move preset to the active shot camera: generates a full set of camera marks over the shot built around a subject, riding along if the subject moves (e.g. drone-follow a flying plane). Track-style moves also enable aim-lock. Replaces the camera's existing marks.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        presetId: {
+          type: 'string',
+          description:
+            'Preset id from list_camera_moves (e.g. "orbit-180", "follow-behind", "vertigo-dolly-zoom").'
+        },
+        entityId: {
+          type: 'string',
+          description: 'Subject to build the move around. Omit to use the first person in the scene.'
+        }
+      },
+      required: ['presetId'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'set_track_subject',
+    description:
+      'Aim-lock the shot camera onto an entity: the camera stays pointed at it no matter how its position moves (marks, recordings, presets). Pass no entityId to turn tracking off.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entityId: { type: 'string', description: 'Entity id to track; omit to disable tracking.' }
+      },
+      additionalProperties: false
+    }
+  },
+  {
     name: 'snap_to_ground',
     description: 'Drop an entity so it rests on the ground plane (y = 0 at its feet).',
     inputSchema: {

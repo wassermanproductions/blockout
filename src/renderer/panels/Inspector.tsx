@@ -13,8 +13,10 @@ import { SENSORS, LENS_SET } from '@engine/camera'
 import { GAITS } from '@engine/gaits'
 import { RIGS } from '@engine/rigs'
 import { MOTION_PRESETS, type MotionPreset } from '@engine/motions'
+import { CAMERA_MOVE_PRESETS } from '@engine/camera-moves'
 import { ShotEvaluator } from '@engine/evaluate'
 import { newId } from '@engine/ids'
+import { getSceneManager } from '../export/scene-access'
 import type {
   ActorMark,
   CameraMark,
@@ -834,11 +836,28 @@ function MultiMarkInspector({
   markIds: string[]
 }): JSX.Element {
   const mutate = useMutate()
-  const setSelection = useStore((s) => s.setSelection)
   const [offset, setOffset] = useState(0)
 
   const isCamera = entityId === 'camera'
+  const allLanes = entityId === '*' // "select all marks" spans every lane
   const idSet = new Set(markIds)
+
+  /** Every mark array this selection can touch (camera and/or tracks). */
+  const eachTargetList = (
+    doc: ProjectDoc,
+    fn: (marks: { id: string; time: number }[]) => void
+  ): void => {
+    const sh = findShotOrDraft(doc, scene.id, shot.id)
+    if (!sh) return
+    if (allLanes || isCamera) fn(sh.camera.marks)
+    if (allLanes || !isCamera) {
+      const sc = findScene(doc, scene.id)
+      const tk = sc?.blocking.find((b) => b.id === sh.blockingTakeId)
+      for (const tr of tk?.tracks ?? []) {
+        if (allLanes || tr.entityId === entityId) fn(tr.marks)
+      }
+    }
+  }
 
   return (
     <div>
@@ -866,20 +885,11 @@ function MultiMarkInspector({
             style={{ alignSelf: 'flex-end' }}
             onClick={() => {
               mutate('shift marks', (doc) => {
-                const sh = findShotOrDraft(doc, scene.id, shot.id)
-                if (!sh) return
-                if (isCamera) {
-                  for (const m of sh.camera.marks) {
+                eachTargetList(doc, (marks) => {
+                  for (const m of marks) {
                     if (idSet.has(m.id)) m.time = Math.max(0, m.time + offset)
                   }
-                } else {
-                  const sc = findScene(doc, scene.id)
-                  const tk = sc?.blocking.find((b) => b.id === sh.blockingTakeId)
-                  const tr = tk?.tracks.find((t) => t.entityId === entityId)
-                  for (const m of tr?.marks ?? []) {
-                    if (idSet.has(m.id)) m.time = Math.max(0, m.time + offset)
-                  }
-                }
+                })
               })
             }}
           >
@@ -892,25 +902,68 @@ function MultiMarkInspector({
         <button
           className="btn danger"
           style={{ width: '100%' }}
-          onClick={() => {
-            mutate('delete marks', (doc) => {
-              const sh = findShotOrDraft(doc, scene.id, shot.id)
-              if (!sh) return
-              if (isCamera) {
-                sh.camera.marks = sh.camera.marks.filter((m) => !idSet.has(m.id))
-              } else {
-                const sc = findScene(doc, scene.id)
-                const tk = sc?.blocking.find((b) => b.id === sh.blockingTakeId)
-                const tr = tk?.tracks.find((t) => t.entityId === entityId)
-                if (tr) tr.marks = tr.marks.filter((m) => !idSet.has(m.id))
-              }
-            })
-            setSelection(null)
-          }}
+          onClick={() => useStore.getState().deleteSelectedMarks()}
         >
           Delete {markIds.length} marks
         </button>
       </div>
+    </div>
+  )
+}
+
+/* ----------------------- camera move presets ------------------------ */
+
+/**
+ * Classic camera moves as one-click starting points: pick one, it lays down
+ * a full set of marks built around your subject (riding along if the subject
+ * moves), then every mark stays editable. Track-style moves also switch on
+ * the aim lock.
+ */
+function CameraMovesSection({ scene }: { scene: Scene }): JSX.Element {
+  const [presetId, setPresetId] = useState(CAMERA_MOVE_PRESETS[0]!.id)
+  const selection = useStore((s) => s.selection)
+  const preset = CAMERA_MOVE_PRESETS.find((p) => p.id === presetId)
+
+  const categories = [...new Set(CAMERA_MOVE_PRESETS.map((p) => p.category))]
+  const subjectHint =
+    selection?.kind === 'entity'
+      ? scene.entities.find((e) => e.id === selection.entityId)
+      : scene.entities.find((e) => e.assetId.startsWith('person.'))
+
+  return (
+    <div className="panel-section">
+      <div className="panel-title">Camera moves</div>
+      <div className="field">
+        <label>
+          {CAMERA_MOVE_PRESETS.length} classic moves — built around{' '}
+          {subjectHint ? subjectHint.label?.text || subjectHint.name : 'your subject'}
+        </label>
+        <select value={presetId} onChange={(e) => setPresetId(e.target.value)}>
+          {categories.map((cat) => (
+            <optgroup key={cat} label={cat.toUpperCase()}>
+              {CAMERA_MOVE_PRESETS.filter((p) => p.category === cat).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </div>
+      {preset && (
+        <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>
+          {preset.description}
+          {preset.track ? ' Aim-locks onto the subject.' : ''}
+        </p>
+      )}
+      <button
+        className="btn primary"
+        style={{ width: '100%' }}
+        onClick={() => getSceneManager()?.applyCameraMove(presetId)}
+        title="Replaces this camera's marks with the move (one undo step). Select an entity first to build the move around it; otherwise the first character is used."
+      >
+        Apply move
+      </button>
     </div>
   )
 }
@@ -1004,6 +1057,39 @@ function CameraInspector({ scene, shot }: { scene: Scene; shot: Shot }): JSX.Ele
           </div>
         </div>
       </div>
+
+      <div className="panel-section">
+        <div className="panel-title">Track subject</div>
+        <div className="field">
+          <label>Keep the camera aimed at…</label>
+          <select
+            value={cam.trackEntityId ?? ''}
+            onChange={(e) =>
+              editCam('track subject', (c) => {
+                if (e.target.value) c.trackEntityId = e.target.value
+                else delete c.trackEntityId
+              })
+            }
+            title="Aim lock: no matter how the camera position moves — marks, a recorded flight, a preset — it stays pointed at this subject. Drone tracking a plane, operator following an actor."
+          >
+            <option value="">— aim by marks (off) —</option>
+            {scene.entities.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.label?.text || e.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {cam.trackEntityId && (
+          <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4 }}>
+            Tracking on: move the camera any way you like — drop marks, record a flight, apply a
+            move preset — the lens stays glued to the subject. Focus follows it too when a mark
+            sets a focus distance.
+          </p>
+        )}
+      </div>
+
+      <CameraMovesSection scene={scene} />
 
       <div className="panel-section">
         <div className="panel-title">Rig</div>

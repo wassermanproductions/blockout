@@ -71,6 +71,8 @@ interface BlockoutState {
   helpOpen: boolean
   /** True while performing a live camera-move recording. */
   recording: boolean
+  /** How tightly recording follows the mouse: precise = heavy smoothing. */
+  recordControl: 'precise' | 'normal' | 'fast'
   playing: boolean
   time: number
   dirty: boolean
@@ -94,6 +96,13 @@ interface BlockoutState {
   setLookThrough(on: boolean): void
   setPipSize(size: 'off' | 'small' | 'medium' | 'large'): void
   setRecording(on: boolean): void
+  setRecordControl(mode: 'precise' | 'normal' | 'fast'): void
+  /** Select every mark in one timeline lane (camera or an entity). */
+  selectAllMarksInLane(entityId: string | 'camera'): void
+  /** Select every mark on every lane of the current shot. */
+  selectAllMarks(): void
+  /** Delete the marks in the current mark/marks selection. */
+  deleteSelectedMarks(): void
   setHelpOpen(open: boolean): void
 
   /* --- playback --- */
@@ -172,6 +181,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
   lookThrough: false,
   pipSize: 'medium',
   recording: false,
+  recordControl: 'normal',
   helpOpen: false,
   playing: false,
   time: 0,
@@ -258,6 +268,58 @@ export const useStore = create<BlockoutState>((set, get) => ({
   setLookThrough: (lookThrough) => set({ lookThrough }),
   setPipSize: (pipSize) => set({ pipSize }),
   setRecording: (recording) => set({ recording }),
+  setRecordControl: (recordControl) => set({ recordControl }),
+
+  selectAllMarksInLane(entityId) {
+    const scene = get().scene()
+    const shot = get().shot()
+    if (!scene || !shot) return
+    const markIds =
+      entityId === 'camera'
+        ? shot.camera.marks.map((m) => m.id)
+        : (scene.blocking
+            .find((b) => b.id === shot.blockingTakeId)
+            ?.tracks.find((t) => t.entityId === entityId)
+            ?.marks.map((m) => m.id) ?? [])
+    if (markIds.length === 0) return
+    set({ selection: { kind: 'marks', entityId, markIds } })
+  },
+
+  selectAllMarks() {
+    // Cross-lane selection reuses the per-lane shape with entityId '*'.
+    const scene = get().scene()
+    const shot = get().shot()
+    if (!scene || !shot) return
+    const take = scene.blocking.find((b) => b.id === shot.blockingTakeId)
+    const all = [
+      ...shot.camera.marks.map((m) => m.id),
+      ...(take?.tracks.flatMap((t) => t.marks.map((m) => m.id)) ?? [])
+    ]
+    if (all.length === 0) return
+    set({ selection: { kind: 'marks', entityId: '*', markIds: all } })
+  },
+
+  deleteSelectedMarks() {
+    const sel = get().selection
+    if (!sel || (sel.kind !== 'mark' && sel.kind !== 'marks')) return
+    const ids = new Set(sel.kind === 'mark' ? [sel.markId] : sel.markIds)
+    const n = ids.size
+    get().mutate(n > 1 ? `delete ${n} marks` : 'delete mark', (doc) => {
+      for (const scene of doc.scenes) {
+        for (const shot of [...scene.shots, ...(scene.drafts ?? [])]) {
+          shot.camera.marks = shot.camera.marks.filter((m) => !ids.has(m.id))
+        }
+        for (const take of scene.blocking) {
+          for (const track of take.tracks) {
+            track.marks = track.marks.filter((m) => !ids.has(m.id))
+          }
+          take.tracks = take.tracks.filter((t) => t.marks.length > 0)
+        }
+      }
+    })
+    set({ selection: null })
+    get().toast(n > 1 ? `Deleted ${n} marks.` : 'Mark deleted.', 'info')
+  },
   setHelpOpen: (helpOpen) => set({ helpOpen }),
 
   setPlaying(playing) {

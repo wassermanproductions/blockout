@@ -1,6 +1,6 @@
 {
   "name": "blockout",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Desktop previs tool for AI-native filmmaking — stage scenes, choreograph camera & character blocking with marks, export motion-reference packages for AI video generators.",
   "main": "out/main/index.js",
   "author": "Sam Wasserman",

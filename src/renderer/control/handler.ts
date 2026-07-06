@@ -272,6 +272,53 @@ async function execute(action: string, params: Params): Promise<unknown> {
       return { applied: kind }
     }
 
+    case 'apply_camera_move': {
+      requireDoc()
+      const presetId = str(params, 'presetId') ?? ''
+      const subjectId = str(params, 'entityId')
+      if (subjectId) {
+        if (!s.scene()?.entities.some((e) => e.id === subjectId)) {
+          throw new Error(`No entity "${subjectId}".`)
+        }
+        s.setSelection({ kind: 'entity', entityId: subjectId })
+      }
+      const { CAMERA_MOVE_PRESETS } = await import('@engine/camera-moves')
+      if (!CAMERA_MOVE_PRESETS.some((p) => p.id === presetId)) {
+        throw new Error(
+          `Unknown presetId "${presetId}". Valid: ${CAMERA_MOVE_PRESETS.map((p) => p.id).join(', ')}`
+        )
+      }
+      requireManager().applyCameraMove(presetId)
+      return { applied: presetId }
+    }
+
+    case 'list_camera_moves': {
+      const { CAMERA_MOVE_PRESETS } = await import('@engine/camera-moves')
+      return CAMERA_MOVE_PRESETS.map((p) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        description: p.description,
+        track: p.track
+      }))
+    }
+
+    case 'set_track_subject': {
+      requireDoc()
+      const entityId = str(params, 'entityId') // empty/undefined = off
+      if (entityId && !s.scene()?.entities.some((e) => e.id === entityId)) {
+        throw new Error(`No entity "${entityId}".`)
+      }
+      s.mutate('agent: track subject', (doc) => {
+        const scene = doc.scenes.find((sc) => sc.id === useStore.getState().sceneId)
+        const shot = scene?.shots.find((sh) => sh.id === useStore.getState().shotId)
+        if (!shot) return
+        if (entityId) shot.camera.trackEntityId = entityId
+        else delete shot.camera.trackEntityId
+      })
+      return { tracking: entityId ?? null }
+    }
+
     case 'snap_to_ground': {
       requireDoc()
       const entityId = str(params, 'entityId') ?? ''

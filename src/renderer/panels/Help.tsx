@@ -120,6 +120,9 @@ const TUTORIAL: { section: string; steps: Step[] }[] = [
             time; the new take replaces the old. While recording, the <b>scroll wheel is
             altitude</b> — fly a plate across the room, land a plane, drop debris from a collapsing
             building. A mark&apos;s exact height is editable later (<b>Altitude</b> on the mark).
+            If it feels twitchy, click the <b>🎯/✋/⚡ Control</b> button: Precise adds heavy
+            smoothing and a speed cap (slow, exact moves), Fast is raw — it tames both performer
+            puppeteering and camera flying.
           </>
         )
       },
@@ -259,6 +262,7 @@ const REFERENCE: { section: string; items: [string, string][] }[] = [
       ['C', 'Look through the shot camera'],
       ['G / R', 'Gizmo: move / rotate'],
       ['⇧-click', 'Multi-select entities in the viewport, or marks on the timeline'],
+      ['⌘A / ⇧⌘A', 'Select all marks in the shot / in the current lane (Shoot mode)'],
       ['⌘D', 'Duplicate selection'],
       ['⌫', 'Delete selection (all of a multi-selection)'],
       ['⌘Z / ⇧⌘Z', 'Undo / redo — every action is undoable'],
@@ -296,6 +300,10 @@ const REFERENCE: { section: string; items: [string, string][] }[] = [
       ['Rigs', 'Sticks, dolly, steadicam, handheld (intensity), crane, drone, car-mount (parent to a vehicle).'],
       ['Auto-frame', 'WS/FS/MS/MCU/CU position the camera for that shot size on your subject at the current lens.'],
       ['Framings', '2-SHOT / OTS / REV / TOP / LOW / DUTCH — classic setups in one click, on the selected characters.'],
+      ['Camera moves', '27 classic moves in the camera inspector — orbits, cranes, drone follows, whip pan, vertigo dolly-zoom. One click lays down editable marks built around your subject, riding along if it moves.'],
+      ['Track subject', 'Aim lock in the camera inspector: the camera stays pointed at a subject no matter how its position moves — drone tracking a plane. Focus follows too.'],
+      ['Record control', '🎯 Precise / ✋ Normal / ⚡ Fast — how tightly recordings chase your mouse (smoothing + speed cap).'],
+      ['Select marks', 'Click a lane label = select all its marks. ⌘A = every mark in the shot (⇧⌘A just the current lane). ⌫ deletes the whole selection; shift times together in the inspector.'],
       ['Motion presets', 'Fight, dance, gesture, and stunt moves applied as editable pose marks at the playhead.'],
       ['Board on arrival', 'On an actor mark: after reaching it, ride a vehicle/prop. Marry + later marks = get off.'],
       ['Flying objects', 'While recording a performer, scroll = altitude; or set a mark’s Altitude by hand.'],

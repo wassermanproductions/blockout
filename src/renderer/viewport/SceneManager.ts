@@ -24,12 +24,25 @@ import {
 } from '@engine/camera'
 import { entityHeight } from '@engine/assets'
 import { headingOf } from '@engine/path'
+import { CAMERA_MOVE_PRESETS } from '@engine/camera-moves'
 import type { Entity, LightingPresetId, Scene as DocScene, Shot } from '@engine/types'
 import { useStore, selectedEntityIds } from '../store'
 import { on } from '../bus'
 import { buildAsset, markMesh, labelSprite, type BuiltAsset } from './builders'
 
 const RAD2DEG = 180 / Math.PI
+
+/**
+ * Recording feel per Control setting. `rate` is the exponential-approach
+ * response of the puppeteer chase (lower = smoother/laggier), `maxSpeed` a
+ * hard cap in m/s, `orbit` scales the viewport fly speed while recording the
+ * camera, `wheel` scales the altitude wheel, `damping` the orbit damping.
+ */
+const RECORD_TUNING = {
+  precise: { rate: 4, maxSpeed: 4, orbit: 0.35, wheel: 0.004, damping: 0.06 },
+  normal: { rate: 8, maxSpeed: 12, orbit: 0.65, wheel: 0.01, damping: 0.12 },
+  fast: { rate: 16, maxSpeed: 40, orbit: 1.0, wheel: 0.02, damping: 0.3 }
+} as const
 
 interface EntityVisual {
   entity: Entity
@@ -127,6 +140,11 @@ export class SceneManager {
   private recPlaybackSynced = false
   /** Flight altitude of the puppeteered entity (scroll wheel adjusts it). */
   private recHeight = 0
+  /** Smoothed puppeteer position — the entity approaches the cursor instead
+   *  of snapping to it, so recordings are controllable, not jittery. */
+  private recCursor = new THREE.Vector3()
+  private recPrevFrame = 0
+  private savedOrbitSpeeds: { rotate: number; pan: number; zoom: number } | null = null
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -539,7 +557,8 @@ export class SceneManager {
     if (!s.recording || this.recTarget === 'camera') return // orbit zoom otherwise
     e.preventDefault()
     e.stopImmediatePropagation()
-    this.recHeight = Math.min(60, Math.max(0, this.recHeight - e.deltaY * 0.01))
+    const tune = RECORD_TUNING[s.recordControl]
+    this.recHeight = Math.min(60, Math.max(0, this.recHeight - e.deltaY * tune.wheel))
   }
 
   private onPointerMove = (e: PointerEvent): void => {
@@ -632,8 +651,28 @@ export class SceneManager {
       e.preventDefault()
       this.duplicateSelection()
     }
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
+      // ⌘A selects every mark in the shot (⇧⌘A: just the current lane).
+      const s = this.currentState()
+      if (s.mode === 'shoot') {
+        e.preventDefault()
+        const sel = s.selection
+        if (e.shiftKey && (sel?.kind === 'mark' || sel?.kind === 'marks')) {
+          s.selectAllMarksInLane(sel.entityId)
+        } else if (e.shiftKey && sel?.kind === 'entity') {
+          s.selectAllMarksInLane(sel.entityId)
+        } else if (e.shiftKey && sel?.kind === 'camera') {
+          s.selectAllMarksInLane('camera')
+        } else {
+          s.selectAllMarks()
+        }
+      }
+    }
     if (e.key === 'Backspace' || e.key === 'Delete') {
-      this.deleteSelection()
+      const s = this.currentState()
+      const sel = s.selection
+      if (sel?.kind === 'mark' || sel?.kind === 'marks') s.deleteSelectedMarks()
+      else this.deleteSelection()
     }
   }
 
@@ -1265,14 +1304,102 @@ export class SceneManager {
     this.writeCameraPose(subjects.length > 2 ? 'group shot' : 'two-shot', pos, pan, tilt)
   }
 
+  /**
+   * Apply a classic camera-move preset (orbit, crane, drone follow, vertigo…)
+   * to the active camera: generates marks over the whole shot relative to the
+   * subject — sampling the subject's own motion so moves ride along with a
+   * flying plane or a walking actor. Enables aim-lock tracking when the move
+   * calls for it. One undo step; adjust any mark afterwards.
+   */
+  applyCameraMove(presetId: string): void {
+    const s = this.currentState()
+    const preset = CAMERA_MOVE_PRESETS.find((p) => p.id === presetId)
+    if (!preset || !this.shot || !this.evaluator || !this.docScene) return
+    const subjects = this.framingSubjects()
+    const subject = subjects[0]
+    if (!subject) {
+      s.toast('Place a subject first — camera moves are built around one.', 'info')
+      return
+    }
+    const entity = this.docScene.entities.find((e) => e.id === subject.id)!
+    const evaluator = this.evaluator
+    const cam0 = evaluator.evaluate(0).camera
+    const duration = this.shot.duration
+    const specs = preset.generate({
+      subjectAt: (t) => {
+        const st = evaluator.evaluate(Math.min(Math.max(t, 0), duration))
+        const es = st.entities.find((e) => e.entityId === subject.id)
+        return es
+          ? { x: es.position.x, y: es.position.y, z: es.position.z, heading: es.heading }
+          : { x: subject.pos.x, y: subject.pos.y, z: subject.pos.z, heading: 0 }
+      },
+      subjectHeight: entityHeight(entity.assetId, entity.transform.scale, entity.params),
+      camera: {
+        x: cam0.position.x,
+        y: cam0.position.y,
+        z: cam0.position.z,
+        pan: cam0.pan,
+        tilt: cam0.tilt,
+        focalLength: cam0.focalLength
+      },
+      duration
+    })
+    const shotId = this.shot.id
+    const marks = specs.map((spec) => ({
+      id: newId('cmark'),
+      time: spec.time,
+      hold: spec.hold,
+      easeIn: spec.easeIn,
+      easeOut: spec.easeOut,
+      position: { ...spec.position },
+      pan: spec.pan,
+      tilt: spec.tilt,
+      roll: spec.roll,
+      focalLength: spec.focalLength
+    }))
+    s.mutate(`camera move: ${preset.name}`, (doc) => {
+      for (const scene of doc.scenes) {
+        const shot =
+          scene.shots.find((x) => x.id === shotId) ?? scene.drafts?.find((x) => x.id === shotId)
+        if (!shot) continue
+        shot.camera.marks = marks
+        // Aim-lock moves stay glued to the subject even if marks are re-timed
+        // or dragged; framed moves (whip pan, static pan) aim by their marks.
+        if (preset.track) shot.camera.trackEntityId = subject.id
+        else delete shot.camera.trackEntityId
+      }
+    })
+    s.setSelection({ kind: 'camera' })
+    s.toast(
+      `${preset.name} on ${entity.label?.text || entity.name} — ▶ to watch, then drag any mark to adjust.`,
+      'success'
+    )
+  }
+
   /* ------------------------------ recording ----------------------------- */
 
   private beginRecording(): void {
     this.recSamples = []
     this.entitySamples = []
     this.recStartedAt = performance.now()
+    this.recPrevFrame = performance.now()
     this.recLens = this.currentLens()
     const s = this.currentState()
+    const tune = RECORD_TUNING[s.recordControl]
+
+    // Tame the viewport controls while recording — Precise mode flies the
+    // camera at a fraction of editing speed and adds damping so moves land
+    // where you intend them.
+    this.savedOrbitSpeeds = {
+      rotate: this.controls.rotateSpeed,
+      pan: this.controls.panSpeed,
+      zoom: this.controls.zoomSpeed
+    }
+    this.controls.rotateSpeed = tune.orbit
+    this.controls.panSpeed = tune.orbit
+    this.controls.zoomSpeed = tune.orbit
+    this.controls.enableDamping = true
+    this.controls.dampingFactor = tune.damping
 
     // Target: a single selected entity means "record ITS move" (puppeteer
     // with the cursor); anything else records the camera.
@@ -1307,7 +1434,9 @@ export class SceneManager {
     } else {
       // Start the flight plane at the entity's current altitude so props
       // already in the air (or on tables) record from where they sit.
-      this.recHeight = this.visuals.get(this.recTarget)?.root.position.y ?? 0
+      const startPos = this.visuals.get(this.recTarget)?.root.position
+      this.recHeight = startPos?.y ?? 0
+      this.recCursor.copy(startPos ?? new THREE.Vector3())
       this.controls.enableZoom = false // wheel = altitude while puppeteering
       s.toast(
         this.recPlaybackSynced
@@ -1322,6 +1451,13 @@ export class SceneManager {
     const s = this.currentState()
     s.setPlaying(false)
     this.controls.enableZoom = true
+    this.controls.enableDamping = false
+    if (this.savedOrbitSpeeds) {
+      this.controls.rotateSpeed = this.savedOrbitSpeeds.rotate
+      this.controls.panSpeed = this.savedOrbitSpeeds.pan
+      this.controls.zoomSpeed = this.savedOrbitSpeeds.zoom
+      this.savedOrbitSpeeds = null
+    }
     if (this.recTarget !== 'camera') {
       this.finishEntityRecording()
       return
@@ -1623,19 +1759,32 @@ export class SceneManager {
         // Puppeteer: the selected entity chases the point under the cursor
         // on its FLIGHT PLANE (scroll wheel raises/lowers it — a plate can
         // arc through the air, a plane can climb), facing travel direction.
+        // The chase is SMOOTHED and speed-capped per the Control setting so
+        // a twitchy mouse doesn't become a twitchy performance.
         this.raycaster.setFromCamera(this.lastPointerNdc, this.freeCam)
         const flightPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.recHeight)
         const point = new THREE.Vector3()
         const hit = this.raycaster.ray.intersectPlane(flightPlane, point)
         const visual = this.visuals.get(this.recTarget)
         if (hit && visual) {
-          const dx = point.x - visual.root.position.x
-          const dz = point.z - visual.root.position.z
+          const tune = RECORD_TUNING[s.recordControl]
+          const dt = Math.min(0.1, Math.max(1 / 240, (now - this.recPrevFrame) / 1000))
+          this.recPrevFrame = now
+          point.y = this.recHeight
+          // Exponential approach toward the cursor…
+          const k = 1 - Math.exp(-tune.rate * dt)
+          const step = point.clone().sub(this.recCursor).multiplyScalar(k)
+          // …clamped to a max speed so precision mode can't overshoot.
+          const maxStep = tune.maxSpeed * dt
+          if (step.length() > maxStep) step.setLength(maxStep)
+          this.recCursor.add(step)
+          const dx = this.recCursor.x - visual.root.position.x
+          const dz = this.recCursor.z - visual.root.position.z
           if (dx * dx + dz * dz > 1e-6) {
             visual.root.rotation.y = headingOf({ x: dx, y: 0, z: dz })
           }
-          visual.root.position.set(point.x, this.recHeight, point.z)
-          this.entitySamples.push({ t, x: point.x, y: this.recHeight, z: point.z })
+          visual.root.position.copy(this.recCursor)
+          this.entitySamples.push({ t, x: this.recCursor.x, y: this.recCursor.y, z: this.recCursor.z })
         }
       }
       // Auto-stop: at the end of the shot when synced, at 60s otherwise.

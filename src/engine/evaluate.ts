@@ -450,6 +450,31 @@ export class ShotEvaluator {
       }
     }
 
+    // Aim lock: point at the tracked subject regardless of how the position
+    // moves (marks, recorded flights, mounts, presets) — the drone-following-
+    // the-plane shot. Runs after mounts (aim from the FINAL position) and
+    // before rig noise so handheld/steadicam texture still layers on top.
+    // If marks set a focusDistance, focus is pulled to the subject's live
+    // distance; deep focus (undefined) stays deep.
+    if (cam.trackEntityId) {
+      const subject = entities.find((e) => e.entityId === cam.trackEntityId)
+      const docEntity = this.scene.entities.find((e) => e.id === cam.trackEntityId)
+      if (subject && docEntity) {
+        const aimUp = entityHeight(docEntity.assetId, docEntity.transform.scale, docEntity.params) * 0.8
+        const dx = subject.position.x - position.x
+        const dy = subject.position.y + aimUp - position.y
+        const dz = subject.position.z - position.z
+        const flat = Math.hypot(dx, dz)
+        if (flat > 1e-4 || Math.abs(dy) > 1e-4) {
+          pan = headingOf({ x: dx, y: 0, z: dz })
+          tilt = Math.atan2(dy, Math.max(flat, 1e-4))
+          if (focusDistance !== undefined) {
+            focusDistance = Math.max(0.3, Math.hypot(dx, dy, dz))
+          }
+        }
+      }
+    }
+
     const noise = this.rigNoise.offsetAt(time, cam.rigIntensity)
     return {
       position: {

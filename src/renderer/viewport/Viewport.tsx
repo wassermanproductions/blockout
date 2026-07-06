@@ -95,6 +95,23 @@ function ShotSizeRow(): JSX.Element {
   )
 }
 
+/** Recording feel: how tightly recordings chase the mouse. */
+function RecordControlToggle(): JSX.Element {
+  const recordControl = useStore((s) => s.recordControl)
+  const setRecordControl = useStore((s) => s.setRecordControl)
+  const next = { precise: 'normal', normal: 'fast', fast: 'precise' } as const
+  const label = { precise: '🎯 Precise', normal: '✋ Normal', fast: '⚡ Fast' } as const
+  return (
+    <button
+      className="btn small"
+      onClick={() => setRecordControl(next[recordControl])}
+      title="Recording control: Precise = heavy smoothing + speed cap (slow, exact moves), Normal = balanced, Fast = raw and quick. Applies to performer puppeteering AND camera flying. Click to cycle."
+    >
+      {label[recordControl]}
+    </button>
+  )
+}
+
 /** One-click cinematography framings — writes the active camera mark. */
 function FramingRow(): JSX.Element {
   const framings: { kind: FramingKind; label: string; title: string }[] = [
@@ -255,6 +272,7 @@ export function Viewport(): JSX.Element {
               >
                 {recording ? '■ Stop' : singleEntitySelected ? '● Record performer' : '● Record camera'}
               </button>
+              <RecordControlToggle />
               <ReferenceControls />
             </div>
           )}
