@@ -89,3 +89,50 @@ describe('audit fix: hold overlapping the next mark no longer teleports (finding
     expect(atArrival.position.z).toBeCloseTo(-6, 1)
   })
 })
+
+describe('pose per mark: joints interpolate between marks', () => {
+  it('holds pose at a mark and blends across a leg', () => {
+    const doc = createProject('J')
+    const scene = doc.scenes[0]!
+    const shot = scene.shots[0]!
+    const man = createEntity('person.man', 'Man', { x: 0, y: 0, z: 0 })
+    scene.entities.push(man)
+    const m1 = createActorMark({ x: 0, y: 0, z: 0 }, 0, 'walk')
+    m1.joints = { shoulderLX: -1.0 }
+    m1.easeIn = 0
+    m1.easeOut = 0
+    const m2 = createActorMark({ x: 0, y: 0, z: -4 }, 4, 'walk')
+    m2.joints = { shoulderLX: 0, elbowR: 1.0 }
+    m2.easeIn = 0
+    m2.easeOut = 0
+    scene.blocking[0]!.tracks.push({ entityId: man.id, marks: [m1, m2] })
+    shot.duration = 5
+    const ev = new ShotEvaluator(scene, shot)
+
+    const at0 = ev.evaluate(0).entities.find((e) => e.entityId === man.id)!
+    expect(at0.joints?.shoulderLX).toBeCloseTo(-1.0, 5)
+
+    const mid = ev.evaluate(2).entities.find((e) => e.entityId === man.id)!
+    expect(mid.joints?.shoulderLX).toBeCloseTo(-0.5, 1)
+    expect(mid.joints?.elbowR).toBeCloseTo(0.5, 1)
+
+    const at4 = ev.evaluate(4.5).entities.find((e) => e.entityId === man.id)!
+    expect(at4.joints?.shoulderLX).toBeCloseTo(0, 5)
+    expect(at4.joints?.elbowR).toBeCloseTo(1.0, 5)
+  })
+
+  it('unposed actors carry no joints allocation', () => {
+    const doc = createProject('NJ')
+    const scene = doc.scenes[0]!
+    const shot = scene.shots[0]!
+    const man = createEntity('person.man', 'Man', { x: 0, y: 0, z: 0 })
+    scene.entities.push(man)
+    scene.blocking[0]!.tracks.push({
+      entityId: man.id,
+      marks: [createActorMark({ x: 0, y: 0, z: 0 }, 0), createActorMark({ x: 0, y: 0, z: -4 }, 4)]
+    })
+    const ev = new ShotEvaluator(scene, shot)
+    const mid = ev.evaluate(2).entities.find((e) => e.entityId === man.id)!
+    expect(mid.joints).toBeUndefined()
+  })
+})

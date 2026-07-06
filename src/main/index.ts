@@ -326,6 +326,13 @@ ipcMain.handle(
   }
 )
 
+/* ---------------------------- AI reference ------------------------------ */
+
+ipcMain.handle('ai:analyzeReference', async (_e, filePath: string) => {
+  const { analyzeReference } = await import('./analyze')
+  return analyzeReference(filePath)
+})
+
 /* Smoke-test hook: allows Playwright to drive export without dialogs. */
 ipcMain.handle('app:versions', () => ({
   app: app.getVersion(),

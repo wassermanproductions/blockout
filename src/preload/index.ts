@@ -32,6 +32,28 @@ export interface BlockoutAPI {
   exportConcat(outPath: string, inputPaths: string[]): Promise<{ ok: boolean; error?: string }>
   onExportClosed(cb: (jobId: string, code: number, log: string) => void): () => void
   versions(): Promise<{ app: string; electron: string; node: string }>
+  /** Analyze a reference image/video with Claude and return a scene layout. */
+  analyzeReference(filePath: string): Promise<
+    | {
+        ok: true
+        layout: {
+          entities: {
+            assetId: string
+            x: number
+            z: number
+            rotationDeg: number
+            pose: 'stand' | 'sit' | 'crouch' | 'lie' | 'gesture'
+            label: string
+            labelColor: string
+            scale: number
+          }[]
+          lighting: 'day' | 'goldenHour' | 'night' | 'interiorWarm' | 'interiorCool' | 'club'
+          camera: { x: number; y: number; z: number; panDeg: number; tiltDeg: number; focalLength: number }
+          notes: string
+        }
+      }
+    | { ok: false; error: string }
+  >
 }
 
 const api: BlockoutAPI = {
@@ -55,7 +77,8 @@ const api: BlockoutAPI = {
     ipcRenderer.on('export:closed', listener)
     return () => ipcRenderer.removeListener('export:closed', listener)
   },
-  versions: () => ipcRenderer.invoke('app:versions')
+  versions: () => ipcRenderer.invoke('app:versions'),
+  analyzeReference: (filePath) => ipcRenderer.invoke('ai:analyzeReference', filePath)
 }
 
 contextBridge.exposeInMainWorld('blockout', api)

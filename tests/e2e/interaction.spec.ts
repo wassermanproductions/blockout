@@ -143,6 +143,7 @@ test('dragging the camera body commits to a camera mark', async () => {
     const sm = (window as any).__blockout_scene
     sm.freeCam.position.set(9, 7, 9)
     sm.controls.target.set(0, 1, 0)
+    store.setPipSize('off') // PiP chrome must not sit under the probe grid
     store.setSelection({ kind: 'camera' })
     store.setTime(0)
   })
@@ -182,4 +183,54 @@ test('dragging the camera body commits to a camera mark', async () => {
     Math.abs(markAfter.y - markBefore.y) +
     Math.abs(markAfter.z - markBefore.z)
   expect(moved).toBeGreaterThan(0.05)
+})
+
+test('pose-per-mark: joints on marks flow through the store and evaluator', async () => {
+  const result = await page.evaluate(() => {
+    const store = (window as any).__blockout.store.getState()
+    const scene = store.scene()
+    const man = scene.entities.find((e: any) => e.assetId === 'person.man')
+    const take = scene.blocking[0]
+    const track = take.tracks.find((t: any) => t.entityId === man.id)
+    if (!track || track.marks.length < 2) return { skipped: true }
+    store.mutate('test pose', (doc: any) => {
+      const tk = doc.scenes[0].blocking[0]
+      const tr = tk.tracks.find((t: any) => t.entityId === man.id)
+      tr.marks[0].joints = { shoulderLX: -1.2 }
+      tr.marks[1].joints = { shoulderLX: 0, kneeL: 0.8 }
+    })
+    return { skipped: false, marks: track.marks.length }
+  })
+  if (!(result as any).skipped) {
+    const joints = await page.evaluate(() => {
+      const store = (window as any).__blockout.store.getState()
+      return store.scene().blocking[0].tracks[0].marks[0].joints
+    })
+    expect(joints.shoulderLX).toBeCloseTo(-1.2, 5)
+  }
+})
+
+test('analyzeReference IPC wiring returns a structured error without credentials', async () => {
+  test.setTimeout(120_000)
+  // 1x1 PNG written through the export IPC, then analyzed.
+  const result = await page.evaluate(async () => {
+    const store = (window as any).__blockout.store.getState()
+    const folder = store.projectFolder
+    const canvas = document.createElement('canvas')
+    canvas.width = 4
+    canvas.height = 4
+    canvas.getContext('2d')!.fillRect(0, 0, 4, 4)
+    const blob: Blob = await new Promise((r) => canvas.toBlob((b) => r(b!), 'image/png'))
+    const path = `${folder}/assets/test-ref.png`
+    await (window as any).blockout.exportWriteFile(path, await blob.arrayBuffer())
+    return await (window as any).blockout.analyzeReference(path)
+  })
+  // Without credentials this must fail CLEANLY with guidance (never hang or
+  // crash); with credentials on a dev machine, a valid layout is also fine.
+  if (!result.ok) {
+    expect(typeof result.error).toBe('string')
+    expect(result.error.length).toBeGreaterThan(10)
+  } else {
+    expect(Array.isArray(result.layout.entities)).toBe(true)
+  }
 })

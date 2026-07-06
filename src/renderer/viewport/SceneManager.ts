@@ -909,6 +909,14 @@ export class SceneManager {
           }
         }
       }
+      // Mark-keyframed joints (pose-per-mark choreography, interpolated by
+      // the evaluator) layer additively on the entity's static pose offsets.
+      if (es.joints) {
+        for (const [key, v] of Object.entries(es.joints)) {
+          if (v === 0) continue
+          ;(overrides ??= {})[key] = (overrides?.[key] ?? 0) + v
+        }
+      }
       const stride = GAITS[gait].strideLength * Math.max(visual.entity.transform.scale, 0.2)
       const phase = stride > 0 ? (es.distanceTravelled / stride) % 1 : 0
       visual.built.animate?.({

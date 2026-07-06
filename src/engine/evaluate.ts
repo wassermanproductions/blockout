@@ -28,6 +28,24 @@ import type {
   V3
 } from './types'
 
+/**
+ * Interpolate two joint-offset maps (missing keys read as 0). Returns
+ * undefined when both sides are empty so unposed actors stay allocation-free.
+ */
+function lerpJoints(
+  from: Record<string, number> | undefined,
+  to: Record<string, number> | undefined,
+  u: number
+): Record<string, number> | undefined {
+  if (!from && !to) return undefined
+  const out: Record<string, number> = {}
+  const keys = new Set([...Object.keys(from ?? {}), ...Object.keys(to ?? {})])
+  for (const key of keys) {
+    out[key] = (from?.[key] ?? 0) + ((to?.[key] ?? 0) - (from?.[key] ?? 0)) * u
+  }
+  return out
+}
+
 interface Leg<M extends MarkBase> {
   from: M
   to: M
@@ -187,13 +205,26 @@ export class ShotEvaluator {
       // while holding, the gait of the mark we're at.
       const gait: GaitId = r.leg ? r.leg.to.gait : (r.atMark?.gait ?? 'stand')
       const spec = GAITS[gait]
+      // Joints: hold the mark's pose at a mark; interpolate between the
+      // departure and arrival marks' poses while travelling (eased with the
+      // same curve as the travel itself so limbs land with the body).
+      const joints = r.leg
+        ? lerpJoints(
+            r.leg.from.joints,
+            r.leg.to.joints,
+            easedProgress(r.legProgress, r.leg.from.easeOut, r.leg.to.easeIn)
+          )
+        : r.atMark?.joints
+          ? { ...r.atMark.joints }
+          : undefined
       entities.push({
         entityId: entity.id,
         position: r.position,
         heading,
         gait: r.leg && spec.travels ? gait : r.leg ? 'walk' : gait,
         distanceTravelled: r.distanceTravelled,
-        speed: r.speed
+        speed: r.speed,
+        joints
       })
     }
 
