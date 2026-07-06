@@ -1,0 +1,407 @@
+/**
+ * The Deliver pipeline. Exports are deterministic: the timeline is stepped
+ * at exactly the shot's fps and every frame is rendered from the same
+ * ShotEvaluator state used in playback, then piped as PNG to ffmpeg in the
+ * main process. Output never depends on playback performance.
+ */
+
+import * as THREE from 'three'
+import { ASPECT_RATIOS } from '@engine/camera'
+import { generatePrompt } from '@engine/prompt'
+import { getProfile, BUILTIN_PROFILES, type GeneratorProfile } from '@engine/profiles'
+import { ShotEvaluator } from '@engine/evaluate'
+import type { ProjectDoc, Scene, Shot } from '@engine/types'
+import { useStore } from '../store'
+import { getSceneManager, type SceneManager } from './scene-access'
+import { buildComfyWorkflow } from './comfy'
+
+export interface ExportOptions {
+  profileId: string
+  passes: { clean: boolean; depth: boolean; normal: boolean }
+  labels: 'on' | 'stillsOnly' | 'off'
+}
+
+export interface ExportResult {
+  ok: boolean
+  packagePath?: string
+  error?: string
+}
+
+function sanitize(name: string): string {
+  return name.replace(/[^\w\d-]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+function evenDim(n: number): number {
+  const r = Math.round(n)
+  return r % 2 === 0 ? r : r + 1
+}
+
+export function exportDims(profile: GeneratorProfile, aspect: keyof typeof ASPECT_RATIOS): {
+  width: number
+  height: number
+} {
+  const ratio = ASPECT_RATIOS[aspect]
+  if (ratio >= 1) {
+    const width = evenDim(profile.exportWidth)
+    return { width, height: evenDim(width / ratio) }
+  }
+  // Portrait: cap the LONG edge at exportWidth.
+  const height = evenDim(profile.exportWidth)
+  return { width: evenDim(height * ratio), height }
+}
+
+let exportCanvas: HTMLCanvasElement | null = null
+let exportRenderer: THREE.WebGLRenderer | null = null
+
+function getExportRenderer(): { canvas: HTMLCanvasElement; renderer: THREE.WebGLRenderer } {
+  if (!exportCanvas || !exportRenderer) {
+    exportCanvas = document.createElement('canvas')
+    exportRenderer = new THREE.WebGLRenderer({
+      canvas: exportCanvas,
+      antialias: true,
+      preserveDrawingBuffer: true
+    })
+    exportRenderer.shadowMap.enabled = true
+    exportRenderer.shadowMap.type = THREE.PCFSoftShadowMap
+    exportRenderer.setPixelRatio(1)
+  }
+  return { canvas: exportCanvas, renderer: exportRenderer }
+}
+
+async function canvasPng(canvas: HTMLCanvasElement): Promise<ArrayBuffer> {
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+  if (!blob) throw new Error('PNG encode failed')
+  return blob.arrayBuffer()
+}
+
+/** Wait for an ffmpeg job to close; resolves with exit code. */
+function waitForClose(jobId: string): Promise<{ code: number; log: string }> {
+  return new Promise((resolve) => {
+    const off = window.blockout.onExportClosed((id, code, log) => {
+      if (id === jobId) {
+        off()
+        resolve({ code, log })
+      }
+    })
+  })
+}
+
+async function renderPassToMp4(
+  manager: SceneManager,
+  outPath: string,
+  pass: 'clean' | 'depth' | 'normal',
+  shot: Shot,
+  width: number,
+  height: number,
+  showLabels: boolean,
+  progress: (frame: number) => void,
+  isCancelled: () => boolean
+): Promise<{ ok: boolean; error?: string }> {
+  const { canvas, renderer } = getExportRenderer()
+  canvas.width = width
+  canvas.height = height
+  const totalFrames = Math.max(1, Math.round(shot.duration * shot.fps))
+  const jobId = `job-${Date.now()}-${pass}`
+  await window.blockout.exportBegin(jobId, outPath, {
+    fps: shot.fps,
+    width,
+    height,
+    framesExpected: totalFrames
+  })
+  const closed = waitForClose(jobId)
+
+  for (let i = 0; i < totalFrames; i++) {
+    if (isCancelled()) {
+      await window.blockout.exportCancel(jobId)
+      return { ok: false, error: 'cancelled' }
+    }
+    const t = i / shot.fps
+    manager.renderFrameAt(renderer, t, width, height, pass, { showLabels })
+    const png = await canvasPng(canvas)
+    await window.blockout.exportFrame(jobId, png)
+    progress(i + 1)
+    // Yield so the progress UI paints.
+    if (i % 4 === 0) await new Promise((r) => setTimeout(r, 0))
+  }
+  await window.blockout.exportEnd(jobId)
+  const { code, log } = await closed
+  if (code !== 0) return { ok: false, error: `ffmpeg exited ${code}: ${log.slice(-500)}` }
+  return { ok: true }
+}
+
+function buildMetadata(scene: Scene, shot: Shot, profile: GeneratorProfile): string {
+  const evaluator = new ShotEvaluator(scene, shot)
+  const take = scene.blocking.find((b) => b.id === shot.blockingTakeId)
+  const meta = {
+    generator: { app: 'Blockout', schema: 1 },
+    profile: { id: profile.id, name: profile.name },
+    shot: {
+      name: shot.name,
+      duration: shot.duration,
+      fps: shot.fps,
+      aspect: shot.aspect,
+      sensor: shot.camera.sensorId,
+      rig: shot.camera.rig,
+      rigIntensity: shot.camera.rigIntensity,
+      seed: shot.camera.seed
+    },
+    cameraMarks: [...shot.camera.marks]
+      .sort((a, b) => a.time - b.time)
+      .map((m, i) => ({
+        index: i + 1,
+        time: m.time,
+        hold: m.hold,
+        position: m.position,
+        panDeg: (m.pan * 180) / Math.PI,
+        tiltDeg: (m.tilt * 180) / Math.PI,
+        focalLength: m.focalLength,
+        focusDistance: m.focusDistance ?? null
+      })),
+    subjects: (take?.tracks ?? []).map((track) => {
+      const entity = scene.entities.find((e) => e.id === track.entityId)
+      return {
+        name: entity?.label?.text || entity?.name || track.entityId,
+        asset: entity?.assetId,
+        labelColor: entity?.label?.color ?? null,
+        marks: [...track.marks]
+          .sort((a, b) => a.time - b.time)
+          .map((m, i) => ({
+            index: i + 1,
+            time: m.time,
+            hold: m.hold,
+            position: m.position,
+            gait: m.gait
+          }))
+      }
+    }),
+    warnings: evaluator.warnings().map((w) => ({
+      subject: w.entityName,
+      issue: w.verdict.kind,
+      impliedSpeedMs: Math.round(w.verdict.impliedSpeed * 10) / 10,
+      suggestion: w.verdict.suggestion
+    }))
+  }
+  return JSON.stringify(meta, null, 2) + '\n'
+}
+
+export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
+  const s = useStore.getState()
+  const doc = s.doc
+  const scene = s.scene()
+  const shot = s.shot()
+  const folder = s.projectFolder
+  const manager = getSceneManager()
+  if (!doc || !scene || !shot || !folder || !manager) {
+    return { ok: false, error: 'No open shot to export.' }
+  }
+  const profile = getProfile(opts.profileId)
+  const { width, height } = exportDims(profile, shot.aspect)
+
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')
+  const pkg = `${folder}/exports/${sanitize(scene.name)}/Shot-${sanitize(shot.name)}/export-${stamp}`
+
+  const passes: ('clean' | 'depth' | 'normal')[] = []
+  if (opts.passes.clean) passes.push('clean')
+  if (opts.passes.depth) passes.push('depth')
+  if (opts.passes.normal) passes.push('normal')
+  const totalFrames = Math.max(1, Math.round(shot.duration * shot.fps)) * passes.length
+
+  s.setExportProgress({
+    running: true,
+    label: `Exporting ${shot.name}…`,
+    frame: 0,
+    totalFrames,
+    cancelRequested: false,
+    error: undefined
+  })
+  const isCancelled = (): boolean => useStore.getState().exportProgress.cancelRequested
+
+  try {
+    let done = 0
+    for (const pass of passes) {
+      const suffix = pass === 'clean' ? 'reference' : pass
+      const result = await renderPassToMp4(
+        manager,
+        `${pkg}/${sanitize(shot.name)}_${suffix}.mp4`,
+        pass,
+        shot,
+        width,
+        height,
+        opts.labels === 'on',
+        (f) => {
+          s.setExportProgress({ frame: done + f, label: `Rendering ${suffix} pass…` })
+        },
+        isCancelled
+      )
+      if (!result.ok) {
+        s.setExportProgress({ running: false, error: result.error })
+        return { ok: false, error: result.error }
+      }
+      done += Math.max(1, Math.round(shot.duration * shot.fps))
+    }
+
+    // --- Stills: every camera mark + first/last frame
+    s.setExportProgress({ label: 'Rendering stills…' })
+    const { canvas, renderer } = getExportRenderer()
+    canvas.width = width
+    canvas.height = height
+    const stillLabels = opts.labels !== 'off'
+    const stillTimes: { name: string; t: number }[] = [
+      { name: 'first', t: 0 },
+      { name: 'last', t: Math.max(0, shot.duration - 1 / shot.fps) },
+      ...[...shot.camera.marks]
+        .sort((a, b) => a.time - b.time)
+        .map((m, i) => ({ name: `mark-${i + 1}`, t: m.time }))
+    ]
+    for (const { name, t } of stillTimes) {
+      if (isCancelled()) break
+      manager.renderFrameAt(renderer, t, width, height, 'clean', { showLabels: stillLabels })
+      const png = await canvasPng(canvas)
+      await window.blockout.exportWriteFile(
+        `${pkg}/stills/${sanitize(shot.name)}_${name}.png`,
+        png
+      )
+    }
+
+    // --- Top-down blocking diagram
+    manager.renderTopDown(renderer, 1600, 1600)
+    await window.blockout.exportWriteFile(
+      `${pkg}/stills/${sanitize(shot.name)}_topdown.png`,
+      await canvasPng(canvas)
+    )
+
+    // --- Prompt, metadata, ComfyUI workflow
+    await window.blockout.exportWriteFile(`${pkg}/prompt.txt`, generatePrompt(scene, shot, profile) + '\n')
+    await window.blockout.exportWriteFile(`${pkg}/metadata.json`, buildMetadata(scene, shot, profile))
+    if (profile.refModes.includes('depthVideo') || profile.id.startsWith('wan') || profile.id.startsWith('ltx')) {
+      const workflow = buildComfyWorkflow(profile, shot, `${sanitize(shot.name)}_depth.mp4`, generatePrompt(scene, shot, profile))
+      await window.blockout.exportWriteFile(`${pkg}/comfyui-workflow.json`, workflow)
+    }
+    await window.blockout.exportWriteFile(
+      `${pkg}/README.txt`,
+      [
+        `Blockout export — ${scene.name} / Shot ${shot.name}`,
+        ``,
+        `Target: ${profile.name} (${profile.vendor})`,
+        profile.attachHint,
+        ``,
+        `Files:`,
+        `  *_reference.mp4   clean motion reference`,
+        opts.passes.depth ? `  *_depth.mp4       depth pass (structure conditioning)` : null,
+        opts.passes.normal ? `  *_normal.mp4      normal pass` : null,
+        `  stills/           frame at every camera mark + first/last + top-down blocking diagram`,
+        `  prompt.txt        copy-paste prompt tailored to ${profile.name}`,
+        `  metadata.json     machine-readable marks/lenses/timings`,
+        ``
+      ]
+        .filter((l): l is string => l !== null)
+        .join('\n')
+    )
+
+    const cancelled = isCancelled()
+    s.setExportProgress({
+      running: false,
+      lastPackagePath: cancelled ? undefined : pkg,
+      error: cancelled ? 'cancelled' : undefined
+    })
+    if (cancelled) return { ok: false, error: 'cancelled' }
+    return { ok: true, packagePath: pkg }
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e)
+    s.setExportProgress({ running: false, error })
+    return { ok: false, error }
+  }
+}
+
+/** Export every shot in the scene in order and stitch an animatic. */
+export async function exportAnimatic(profileId: string): Promise<ExportResult> {
+  const s = useStore.getState()
+  const scene = s.scene()
+  const folder = s.projectFolder
+  if (!scene || !folder) return { ok: false, error: 'No scene.' }
+  const originalShot = s.shotId
+
+  const clips: string[] = []
+  for (const shot of scene.shots) {
+    s.selectShot(shot.id)
+    // Give the SceneManager a tick to rebuild for the new shot.
+    await new Promise((r) => setTimeout(r, 50))
+    const res = await exportShot({
+      profileId,
+      passes: { clean: true, depth: false, normal: false },
+      labels: 'off'
+    })
+    if (!res.ok || !res.packagePath) {
+      if (originalShot) s.selectShot(originalShot)
+      return { ok: false, error: res.error ?? 'shot export failed' }
+    }
+    clips.push(`${res.packagePath}/${sanitize(shot.name)}_reference.mp4`)
+  }
+  if (originalShot) s.selectShot(originalShot)
+
+  const out = `${folder}/exports/${sanitize(scene.name)}/animatic.mp4`
+  const concat = await window.blockout.exportConcat(out, clips)
+  if (!concat.ok) return { ok: false, error: concat.error }
+  s.setExportProgress({ running: false, lastPackagePath: out })
+  return { ok: true, packagePath: out }
+}
+
+/** Contact sheet: first frame of every shot in a grid PNG. */
+export async function exportContactSheet(): Promise<ExportResult> {
+  const s = useStore.getState()
+  const scene = s.scene()
+  const folder = s.projectFolder
+  const manager = getSceneManager()
+  if (!scene || !folder || !manager) return { ok: false, error: 'No scene.' }
+  const originalShot = s.shotId
+
+  const cell = { w: 640, h: 360 }
+  const cols = Math.min(3, Math.max(1, scene.shots.length))
+  const rows = Math.ceil(scene.shots.length / cols)
+  const pad = 24
+  const captionH = 44
+  const sheet = document.createElement('canvas')
+  sheet.width = cols * cell.w + (cols + 1) * pad
+  sheet.height = rows * (cell.h + captionH) + (rows + 1) * pad + 60
+  const ctx = sheet.getContext('2d')!
+  ctx.fillStyle = '#111113'
+  ctx.fillRect(0, 0, sheet.width, sheet.height)
+  ctx.fillStyle = '#ececf1'
+  ctx.font = 'bold 28px -apple-system, sans-serif'
+  ctx.fillText(`${scene.name} — contact sheet`, pad, 42)
+
+  const { canvas, renderer } = getExportRenderer()
+  canvas.width = cell.w
+  canvas.height = cell.h
+
+  for (let i = 0; i < scene.shots.length; i++) {
+    const shot = scene.shots[i]!
+    s.selectShot(shot.id)
+    await new Promise((r) => setTimeout(r, 50))
+    manager.renderFrameAt(renderer, 0, cell.w, cell.h, 'clean', { showLabels: true })
+    const col = i % cols
+    const row = Math.floor(i / cols)
+    const x = pad + col * (cell.w + pad)
+    const y = 60 + pad + row * (cell.h + captionH + pad)
+    ctx.drawImage(canvas, x, y)
+    ctx.fillStyle = '#9b9ba6'
+    ctx.font = '600 16px -apple-system, sans-serif'
+    const lens = [...shot.camera.marks].sort((a, b) => a.time - b.time)[0]?.focalLength ?? 35
+    ctx.fillText(
+      `${shot.name} · ${Math.round(lens)}mm · ${shot.duration.toFixed(1)}s · ${shot.aspect}`,
+      x,
+      y + cell.h + 26
+    )
+  }
+  if (originalShot) s.selectShot(originalShot)
+  await new Promise((r) => setTimeout(r, 50))
+
+  const blob = await new Promise<Blob | null>((r) => sheet.toBlob(r, 'image/png'))
+  if (!blob) return { ok: false, error: 'PNG encode failed' }
+  const out = `${folder}/exports/${sanitize(scene.name)}/contact-sheet.png`
+  await window.blockout.exportWriteFile(out, await blob.arrayBuffer())
+  return { ok: true, packagePath: out }
+}
+
+export { BUILTIN_PROFILES }
+export type { ProjectDoc }

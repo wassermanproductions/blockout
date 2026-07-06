@@ -1,0 +1,238 @@
+/**
+ * Viewport — React shell around SceneManager: canvas lifecycle, the shot
+ * HUD, look-through framing overlays (thirds grid), placement/mark hints,
+ * empty states, and the reference-video underlay.
+ */
+
+import { useEffect, useRef, useState } from 'react'
+import { useStore } from '../store'
+import { emit } from '../bus'
+import { SceneManager } from './SceneManager'
+import { registerSceneManager } from '../export/scene-access'
+import { LENS_SET, SHOT_SIZES } from '@engine/camera'
+import type { AspectId, ShotSizeId } from '@engine/types'
+
+const ASPECT_ORDER: AspectId[] = ['16:9', '9:16', '2.39:1', '4:3', '1:1']
+
+function Hud(): JSX.Element | null {
+  const doc = useStore((s) => s.doc)
+  const sceneId = useStore((s) => s.sceneId)
+  const shotId = useStore((s) => s.shotId)
+  const time = useStore((s) => s.time)
+  const mutate = useStore((s) => s.mutate)
+  const mode = useStore((s) => s.mode)
+
+  const scene = doc?.scenes.find((s) => s.id === sceneId)
+  const shot = scene?.shots.find((s) => s.id === shotId)
+  if (!shot) return null
+
+  // Lens at playhead (from marks; default 35).
+  const sorted = [...shot.camera.marks].sort((a, b) => a.time - b.time)
+  let lens = sorted[0]?.focalLength ?? 35
+  for (const m of sorted) if (m.time <= time + 1e-6) lens = m.focalLength
+
+  const cycleLens = (): void => {
+    const idx = LENS_SET.findIndex((l) => l >= Math.round(lens))
+    const next = LENS_SET[(Math.max(0, idx) + 1) % LENS_SET.length]!
+    emit('setLens', { focalLength: next })
+  }
+
+  const cycleAspect = (): void => {
+    const idx = ASPECT_ORDER.indexOf(shot.aspect)
+    const next = ASPECT_ORDER[(idx + 1) % ASPECT_ORDER.length]!
+    mutate('aspect', (doc) => {
+      for (const sc of doc.scenes) {
+        const sh = sc.shots.find((x) => x.id === shot.id)
+        if (sh) sh.aspect = next
+      }
+    })
+  }
+
+  return (
+    <div className="hud">
+      <button onClick={cycleLens} title="Focal length (click to cycle)">
+        <span className="hud-label">LENS</span>
+        {Math.round(lens)}mm
+      </button>
+      <button onClick={cycleAspect} title="Aspect ratio (click to cycle)">
+        <span className="hud-label">AR</span>
+        {shot.aspect}
+      </button>
+      <button title="Shot duration — edit in the timeline">
+        <span className="hud-label">DUR</span>
+        {shot.duration.toFixed(1)}s
+      </button>
+      <button title="Frame rate">
+        <span className="hud-label">FPS</span>
+        {shot.fps}
+      </button>
+      {mode === 'shoot' && (
+        <button title="Camera marks in this shot">
+          <span className="hud-label">MARKS</span>
+          {shot.camera.marks.length}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function ShotSizeBar(): JSX.Element {
+  const sizes: ShotSizeId[] = ['WS', 'FS', 'MS', 'MCU', 'CU']
+  return (
+    <div className="viewport-toolbar" style={{ top: 52 }}>
+      {sizes.map((size) => (
+        <button
+          key={size}
+          className="btn small"
+          title={`Auto-frame: ${SHOT_SIZES[size].name}`}
+          onClick={() => emit('frameSubject', { size })}
+        >
+          {size}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export function Viewport(): JSX.Element {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [viewRect, setViewRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+
+  const mode = useStore((s) => s.mode)
+  const lookThrough = useStore((s) => s.lookThrough)
+  const setLookThrough = useStore((s) => s.setLookThrough)
+  const placingAssetId = useStore((s) => s.placingAssetId)
+  const droppingMarks = useStore((s) => s.droppingMarks)
+  const selection = useStore((s) => s.selection)
+  const doc = useStore((s) => s.doc)
+  const sceneId = useStore((s) => s.sceneId)
+  const setSelection = useStore((s) => s.setSelection)
+  const setDroppingMarks = useStore((s) => s.setDroppingMarks)
+
+  const scene = doc?.scenes.find((s) => s.id === sceneId)
+  const hasEntities = (scene?.entities.length ?? 0) > 0
+  const hasMarks =
+    (scene?.shots.some((sh) => sh.camera.marks.length > 0) ?? false) ||
+    (scene?.blocking.some((b) => b.tracks.some((t) => t.marks.length > 0)) ?? false)
+
+  useEffect(() => {
+    if (!canvasRef.current) return
+    const manager = new SceneManager(canvasRef.current)
+    manager.onViewRect = (rect) => setViewRect(rect)
+    registerSceneManager(manager)
+    return () => {
+      registerSceneManager(null)
+      manager.dispose()
+    }
+  }, [])
+
+  const showLetterbox = (lookThrough || mode === 'deliver') && viewRect
+
+  let hint: string | null = null
+  if (placingAssetId) hint = 'Click the floor to place · ⌥-click to place multiple · Esc to cancel'
+  else if (droppingMarks && selection?.kind === 'entity')
+    hint = 'Click the floor to drop marks in order · Esc when done'
+  else if (droppingMarks && selection?.kind === 'camera')
+    hint = 'Click the floor to drop a camera mark · or use “Drop camera mark at view”'
+
+  return (
+    <>
+      <canvas ref={canvasRef} />
+      {mode !== 'deliver' && <Hud />}
+      {mode === 'shoot' && (
+        <div className="viewport-toolbar">
+          <button
+            className={`btn small ${lookThrough ? 'active' : ''}`}
+            onClick={() => setLookThrough(!lookThrough)}
+            title="Look through the shot camera (C)"
+          >
+            🎥 Look through
+          </button>
+          <button
+            className="btn small"
+            onClick={() => {
+              setSelection({ kind: 'camera' })
+              emit('dropCameraMarkAtView', {})
+            }}
+            title="Drop a camera mark at the current view"
+          >
+            + Cam mark
+          </button>
+          <button
+            className={`btn small ${droppingMarks ? 'active' : ''}`}
+            onClick={() => setDroppingMarks(!droppingMarks)}
+            disabled={!selection}
+            title="Drop marks for the selection by clicking the floor (M)"
+          >
+            + Marks
+          </button>
+        </div>
+      )}
+      {mode === 'shoot' && <ShotSizeBar />}
+
+      {showLetterbox && viewRect && (
+        <div
+          style={{
+            position: 'absolute',
+            left: viewRect.x,
+            top: viewRect.y,
+            width: viewRect.w,
+            height: viewRect.h,
+            pointerEvents: 'none',
+            zIndex: 4
+          }}
+        >
+          {/* Rule-of-thirds grid */}
+          {[1, 2].map((i) => (
+            <div
+              key={`v${i}`}
+              style={{
+                position: 'absolute',
+                left: `${(i / 3) * 100}%`,
+                top: 0,
+                bottom: 0,
+                width: 1,
+                background: 'rgba(255,255,255,0.14)'
+              }}
+            />
+          ))}
+          {[1, 2].map((i) => (
+            <div
+              key={`h${i}`}
+              style={{
+                position: 'absolute',
+                top: `${(i / 3) * 100}%`,
+                left: 0,
+                right: 0,
+                height: 1,
+                background: 'rgba(255,255,255,0.14)'
+              }}
+            />
+          ))}
+          {/* Action-safe area */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: '5%',
+              border: '1px solid rgba(255,255,255,0.10)'
+            }}
+          />
+        </div>
+      )}
+
+      {hint && <div className="viewport-hint">{hint}</div>}
+
+      {!hasEntities && mode === 'stage' && (
+        <div className="empty-state">
+          <div style={{ fontSize: 36 }}>🎬</div>
+          <div>Click a library item, then click the floor to place it.</div>
+        </div>
+      )}
+      {hasEntities && !hasMarks && mode === 'shoot' && !droppingMarks && (
+        <div className="empty-state">
+          <div>Select an actor or the camera, press M, then click the floor to drop marks.</div>
+        </div>
+      )}
+    </>
+  )
+}
