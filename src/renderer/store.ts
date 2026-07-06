@@ -67,6 +67,8 @@ interface BlockoutState {
   lookThrough: boolean
   /** Picture-in-picture live shot preview size. */
   pipSize: 'off' | 'small' | 'medium' | 'large'
+  /** Help & tutorial overlay. */
+  helpOpen: boolean
   /** True while performing a live camera-move recording. */
   recording: boolean
   playing: boolean
@@ -92,6 +94,7 @@ interface BlockoutState {
   setLookThrough(on: boolean): void
   setPipSize(size: 'off' | 'small' | 'medium' | 'large'): void
   setRecording(on: boolean): void
+  setHelpOpen(open: boolean): void
 
   /* --- playback --- */
   setPlaying(playing: boolean): void
@@ -165,6 +168,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
   lookThrough: false,
   pipSize: 'medium',
   recording: false,
+  helpOpen: false,
   playing: false,
   time: 0,
   dirty: false,
@@ -240,6 +244,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
   setLookThrough: (lookThrough) => set({ lookThrough }),
   setPipSize: (pipSize) => set({ pipSize }),
   setRecording: (recording) => set({ recording }),
+  setHelpOpen: (helpOpen) => set({ helpOpen }),
 
   setPlaying(playing) {
     const { shot, time } = get()

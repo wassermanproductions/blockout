@@ -227,3 +227,14 @@ test('excludeFromExport hides an entity from rendered frames', async () => {
   })
   expect(diff).toBeGreaterThan(1000) // frame visibly changed without the SUV
 })
+
+test('help & tutorial: opens from titlebar, has both tabs, closes', async () => {
+  await page.locator('.help-btn').click()
+  await expect(page.getByText('The whole app is three verbs')).toBeVisible()
+  await expect(page.getByText('Record a performance instead')).toBeVisible()
+  await page.getByRole('button', { name: 'Reference' }).click()
+  await expect(page.getByText('Keyboard shortcuts')).toBeVisible()
+  await expect(page.getByText('Cameras A/B/C')).toBeVisible()
+  await page.getByRole('button', { name: 'Done' }).click()
+  await expect(page.getByText('Keyboard shortcuts')).not.toBeVisible()
+})

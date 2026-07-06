@@ -96,3 +96,10 @@ test('capture all modes', async () => {
   await page.waitForTimeout(600)
   await page.screenshot({ path: `${OUT}/06-deliver.png` })
 })
+
+test('capture help overlay', async () => {
+  await page.evaluate(() => (window as any).__blockout.store.getState().setHelpOpen(true))
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: `${OUT}/07-help.png` })
+  await page.evaluate(() => (window as any).__blockout.store.getState().setHelpOpen(false))
+})

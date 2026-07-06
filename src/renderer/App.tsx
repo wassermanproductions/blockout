@@ -12,6 +12,7 @@ import { ProjectRail } from './panels/ProjectRail'
 import { Timeline } from './panels/Timeline'
 import { DeliverPanel } from './panels/DeliverPanel'
 import { Toasts } from './panels/Toasts'
+import { HelpOverlay } from './panels/Help'
 
 function CreditLink({ url, children }: { url: string; children: string }): JSX.Element {
   return (
@@ -98,6 +99,9 @@ function Welcome(): JSX.Element {
         <button className="btn" onClick={onOpen}>
           Open Project…
         </button>
+        <button className="btn" onClick={() => useStore.getState().setHelpOpen(true)}>
+          ? Tutorial
+        </button>
       </div>
       <Credits />
     </div>
@@ -153,7 +157,13 @@ function useKeyboard(): void {
         if (s.mode === 'shoot' && s.selection) s.setDroppingMarks(!s.droppingMarks)
       } else if (e.key === 'c' || e.key === 'C') {
         if (s.mode === 'shoot') s.setLookThrough(!s.lookThrough)
+      } else if (e.key === '?') {
+        s.setHelpOpen(!s.helpOpen)
       } else if (e.key === 'Escape') {
+        if (s.helpOpen) {
+          s.setHelpOpen(false)
+          return
+        }
         s.setPlacingAsset(null)
         s.setDroppingMarks(false)
         s.setSelection(null)
@@ -197,6 +207,7 @@ export function App(): JSX.Element {
         </div>
         <Welcome />
         <Toasts />
+        <HelpOverlay />
       </div>
     )
   }
@@ -222,6 +233,13 @@ export function App(): JSX.Element {
         </div>
         <button className="btn small" onClick={onSave}>
           Save
+        </button>
+        <button
+          className="help-btn"
+          title="Help & tutorial (?)"
+          onClick={() => useStore.getState().setHelpOpen(true)}
+        >
+          ?
         </button>
       </div>
 
@@ -251,6 +269,7 @@ export function App(): JSX.Element {
         </div>
       )}
       <Toasts />
+      <HelpOverlay />
     </div>
   )
 }
