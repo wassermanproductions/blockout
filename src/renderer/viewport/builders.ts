@@ -2647,6 +2647,591 @@ function buildProp(assetId: string): BuiltAsset {
       }
       break
     }
+    case 'prop.hotTub': {
+      height = 0.9
+      // Raised octagon-ish tub (12-seg cylinder reads as rounded octagon).
+      const tub = cyl(0.9, 0.95, 0.85, 0x6a5a4a, 8)
+      tub.position.y = 0.425
+      group.add(tub)
+      const rim = cyl(0.98, 0.98, 0.1, 0x7a6a5a, 8)
+      rim.position.y = 0.85
+      group.add(rim)
+      // Translucent water disc.
+      const water = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.82, 0.82, 0.1, 8),
+        new THREE.MeshLambertMaterial({ color: 0x3080c0, transparent: true, opacity: 0.6 })
+      )
+      ;(water.userData as TintUserData).origColor = 0x3080c0
+      water.castShadow = false
+      water.position.y = 0.78
+      group.add(water)
+      // Seat ledge inside.
+      const ledge = cyl(0.7, 0.7, 0.25, 0x5a4a3a, 8)
+      ledge.position.y = 0.5
+      group.add(ledge)
+      break
+    }
+    case 'prop.bbqGrill': {
+      height = 1.1
+      // Cart body.
+      const cart = box(0.7, 0.5, 0.5, 0x40404a)
+      cart.position.y = 0.55
+      group.add(cart)
+      for (const [lx, lz] of [[-0.3, -0.2], [0.3, -0.2], [-0.3, 0.2], [0.3, 0.2]] as [number, number][]) {
+        const leg = box(0.05, 0.3, 0.05, 0x2c2c32)
+        leg.position.set(lx, 0.15, lz)
+        group.add(leg)
+      }
+      // Domed lid.
+      const lid = sphere(0.4, 0x2a2a30, 12)
+      lid.scale.set(1, 0.6, 0.75)
+      lid.position.y = 0.85
+      group.add(lid)
+      // Side shelf.
+      const shelf = box(0.35, 0.03, 0.4, 0x6a6a72)
+      shelf.position.set(0.5, 0.8, 0)
+      group.add(shelf)
+      break
+    }
+    case 'prop.firepit': {
+      height = 0.6
+      // Stone ring.
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * TAU
+        const stone = sphere(0.11, 0x707078, 8)
+        stone.position.set(Math.sin(a) * 0.4, 0.08, Math.cos(a) * 0.4)
+        group.add(stone)
+      }
+      // Emissive flame.
+      const flame = emissive(new THREE.ConeGeometry(0.2, 0.55, 10), 0xff7020, 0.9)
+      flame.position.y = 0.4
+      group.add(flame)
+      const flameCore = emissive(new THREE.ConeGeometry(0.1, 0.35, 8), 0xffd040)
+      flameCore.position.y = 0.36
+      group.add(flameCore)
+      break
+    }
+    case 'prop.poolLounger': {
+      height = 0.6
+      // Frame + reclined back (head at -Z).
+      const seat = box(0.6, 0.08, 1.4, 0x8a8a92)
+      seat.position.set(0, 0.35, 0.1)
+      group.add(seat)
+      const back = box(0.6, 0.08, 0.7, 0x8a8a92)
+      back.position.set(0, 0.5, -0.6)
+      back.rotation.x = 0.6
+      group.add(back)
+      for (const lz of [-0.4, 0.6]) {
+        const leg = box(0.55, 0.3, 0.05, 0x70707a)
+        leg.position.set(0, 0.15, lz)
+        group.add(leg)
+      }
+      break
+    }
+    case 'prop.patioUmbrellaTable': {
+      height = 2.4
+      // Round table.
+      const top = cyl(0.6, 0.6, 0.05, 0x9a9aa2, 14)
+      top.position.y = 0.74
+      group.add(top)
+      const stem = cyl(0.05, 0.06, 0.72, 0x70707a, 8)
+      stem.position.y = 0.36
+      group.add(stem)
+      // Pole through the table.
+      const pole = cyl(0.04, 0.04, 2.4, 0x8a8a92, 8)
+      pole.position.y = 1.2
+      group.add(pole)
+      // Canopy.
+      const canopy = new THREE.Mesh(new THREE.ConeGeometry(1.3, 0.5, 12), mat(0xd04040))
+      ;(canopy.userData as TintUserData).origColor = 0xd04040
+      canopy.castShadow = true
+      canopy.position.y = 2.25
+      group.add(canopy)
+      break
+    }
+    case 'prop.picnicTable': {
+      height = 0.8
+      const top = box(1.6, 0.06, 0.8, 0x9a8a72)
+      top.position.y = 0.74
+      group.add(top)
+      // A-frame benches attached both sides.
+      for (const side of [-1, 1]) {
+        const bench = box(1.6, 0.05, 0.28, 0x8a7a62)
+        bench.position.set(0, 0.45, side * 0.62)
+        group.add(bench)
+      }
+      // A-frame legs.
+      for (const lx of [-0.65, 0.65]) {
+        const legL = box(0.06, 0.74, 0.06, 0x70707a)
+        legL.position.set(lx, 0.37, -0.5)
+        legL.rotation.x = -0.5
+        group.add(legL)
+        const legR = legL.clone()
+        legR.position.z = 0.5
+        legR.rotation.x = 0.5
+        group.add(legR)
+      }
+      break
+    }
+    case 'prop.swingSet': {
+      height = 2.4
+      const W = 1.6
+      const topY = 2.3
+      // A-frame legs both ends.
+      for (const side of [-1, 1]) {
+        for (const lz of [-0.6, 0.6]) {
+          const leg = box(0.08, topY, 0.08, 0x70707a)
+          leg.position.set(side * W * 0.5, topY * 0.5, lz)
+          leg.rotation.x = lz < 0 ? -0.25 : 0.25
+          group.add(leg)
+        }
+      }
+      // Top beam.
+      const beam = box(W + 0.3, 0.1, 0.1, 0x8a8a92)
+      beam.position.y = topY
+      group.add(beam)
+      // 2 swings on chains.
+      for (const sx of [-0.4, 0.4]) {
+        for (const cz of [-0.15, 0.15]) {
+          const chain = box(0.02, 1.3, 0.02, 0x50505a)
+          chain.position.set(sx, topY - 0.65, cz)
+          group.add(chain)
+        }
+        const seat = box(0.4, 0.04, 0.18, 0x40404a)
+        seat.position.set(sx, topY - 1.3, 0)
+        group.add(seat)
+      }
+      break
+    }
+    case 'prop.slide': {
+      height = 2.2
+      // Ladder up (+Z end), platform, chute down toward -Z.
+      const topY = 2.0
+      for (const lx of [-0.35, 0.35]) {
+        const rail = box(0.05, topY, 0.05, 0x8a8a92)
+        rail.position.set(lx, topY * 0.5, 0.7)
+        group.add(rail)
+      }
+      for (let i = 0; i < 5; i++) {
+        const rung = box(0.7, 0.04, 0.04, 0x8a8a92)
+        rung.position.set(0, 0.3 + i * 0.4, 0.7)
+        group.add(rung)
+      }
+      const platform = box(0.7, 0.05, 0.7, 0x82828a)
+      platform.position.set(0, topY, 0.4)
+      group.add(platform)
+      // Chute sloping down toward -Z.
+      const chute = box(0.6, 0.05, 2.4, 0x40a0c0)
+      chute.position.set(0, topY * 0.5, -0.8)
+      chute.rotation.x = 0.7
+      group.add(chute)
+      break
+    }
+    case 'prop.seesaw': {
+      height = 1.0
+      // Central fulcrum.
+      const fulcrum = box(0.2, 0.5, 0.4, 0x70707a)
+      fulcrum.position.y = 0.25
+      group.add(fulcrum)
+      // Tilted plank along Z.
+      const plank = box(0.3, 0.08, 3.2, 0xd07040)
+      plank.position.y = 0.55
+      plank.rotation.x = 0.12
+      group.add(plank)
+      // Handles + seats at each end.
+      for (const side of [-1, 1]) {
+        const handle = box(0.3, 0.35, 0.05, 0x40404a)
+        handle.position.set(0, 0.75 + side * 0.19, side * 1.4)
+        group.add(handle)
+      }
+      break
+    }
+    case 'prop.sandbox': {
+      height = 0.3
+      // Wooden frame walls.
+      for (const [x, z, w, d] of [[0, -0.75, 1.6, 0.12], [0, 0.75, 1.6, 0.12], [-0.75, 0, 0.12, 1.6], [0.75, 0, 0.12, 1.6]] as [number, number, number, number][]) {
+        const wall = box(w, 0.25, d, 0x8a7a62)
+        wall.position.set(x, 0.125, z)
+        group.add(wall)
+      }
+      // Sand fill.
+      const sand = box(1.5, 0.1, 1.5, 0xd8c890)
+      sand.position.y = 0.1
+      sand.receiveShadow = true
+      sand.castShadow = false
+      group.add(sand)
+      break
+    }
+    case 'prop.trampoline': {
+      height = 2.4
+      // Round frame + mat.
+      const frame = cyl(1.5, 1.5, 0.1, 0x40404a, 16)
+      frame.position.y = 0.65
+      group.add(frame)
+      const mat0 = cyl(1.35, 1.35, 0.05, 0x2a2a30, 16)
+      mat0.position.y = 0.66
+      group.add(mat0)
+      // Legs.
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * TAU + 0.4
+        const leg = cyl(0.04, 0.04, 0.65, 0x8a8a92, 6)
+        leg.position.set(Math.sin(a) * 1.3, 0.325, Math.cos(a) * 1.3)
+        group.add(leg)
+      }
+      // Safety net posts.
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU
+        const post = cyl(0.03, 0.03, 1.8, 0x8a8a92, 6)
+        post.position.set(Math.sin(a) * 1.45, 1.55, Math.cos(a) * 1.45)
+        group.add(post)
+      }
+      break
+    }
+    case 'prop.kiddiePool': {
+      height = 0.3
+      const rim = cyl(0.9, 0.9, 0.28, 0x40a0c0, 14)
+      rim.position.y = 0.14
+      group.add(rim)
+      const water = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.78, 0.78, 0.1, 14),
+        new THREE.MeshLambertMaterial({ color: 0x3080c0, transparent: true, opacity: 0.6 })
+      )
+      ;(water.userData as TintUserData).origColor = 0x3080c0
+      water.castShadow = false
+      water.position.y = 0.2
+      group.add(water)
+      break
+    }
+    case 'prop.basketballHoop': {
+      height = 3.05
+      const pole = cyl(0.09, 0.11, 3.05, 0x50505a, 10)
+      pole.position.y = 1.525
+      group.add(pole)
+      // Backboard (faces -Z).
+      const board = box(1.2, 0.7, 0.05, 0xe8e8ec)
+      board.position.set(0, 2.9, -0.4)
+      group.add(board)
+      // Ring.
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.03, 6, 14), mat(0xd06020))
+      ;(ring.userData as TintUserData).origColor = 0xd06020
+      ring.rotation.x = Math.PI / 2
+      ring.castShadow = true
+      ring.position.set(0, 2.6, -0.6)
+      group.add(ring)
+      break
+    }
+    case 'prop.soccerGoal': {
+      height = 2.44
+      const W = 3.66
+      const H = 2.44
+      // Posts + crossbar (opening faces -Z).
+      for (const sx of [-W * 0.5, W * 0.5]) {
+        const post = cyl(0.06, 0.06, H, 0xe8e8ec, 8)
+        post.position.set(sx, H * 0.5, 0)
+        group.add(post)
+      }
+      const bar = cyl(0.06, 0.06, W, 0xe8e8ec, 8)
+      bar.rotation.z = Math.PI / 2
+      bar.position.set(0, H, 0)
+      group.add(bar)
+      // Angled net panel (sloping back +Z toward the ground).
+      const net = new THREE.Mesh(
+        new THREE.PlaneGeometry(W, 2.4),
+        new THREE.MeshLambertMaterial({ color: 0xcccccc, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
+      )
+      ;(net.userData as TintUserData).origColor = 0xcccccc
+      net.rotation.x = -Math.PI / 3
+      net.position.set(0, H * 0.5, 0.9)
+      group.add(net)
+      break
+    }
+    case 'prop.doghouse': {
+      height = 0.9
+      const body = box(0.7, 0.6, 0.8, 0x8a7a62)
+      body.position.y = 0.3
+      group.add(body)
+      // Pitched roof (two slabs).
+      for (const side of [-1, 1]) {
+        const roof = box(0.5, 0.05, 0.85, 0x6a4a3a)
+        roof.position.set(side * 0.18, 0.72, 0)
+        roof.rotation.z = side * -0.7
+        group.add(roof)
+      }
+      // Doorway.
+      const door = box(0.3, 0.4, 0.05, 0x2a2a30)
+      door.position.set(0, 0.2, -0.41)
+      group.add(door)
+      break
+    }
+    case 'prop.shed': {
+      height = 2.3
+      const body = box(2.0, 1.9, 1.5, 0x7a7a82)
+      body.position.y = 0.95
+      group.add(body)
+      // Pitched roof.
+      for (const side of [-1, 1]) {
+        const roof = box(1.2, 0.06, 1.6, 0x5a4a3a)
+        roof.position.set(side * 0.5, 2.1, 0)
+        roof.rotation.z = side * -0.5
+        group.add(roof)
+      }
+      // Double doors (front -Z).
+      const door = box(0.9, 1.5, 0.05, 0x6a5a4a)
+      door.position.set(0, 0.75, -0.76)
+      group.add(door)
+      break
+    }
+    case 'prop.gazebo': {
+      height = 3.0
+      // 4 posts + railing + pyramid roof.
+      const R = 1.4
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * TAU + Math.PI / 4
+        const post = box(0.1, 2.2, 0.1, 0x8a7a62)
+        post.position.set(Math.sin(a) * R, 1.1, Math.cos(a) * R)
+        group.add(post)
+      }
+      // Railing ring hint.
+      const rail = cyl(R, R, 0.08, 0x8a7a62, 4)
+      rail.rotation.y = Math.PI / 4
+      rail.position.y = 0.8
+      group.add(rail)
+      // Floor.
+      const floor = cyl(R + 0.1, R + 0.1, 0.1, 0x9a8a72, 4)
+      floor.rotation.y = Math.PI / 4
+      floor.position.y = 0.05
+      group.add(floor)
+      // Pyramid roof.
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(R + 0.4, 0.9, 4), mat(0x6a4a3a))
+      ;(roof.userData as TintUserData).origColor = 0x6a4a3a
+      roof.rotation.y = Math.PI / 4
+      roof.castShadow = true
+      roof.position.y = 2.65
+      group.add(roof)
+      break
+    }
+    case 'prop.hammock': {
+      height = 1.2
+      // Two posts.
+      for (const sz of [-1.4, 1.4]) {
+        const post = cyl(0.05, 0.06, 1.4, 0x8a7a62, 8)
+        post.position.set(0, 0.7, sz)
+        group.add(post)
+      }
+      // Sagging mat (curved via 3 boxes).
+      const segs: [number, number][] = [[-1.0, 0.75], [0, 0.5], [1.0, 0.75]]
+      for (const [z, y] of segs) {
+        const seg = box(0.6, 0.04, 0.9, 0x40a0c0)
+        seg.position.set(0, y, z)
+        group.add(seg)
+      }
+      break
+    }
+    case 'prop.lawnmower': {
+      height = 1.0
+      // Deck.
+      const deck = box(0.55, 0.2, 0.55, 0xd04040)
+      deck.position.y = 0.2
+      group.add(deck)
+      // 4 wheels.
+      for (const [wx, wz] of [[-0.25, -0.2], [0.25, -0.2], [-0.25, 0.2], [0.25, 0.2]] as [number, number][]) {
+        const w = wheel(0.1, 0.06, 0x2c2c30)
+        w.position.set(wx, 0.1, wz)
+        group.add(w)
+      }
+      // Handle sloping up toward +Z.
+      const handle = box(0.5, 0.04, 0.8, 0x50505a)
+      handle.position.set(0, 0.6, 0.45)
+      handle.rotation.x = -0.7
+      group.add(handle)
+      break
+    }
+    case 'prop.cashRegister': {
+      height = 0.35
+      const body = box(0.35, 0.22, 0.3, 0x40404a)
+      body.position.y = 0.11
+      group.add(body)
+      // Angled display + emissive screen.
+      const disp = box(0.28, 0.16, 0.03, 0x2a2a30)
+      disp.position.set(0, 0.3, -0.1)
+      disp.rotation.x = -0.4
+      group.add(disp)
+      const screen = emissive(new THREE.PlaneGeometry(0.22, 0.1), 0x60d0a0, 0.9)
+      screen.position.set(0, 0.31, -0.09)
+      screen.rotation.x = -0.4
+      group.add(screen)
+      // Drawer front.
+      const drawer = box(0.34, 0.08, 0.02, 0x2a2a30)
+      drawer.position.set(0, 0.06, -0.16)
+      group.add(drawer)
+      break
+    }
+    case 'prop.kiosk': {
+      height = 2.6
+      // Counter.
+      const counter = box(1.6, 1.0, 0.7, 0x7a6a52)
+      counter.position.y = 0.5
+      group.add(counter)
+      const top = box(1.7, 0.05, 0.8, 0x9a8a72)
+      top.position.y = 1.02
+      group.add(top)
+      // Corner posts.
+      for (const [px, pz] of [[-0.75, -0.35], [0.75, -0.35], [-0.75, 0.35], [0.75, 0.35]] as [number, number][]) {
+        const post = box(0.08, 2.4, 0.08, 0x70707a)
+        post.position.set(px, 1.2, pz)
+        group.add(post)
+      }
+      // Roof.
+      const roof = box(2.0, 0.15, 1.1, 0xc03030)
+      roof.position.y = 2.5
+      group.add(roof)
+      break
+    }
+    case 'prop.gasPump': {
+      height = 1.5
+      const body = box(0.5, 1.4, 0.35, 0xd04040)
+      body.position.y = 0.7
+      group.add(body)
+      // Emissive display.
+      const disp = emissive(new THREE.PlaneGeometry(0.36, 0.25), 0x40d0d0, 0.9)
+      disp.position.set(0, 1.05, -0.18)
+      group.add(disp)
+      // Nozzle holster.
+      const nozzle = box(0.1, 0.25, 0.08, 0x2a2a30)
+      nozzle.position.set(0.28, 0.9, 0)
+      group.add(nozzle)
+      // Base.
+      const base = box(0.6, 0.15, 0.45, 0x50505a)
+      base.position.y = 0.075
+      group.add(base)
+      break
+    }
+    case 'prop.parkingMeter': {
+      height = 1.3
+      const pole = cyl(0.03, 0.04, 1.1, 0x50505a, 8)
+      pole.position.y = 0.55
+      group.add(pole)
+      const headM = box(0.14, 0.3, 0.1, 0x40404a)
+      headM.position.y = 1.2
+      group.add(headM)
+      const face = emissive(new THREE.PlaneGeometry(0.1, 0.12), 0x60d0a0, 0.9)
+      face.position.set(0, 1.22, -0.06)
+      group.add(face)
+      break
+    }
+    case 'prop.busShelter': {
+      height = 2.4
+      // Roof.
+      const roof = box(3.0, 0.1, 1.4, 0x50505a)
+      roof.position.y = 2.35
+      group.add(roof)
+      // Back + side glass panels.
+      const back = new THREE.Mesh(
+        new THREE.BoxGeometry(3.0, 2.0, 0.05),
+        new THREE.MeshLambertMaterial({ color: 0xbcc4cc, transparent: true, opacity: 0.4 })
+      )
+      ;(back.userData as TintUserData).origColor = 0xbcc4cc
+      back.position.set(0, 1.2, 0.68)
+      group.add(back)
+      for (const sx of [-1.5, 1.5]) {
+        const side = new THREE.Mesh(
+          new THREE.BoxGeometry(0.05, 2.0, 1.4),
+          new THREE.MeshLambertMaterial({ color: 0xbcc4cc, transparent: true, opacity: 0.4 })
+        )
+        ;(side.userData as TintUserData).origColor = 0xbcc4cc
+        side.position.set(sx, 1.2, 0)
+        group.add(side)
+      }
+      // Bench.
+      const bench = box(2.4, 0.1, 0.4, 0x70707a)
+      bench.position.set(0, 0.45, 0.4)
+      group.add(bench)
+      break
+    }
+    case 'prop.slotMachine': {
+      height = 1.7
+      const body = box(0.5, 1.1, 0.4, 0xc03030)
+      body.position.y = 1.15
+      group.add(body)
+      const base = box(0.5, 0.6, 0.4, 0x8a2020)
+      base.position.y = 0.3
+      group.add(base)
+      // Emissive reel face.
+      const face = emissive(new THREE.PlaneGeometry(0.38, 0.35), 0xffd040, 0.95)
+      face.position.set(0, 1.25, -0.21)
+      group.add(face)
+      // Emissive top marquee.
+      const marquee = emissive(new THREE.PlaneGeometry(0.44, 0.2), 0xff40a0, 0.9)
+      marquee.position.set(0, 1.6, -0.21)
+      group.add(marquee)
+      // Lever.
+      const lever = cyl(0.02, 0.02, 0.35, 0x9a9aa2, 6)
+      lever.position.set(0.28, 1.2, 0)
+      lever.rotation.z = -0.3
+      group.add(lever)
+      const knob = sphere(0.05, 0xd04040, 8)
+      knob.position.set(0.33, 1.37, 0)
+      group.add(knob)
+      break
+    }
+    case 'prop.cloud': {
+      height = 2.5
+      // Puffy cluster floating at ~4m (like helicopter built at height).
+      const floatY = 4
+      const puffs: [number, number, number, number][] = [
+        [0, 0, 0, 1.2],
+        [1.1, -0.2, 0.3, 0.9],
+        [-1.0, -0.1, -0.2, 0.95],
+        [0.5, 0.3, -0.6, 0.8],
+        [-0.6, 0.2, 0.5, 0.75]
+      ]
+      for (const [px, py, pz, r] of puffs) {
+        const puff = new THREE.Mesh(
+          new THREE.SphereGeometry(r, 10, 10),
+          new THREE.MeshBasicMaterial({ color: 0xf4f6fa, transparent: true, opacity: 0.85 })
+        )
+        puff.castShadow = false
+        puff.receiveShadow = false
+        puff.position.set(px, floatY + py, pz)
+        group.add(puff)
+      }
+      break
+    }
+    case 'prop.squirtGun': {
+      height = 0.35
+      // Chunky toy pistol — bright orange body, barrel points -Z. Reads as a toy.
+      const grip = box(0.07, 0.22, 0.1, 0xff7020)
+      grip.position.set(0, 0.11, 0.09)
+      grip.rotation.x = 0.25
+      group.add(grip)
+      // Fat barrel.
+      const barrel = cyl(0.05, 0.06, 0.28, 0xff7020, 10)
+      barrel.rotation.x = Math.PI / 2
+      barrel.position.set(0, 0.28, -0.06)
+      group.add(barrel)
+      // Muzzle tip (bright yellow safety cap).
+      const muzzle = cyl(0.03, 0.045, 0.05, 0xffd040, 10)
+      muzzle.rotation.x = Math.PI / 2
+      muzzle.position.set(0, 0.28, -0.22)
+      group.add(muzzle)
+      // Trigger loop.
+      const guard = new THREE.Mesh(new THREE.TorusGeometry(0.045, 0.012, 6, 12), mat(0xff7020))
+      ;(guard.userData as TintUserData).origColor = 0xff7020
+      guard.castShadow = true
+      guard.position.set(0, 0.16, 0.03)
+      group.add(guard)
+      // Blue water tank on top.
+      const tank = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.05, 0.14, 4, 8),
+        new THREE.MeshLambertMaterial({ color: 0x3080d0, transparent: true, opacity: 0.75 })
+      )
+      ;(tank.userData as TintUserData).origColor = 0x3080d0
+      tank.castShadow = true
+      tank.rotation.z = Math.PI / 2
+      tank.position.set(0, 0.36, 0.02)
+      group.add(tank)
+      break
+    }
     default: {
       const spec = assetSpec(assetId)
       height = spec.height
@@ -2755,6 +3340,96 @@ function buildEnv(assetId: string): BuiltAsset {
       break
     case 'env.stage':
       res = envStage(group)
+      break
+    case 'env.trainInterior':
+      res = envTrainInterior(group)
+      break
+    case 'env.boatInterior':
+      res = envBoatInterior(group)
+      break
+    case 'env.postOffice':
+      res = envPostOffice(group)
+      break
+    case 'env.supermarket':
+      res = envSupermarket(group)
+      break
+    case 'env.movieTheater':
+      res = envMovieTheater(group)
+      break
+    case 'env.indoorMall':
+      res = envIndoorMall(group)
+      break
+    case 'env.hotelLobby':
+      res = envHotelLobby(group)
+      break
+    case 'env.hotelRoom':
+      res = envHotelRoom(group)
+      break
+    case 'env.diner':
+      res = envDiner(group)
+      break
+    case 'env.coffeeShop':
+      res = envCoffeeShop(group)
+      break
+    case 'env.policeStation':
+      res = envPoliceStation(group)
+      break
+    case 'env.church':
+      res = envChurch(group)
+      break
+    case 'env.schoolHallway':
+      res = envSchoolHallway(group)
+      break
+    case 'env.airportTerminal':
+      res = envAirportTerminal(group)
+      break
+    case 'env.casino':
+      res = envCasino(group)
+      break
+    case 'env.parkingGarage':
+      res = envParkingGarage(group)
+      break
+    case 'env.stripMall':
+      res = envStripMall(group)
+      break
+    case 'env.outdoorMall':
+      res = envOutdoorMall(group)
+      break
+    case 'env.residentialStreet':
+      res = envResidentialStreet(group)
+      break
+    case 'env.downtown':
+      res = envDowntown(group)
+      break
+    case 'env.trainStation':
+      res = envTrainStation(group)
+      break
+    case 'env.gasStation':
+      res = envGasStation(group)
+      break
+    case 'env.park':
+      res = envPark(group)
+      break
+    case 'env.playgroundPark':
+      res = envPlaygroundPark(group)
+      break
+    case 'env.backyard':
+      res = envBackyard(group)
+      break
+    case 'env.constructionSite':
+      res = envConstructionSite(group)
+      break
+    case 'env.cemetery':
+      res = envCemetery(group)
+      break
+    case 'env.stadium':
+      res = envStadium(group)
+      break
+    case 'env.sky':
+      res = envSky(group)
+      break
+    case 'env.houseFull':
+      res = envHouseFull(group)
       break
     default: {
       const b = box(2, spec.height, 2)
@@ -3690,6 +4365,1579 @@ function envStage(group: THREE.Group): EnvResult {
       group.add(glow)
     }
   }
+  return { group, height: wallH }
+}
+
+// ---------------------------------------------------------------------------
+// ENVIRONMENTS — round 5
+// ---------------------------------------------------------------------------
+
+/** A simple seat cluster (base + backrest) used across kits; y raises it. */
+function seatBox(group: THREE.Group, x: number, z: number, col = 0x40404a, y = 0): void {
+  const base = box(0.45, 0.12, 0.45, col)
+  base.position.set(x, 0.42 + y, z)
+  group.add(base)
+  const backrest = box(0.45, 0.5, 0.1, col)
+  backrest.position.set(x, 0.67 + y, z + 0.22)
+  group.add(backrest)
+}
+
+function envTrainInterior(group: THREE.Group): EnvResult {
+  const L = 16
+  const W = 3
+  const wallH = 2.4
+  const t = 0.12
+  group.add(ground(W, L, 0x55555f))
+  // Side walls with window strips.
+  for (const side of [-1, 1]) {
+    const wall = box(t, wallH, L, 0x8a8a92)
+    wall.position.set(side * W * 0.5, wallH * 0.5, 0)
+    group.add(wall)
+    const windows = box(t + 0.02, 0.7, L * 0.85, 0xbcc4cc)
+    windows.position.set(side * W * 0.5, wallH * 0.62, 0)
+    group.add(windows)
+    // Overhead luggage rack.
+    const rack = box(0.5, 0.1, L * 0.9, 0x70707a)
+    rack.position.set(side * (W * 0.5 - 0.35), wallH - 0.35, 0)
+    group.add(rack)
+  }
+  // Doors at both ends.
+  for (const z of [-L * 0.5, L * 0.5]) {
+    const door = box(W - 0.4, wallH, 0.08, 0x6a6a72)
+    door.position.set(0, wallH * 0.5, z)
+    group.add(door)
+  }
+  // Paired seat rows both sides, center aisle.
+  for (let i = 0; i < 6; i++) {
+    const z = -L * 0.5 + 1.6 + i * 2.3
+    for (const side of [-1, 1]) {
+      seatBox(group, side * 0.95, z, 0x3a4a6a)
+    }
+  }
+  return { group, height: wallH }
+}
+
+function envBoatInterior(group: THREE.Group): EnvResult {
+  const L = 10
+  const W = 4
+  const wallH = 2.2
+  group.add(ground(W, L, 0x6a5a4a))
+  // Hull-curved walls (angled boxes).
+  for (const side of [-1, 1]) {
+    const hull = box(0.15, wallH, L, 0x8a8a92)
+    hull.position.set(side * W * 0.5, wallH * 0.5, 0)
+    hull.rotation.z = side * 0.2
+    group.add(hull)
+    // Portholes.
+    for (const z of [-2.5, 0, 2.5]) {
+      const port = new THREE.Mesh(new THREE.CircleGeometry(0.3, 12), mat(0xbcc4cc))
+      ;(port.userData as TintUserData).origColor = 0xbcc4cc
+      port.rotation.y = side * Math.PI / 2
+      port.position.set(side * (W * 0.5 - 0.15), 1.4, z)
+      group.add(port)
+    }
+  }
+  // Back wall.
+  const back = box(W, wallH, 0.15, 0x8a8a92)
+  back.position.set(0, wallH * 0.5, L * 0.5)
+  group.add(back)
+  // Helm console + wheel at front (-Z).
+  const console0 = box(1.0, 1.0, 0.5, 0x40404a)
+  console0.position.set(0, 0.5, -L * 0.5 + 1)
+  group.add(console0)
+  const wheelT = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.04, 8, 16), mat(0x5a4a3a))
+  ;(wheelT.userData as TintUserData).origColor = 0x5a4a3a
+  wheelT.castShadow = true
+  wheelT.position.set(0, 1.2, -L * 0.5 + 1.3)
+  group.add(wheelT)
+  // Bench seating.
+  for (const side of [-1, 1]) {
+    const bench = box(0.5, 0.4, 3, 0x5a4a3a)
+    bench.position.set(side * 1.4, 0.4, 2)
+    group.add(bench)
+  }
+  // Small table.
+  const table = cyl(0.5, 0.5, 0.05, 0x9a8a72, 12)
+  table.position.set(0, 0.6, 2)
+  group.add(table)
+  const stem = cyl(0.06, 0.06, 0.58, 0x70707a, 8)
+  stem.position.set(0, 0.29, 2)
+  group.add(stem)
+  return { group, height: wallH }
+}
+
+function envPostOffice(group: THREE.Group): EnvResult {
+  const S = 16
+  const wallH = 3
+  shell(group, S, wallH, 0x8a8a80)
+  // Service counter with divider windows.
+  const counter = box(8, 1.1, 0.8, 0x7a6a52)
+  counter.position.set(0, 0.55, 3)
+  group.add(counter)
+  const top = box(8.2, 0.05, 0.9, 0x9a8a72)
+  top.position.set(0, 1.12, 3)
+  group.add(top)
+  // Divider glass above counter with gaps.
+  for (let i = 0; i < 3; i++) {
+    const x = -3 + i * 3
+    const glass = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 1.2, 0.04),
+      new THREE.MeshLambertMaterial({ color: 0xbcc4cc, transparent: true, opacity: 0.4 })
+    )
+    ;(glass.userData as TintUserData).origColor = 0xbcc4cc
+    glass.position.set(x, 1.8, 3)
+    group.add(glass)
+  }
+  // Wall of PO boxes (grid) on back wall.
+  for (let r = 0; r < 6; r++) {
+    for (let c = 0; c < 10; c++) {
+      const bx = -3 + c * 0.65
+      const boxM = box(0.55, 0.35, 0.1, r % 2 === c % 2 ? 0x9a9aa2 : 0x8a8a92)
+      boxM.position.set(bx, 0.6 + r * 0.4, S * 0.5 - 0.1)
+      group.add(boxM)
+    }
+  }
+  // Queue stanchions with ropes.
+  for (let i = 0; i < 3; i++) {
+    const x = -2 + i * 2
+    const post = cyl(0.05, 0.06, 1.0, 0x9a9aa2, 8)
+    post.position.set(x, 0.5, -2)
+    group.add(post)
+    if (i < 2) {
+      const rope = box(2, 0.03, 0.03, 0x8a2020)
+      rope.position.set(x + 1, 0.9, -2)
+      group.add(rope)
+    }
+  }
+  // Package shelves on left wall.
+  for (let s = 0; s < 3; s++) {
+    const shelf = box(0.5, 0.05, 5, 0x6a6a72)
+    shelf.position.set(-S * 0.5 + 0.4, 0.6 + s * 0.7, -3)
+    group.add(shelf)
+  }
+  return { group, height: wallH }
+}
+
+function envSupermarket(group: THREE.Group): EnvResult {
+  const S = 24
+  const wallH = 4
+  shell(group, S, wallH, 0xc4c4cc)
+  // 4 gondola aisles.
+  for (let i = 0; i < 4; i++) {
+    const x = -7.5 + i * 4
+    const gondola = box(1.4, 1.8, 12, 0x81818a)
+    gondola.position.set(x, 0.9, -1)
+    group.add(gondola)
+  }
+  // Checkout lanes with belts.
+  for (let i = 0; i < 3; i++) {
+    const x = -5 + i * 3.5
+    const lane = box(0.8, 1.0, 2.5, 0x7a7a82)
+    lane.position.set(x, 0.5, S * 0.5 - 3)
+    group.add(lane)
+    const belt = box(0.6, 0.05, 2.0, 0x2a2a30)
+    belt.position.set(x, 1.02, S * 0.5 - 3)
+    group.add(belt)
+  }
+  // Produce bins (front-left).
+  for (const [px, pz] of [[-9, 6], [-9, 8]] as [number, number][]) {
+    const bin = box(1.6, 0.7, 1.2, 0x5a4a3a)
+    bin.position.set(px, 0.35, pz)
+    group.add(bin)
+  }
+  // Freezer wall on left.
+  const freezer = box(0.6, 2.2, 10, 0xbcc4cc)
+  freezer.position.set(-S * 0.5 + 0.5, 1.1, -3)
+  group.add(freezer)
+  // A couple of shopping carts.
+  for (const [cx, cz] of [[6, 7], [4, 8.5]] as [number, number][]) {
+    const cart = grp(cx, 0, cz)
+    group.add(cart)
+    const basket = box(0.5, 0.35, 0.7, 0x9a9aa2)
+    basket.position.y = 0.7
+    cart.add(basket)
+    for (const [wx, wz] of [[-0.2, -0.3], [0.2, -0.3], [-0.2, 0.3], [0.2, 0.3]] as [number, number][]) {
+      const w = wheel(0.08, 0.04, 0x2c2c30)
+      w.position.set(wx, 0.08, wz)
+      cart.add(w)
+    }
+  }
+  return { group, height: wallH }
+}
+
+function envMovieTheater(group: THREE.Group): EnvResult {
+  const S = 20
+  const wallH = 5
+  group.add(ground(S, S, 0x2a2028))
+  // Big glowing screen at front (-Z).
+  const screen = emissive(new THREE.PlaneGeometry(14, 6), 0xf0f4ff, 0.9)
+  screen.position.set(0, 3.5, -S * 0.5 + 0.5)
+  group.add(screen)
+  const frame = box(15, 7, 0.2, 0x111116)
+  frame.position.set(0, 3.5, -S * 0.5 + 0.3)
+  group.add(frame)
+  // Side curtains.
+  for (const side of [-1, 1]) {
+    const curtain = box(0.4, wallH, S, 0x6a1a24)
+    curtain.position.set(side * S * 0.5, wallH * 0.5, 0)
+    group.add(curtain)
+  }
+  // Raked rows of seats (step up toward +Z).
+  for (let r = 0; r < 6; r++) {
+    const z = -4 + r * 2.2
+    const y = r * 0.35
+    // Aisle step.
+    const step = box(S, 0.35, 2.0, 0x30303a)
+    step.position.set(0, y * 0.5, z)
+    group.add(step)
+    for (let c = 0; c < 8; c++) {
+      const x = -7 + c * 2
+      seatBox(group, x, z, 0x40404a, y)
+    }
+  }
+  return { group, height: wallH }
+}
+
+function envIndoorMall(group: THREE.Group): EnvResult {
+  const S = 28
+  const wallH = 6
+  group.add(ground(S, S, 0xc4c4cc))
+  // Storefront facades both sides (along Z).
+  for (const side of [-1, 1]) {
+    const facade = box(0.4, wallH, S, 0x9a9aa2)
+    facade.position.set(side * S * 0.5, wallH * 0.5, 0)
+    group.add(facade)
+    // Signboards.
+    for (let i = 0; i < 4; i++) {
+      const z = -S * 0.5 + 4 + i * 6
+      const sign = emissive(new THREE.PlaneGeometry(3, 0.8), i % 2 === 0 ? 0x40a0d0 : 0xd06040, 0.9)
+      sign.rotation.y = side * -Math.PI / 2
+      sign.position.set(side * (S * 0.5 - 0.25), 3.5, z)
+      group.add(sign)
+      // Storefront opening frame.
+      const opening = box(0.3, 3.5, 4, 0x50505a)
+      opening.position.set(side * (S * 0.5 - 0.2), 1.75, z)
+      group.add(opening)
+    }
+  }
+  // Central kiosks.
+  for (const z of [-6, 6]) {
+    const kiosk = box(2.5, 1.2, 2.5, 0x7a6a52)
+    kiosk.position.set(0, 0.6, z)
+    group.add(kiosk)
+    const roof = box(3, 0.2, 3, 0xc03030)
+    roof.position.set(0, 2.2, z)
+    group.add(roof)
+  }
+  // Planters.
+  for (const [px, pz] of [[-3, 0], [3, 0]] as [number, number][]) {
+    const planter = cyl(0.6, 0.6, 0.6, 0x8a7a62, 10)
+    planter.position.set(px, 0.3, pz)
+    group.add(planter)
+    const foliage = sphere(0.7, 0x3a5a2a, 10)
+    foliage.position.set(px, 1.0, pz)
+    group.add(foliage)
+  }
+  // Skylight beams overhead.
+  for (let i = 0; i < 5; i++) {
+    const z = -S * 0.5 + 3 + i * 5.5
+    const beam = box(S * 0.5, 0.2, 0.3, 0xbcc4cc)
+    beam.position.set(0, wallH - 0.2, z)
+    group.add(beam)
+  }
+  return { group, height: wallH }
+}
+
+function envHotelLobby(group: THREE.Group): EnvResult {
+  const S = 20
+  const wallH = 4
+  shell(group, S, wallH, 0x8a7a6a, 0xb4a494)
+  // Front desk.
+  const desk = box(5, 1.1, 1.0, 0x5a4a3a)
+  desk.position.set(0, 0.55, S * 0.5 - 2)
+  group.add(desk)
+  const deskTop = box(5.2, 0.06, 1.1, 0x8a7a62)
+  deskTop.position.set(0, 1.12, S * 0.5 - 2)
+  group.add(deskTop)
+  // Columns.
+  for (const [cx, cz] of [[-5, -3], [5, -3], [-5, 3], [5, 3]] as [number, number][]) {
+    const col = cyl(0.4, 0.4, wallH, 0xc4b4a4, 12)
+    col.position.set(cx, wallH * 0.5, cz)
+    group.add(col)
+  }
+  // Seating cluster (2 sofas + coffee table).
+  for (const side of [-1, 1]) {
+    const sofa = box(2.4, 0.7, 0.9, 0x5a5a66)
+    sofa.position.set(0, 0.35, side * 1.5)
+    group.add(sofa)
+  }
+  const coffee = box(1.2, 0.4, 0.7, 0x6a5a4a)
+  coffee.position.set(0, 0.2, 0)
+  group.add(coffee)
+  // Luggage cart.
+  const cart = grp(-6, 0, 4)
+  group.add(cart)
+  const cartBase = box(0.8, 0.1, 1.2, 0xc0a860)
+  cartBase.position.y = 0.3
+  cart.add(cartBase)
+  for (const px of [-0.35, 0.35]) {
+    const pole = cyl(0.03, 0.03, 1.5, 0xc0a860, 8)
+    pole.position.set(px, 0.75, -0.5)
+    cart.add(pole)
+  }
+  const bag = box(0.6, 0.5, 0.8, 0x6a5a4a)
+  bag.position.set(0, 0.6, 0)
+  cart.add(bag)
+  return { group, height: wallH }
+}
+
+function envHotelRoom(group: THREE.Group): EnvResult {
+  const S = 16
+  const wallH = 2.7
+  shell(group, S, wallH, 0x8a7a6a, 0xc4b4a4)
+  // Queen bed against headboard wall (back +Z).
+  const bedFrame = box(2.2, 0.4, 2.2, 0x6a5a4a)
+  bedFrame.position.set(-2, 0.2, S * 0.5 - 1.6)
+  group.add(bedFrame)
+  const mattress = box(2.1, 0.25, 2.1, 0xd4d4dc)
+  mattress.position.set(-2, 0.5, S * 0.5 - 1.6)
+  group.add(mattress)
+  const headboard = box(2.3, 1.0, 0.15, 0x5a4a3a)
+  headboard.position.set(-2, 0.7, S * 0.5 - 0.6)
+  group.add(headboard)
+  // TV dresser.
+  const dresser = box(2.0, 0.7, 0.5, 0x6a5a4a)
+  dresser.position.set(-2, 0.35, -S * 0.5 + 0.8)
+  group.add(dresser)
+  const tv = box(1.2, 0.7, 0.06, 0x2a2a30)
+  tv.position.set(-2, 1.3, -S * 0.5 + 0.6)
+  group.add(tv)
+  // Desk + chair.
+  const desk = box(1.2, 0.75, 0.6, 0x7a6a52)
+  desk.position.set(3, 0.375, -S * 0.5 + 1)
+  group.add(desk)
+  const chair = grp(3, 0, -S * 0.5 + 1.9)
+  group.add(chair)
+  buildSimpleChair(chair)
+  // Curtained window wall (right side -X open, use +X wall region).
+  const curtain = box(0.1, 2.2, 3, 0x8a5a6a)
+  curtain.position.set(S * 0.5 - 0.2, 1.3, 4)
+  group.add(curtain)
+  // Bathroom nook (corner partition + toilet block).
+  const partition = box(0.15, wallH, 3, 0xc4b4a4)
+  partition.position.set(4, wallH * 0.5, S * 0.5 - 1.5)
+  group.add(partition)
+  const toilet = box(0.4, 0.5, 0.5, 0xe8e8ec)
+  toilet.position.set(5.5, 0.25, S * 0.5 - 1)
+  group.add(toilet)
+  return { group, height: wallH }
+}
+
+function envDiner(group: THREE.Group): EnvResult {
+  const S = 16
+  const wallH = 3
+  shell(group, S, wallH, 0x8a8a92)
+  // Checkerboard-ish floor tint patch.
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 4; c++) {
+      if ((r + c) % 2 === 0) continue
+      const tile = box(2, 0.02, 2, 0x30303a)
+      tile.position.set(-3 + c * 2, 0.02, -3 + r * 2)
+      tile.receiveShadow = true
+      tile.castShadow = false
+      group.add(tile)
+    }
+  }
+  // Window booths along one wall (right +X region, use back-left instead: left wall).
+  for (let i = 0; i < 3; i++) {
+    const z = -4 + i * 4
+    const seatB = box(0.5, 0.45, 1.6, 0xc03040)
+    seatB.position.set(-S * 0.5 + 1, 0.45, z)
+    group.add(seatB)
+    const backB = box(0.25, 1.1, 1.6, 0xc03040)
+    backB.position.set(-S * 0.5 + 0.6, 0.7, z)
+    group.add(backB)
+    const table = box(0.9, 0.05, 0.9, 0x9a9aa2)
+    table.position.set(-S * 0.5 + 1.9, 0.72, z)
+    group.add(table)
+  }
+  // Counter with stools.
+  const counter = box(0.7, 1.0, 8, 0x8a8a92)
+  counter.position.set(4, 0.5, 0)
+  group.add(counter)
+  const counterTop = box(1.0, 0.06, 8, 0xc4c4cc)
+  counterTop.position.set(4, 1.02, 0)
+  group.add(counterTop)
+  for (let i = 0; i < 5; i++) {
+    const z = -3.2 + i * 1.6
+    const seat = cyl(0.2, 0.2, 0.06, 0xc03040, 12)
+    seat.position.set(2.9, 0.75, z)
+    group.add(seat)
+    const post = cyl(0.04, 0.05, 0.72, 0x9a9aa2, 8)
+    post.position.set(2.9, 0.36, z)
+    group.add(post)
+  }
+  // Kitchen pass window (back wall).
+  const pass = box(4, 0.9, 0.3, 0x6a6a72)
+  pass.position.set(4, 1.6, S * 0.5 - 0.3)
+  group.add(pass)
+  return { group, height: wallH }
+}
+
+function envCoffeeShop(group: THREE.Group): EnvResult {
+  const S = 16
+  const wallH = 3
+  shell(group, S, wallH, 0x8a7a6a, 0x9a8a72)
+  // Order counter.
+  const counter = box(4, 1.1, 0.8, 0x5a4a3a)
+  counter.position.set(-2, 0.55, S * 0.5 - 2)
+  group.add(counter)
+  const counterTop = box(4.2, 0.06, 0.9, 0x6a5a4a)
+  counterTop.position.set(-2, 1.12, S * 0.5 - 2)
+  group.add(counterTop)
+  // Espresso machine block.
+  const machine = box(0.8, 0.5, 0.5, 0x9a9aa2)
+  machine.position.set(-3, 1.4, S * 0.5 - 2)
+  group.add(machine)
+  // Pastry case (glass).
+  const pcase = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5, 0.5, 0.7),
+    new THREE.MeshLambertMaterial({ color: 0xbcc4cc, transparent: true, opacity: 0.4 })
+  )
+  ;(pcase.userData as TintUserData).origColor = 0xbcc4cc
+  pcase.position.set(-0.5, 1.4, S * 0.5 - 2)
+  group.add(pcase)
+  // Menu board (emissive).
+  const menu = emissive(new THREE.PlaneGeometry(3, 1), 0x2a3a30, 1)
+  menu.position.set(-2, 2.4, S * 0.5 - 0.1)
+  group.add(menu)
+  // Small round tables + chairs.
+  for (const [tx, tz] of [[-4, -2], [0, -2], [4, -1]] as [number, number][]) {
+    const top = cyl(0.4, 0.4, 0.05, 0x8a7a62, 12)
+    top.position.set(tx, 0.72, tz)
+    group.add(top)
+    const stem = cyl(0.05, 0.06, 0.7, 0x70707a, 8)
+    stem.position.set(tx, 0.35, tz)
+    group.add(stem)
+    for (let c = 0; c < 2; c++) {
+      const chair = grp(tx + (c === 0 ? -0.7 : 0.7), 0, tz)
+      chair.rotation.y = c === 0 ? Math.PI / 2 : -Math.PI / 2
+      group.add(chair)
+      buildSimpleChair(chair)
+    }
+  }
+  // Two armchairs.
+  for (const ax of [-5, 5]) {
+    const arm = box(0.9, 0.7, 0.9, 0x5a5a66)
+    arm.position.set(ax, 0.35, 4)
+    group.add(arm)
+    const backr = box(0.9, 0.5, 0.2, 0x5a5a66)
+    backr.position.set(ax, 0.7, 4.35)
+    group.add(backr)
+  }
+  return { group, height: wallH }
+}
+
+function envPoliceStation(group: THREE.Group): EnvResult {
+  const S = 20
+  const wallH = 3
+  shell(group, S, wallH, 0x7a7a82)
+  // Reception counter at front.
+  const desk = box(4, 1.1, 1.0, 0x5a5a62)
+  desk.position.set(-4, 0.55, -S * 0.5 + 2)
+  group.add(desk)
+  // Bullpen of paired desks.
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 2; c++) {
+      const x = -3 + c * 6
+      const z = 0 + r * 3
+      const d1 = box(1.4, 0.05, 0.7, 0x8d8d95)
+      d1.position.set(x, 0.72, z)
+      group.add(d1)
+      const legs = box(1.3, 0.68, 0.6, 0x70707a)
+      legs.position.set(x, 0.35, z)
+      group.add(legs)
+      const chair = grp(x, 0, z - 0.7)
+      group.add(chair)
+      buildSimpleChair(chair)
+    }
+  }
+  // Holding cell (bar grid) in a corner.
+  const cellX = S * 0.5 - 3
+  const cellZ = S * 0.5 - 3
+  for (let i = 0; i <= 6; i++) {
+    const bar = cyl(0.05, 0.05, wallH, 0x2c2c32, 6)
+    bar.position.set(cellX - 3 + i * 0.5, wallH * 0.5, cellZ)
+    group.add(bar)
+  }
+  for (let i = 0; i <= 6; i++) {
+    const bar = cyl(0.05, 0.05, wallH, 0x2c2c32, 6)
+    bar.position.set(cellX, wallH * 0.5, cellZ - 3 + i * 0.5)
+    group.add(bar)
+  }
+  return { group, height: wallH }
+}
+
+function envChurch(group: THREE.Group): EnvResult {
+  const S = 22
+  const wallH = 6
+  shell(group, S, wallH, 0x8a7a6a, 0xb4a494)
+  // Pew rows split by center aisle.
+  for (let r = 0; r < 6; r++) {
+    const z = -6 + r * 1.8
+    for (const side of [-1, 1]) {
+      const pew = box(4, 0.45, 0.5, 0x6a5a4a)
+      pew.position.set(side * 3.5, 0.35, z)
+      group.add(pew)
+      const backr = box(4, 0.6, 0.12, 0x6a5a4a)
+      backr.position.set(side * 3.5, 0.7, z + 0.2)
+      group.add(backr)
+    }
+  }
+  // Raised altar platform with pulpit.
+  const platform = box(8, 0.5, 3, 0x9a8a72)
+  platform.position.set(0, 0.25, S * 0.5 - 2.5)
+  group.add(platform)
+  const pulpit = box(0.8, 1.1, 0.6, 0x5a4a3a)
+  pulpit.position.set(-2, 1.05, S * 0.5 - 2.5)
+  group.add(pulpit)
+  // Tall colored window panels (emissive tints).
+  const tints = [0xd04060, 0x4060d0, 0x40c060]
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 3; i++) {
+      const z = -4 + i * 4
+      const win = emissive(new THREE.PlaneGeometry(1.2, 3.5), tints[i] ?? 0xd0a040, 0.85)
+      win.rotation.y = side * -Math.PI / 2
+      win.position.set(side * (S * 0.5 - 0.1), 3.5, z)
+      group.add(win)
+    }
+  }
+  return { group, height: wallH }
+}
+
+function envSchoolHallway(group: THREE.Group): EnvResult {
+  const L = 20
+  const W = 5
+  const wallH = 3
+  group.add(ground(W, L, 0x9a9080))
+  // Two walls with locker banks.
+  for (const side of [-1, 1]) {
+    const wall = box(0.15, wallH, L, 0x9a9aa2)
+    wall.position.set(side * W * 0.5, wallH * 0.5, 0)
+    group.add(wall)
+    // Locker banks.
+    for (let i = 0; i < 12; i++) {
+      const z = -L * 0.5 + 1 + i * 1.6
+      const locker = box(0.25, 1.8, 1.4, i % 2 === 0 ? 0x3a5a8a : 0x40608a)
+      locker.position.set(side * (W * 0.5 - 0.2), 1.0, z)
+      group.add(locker)
+    }
+    // Classroom doors.
+    for (const z of [-6, 0, 6]) {
+      const door = box(0.1, 2.1, 1.0, 0x6a5a4a)
+      door.position.set(side * (W * 0.5 - 0.05), 1.05, z)
+      group.add(door)
+    }
+  }
+  // A bench.
+  const bench = box(2, 0.45, 0.5, 0x6a5a4a)
+  bench.position.set(-1.5, 0.35, 3)
+  group.add(bench)
+  return { group, height: wallH }
+}
+
+function envAirportTerminal(group: THREE.Group): EnvResult {
+  const S = 30
+  const wallH = 5
+  group.add(ground(S, S, 0xc4c4cc))
+  // Floor-to-ceiling window wall (back +Z).
+  const winWall = new THREE.Mesh(
+    new THREE.BoxGeometry(S, wallH, 0.1),
+    new THREE.MeshLambertMaterial({ color: 0xbcc4cc, transparent: true, opacity: 0.4 })
+  )
+  ;(winWall.userData as TintUserData).origColor = 0xbcc4cc
+  winWall.position.set(0, wallH * 0.5, S * 0.5)
+  group.add(winWall)
+  // Mullions.
+  for (let i = -6; i <= 6; i++) {
+    const mullion = box(0.15, wallH, 0.15, 0x70707a)
+    mullion.position.set(i * 2.3, wallH * 0.5, S * 0.5)
+    group.add(mullion)
+  }
+  // Gate seating rows back-to-back.
+  for (let r = 0; r < 2; r++) {
+    const z = -2 + r * 1.2
+    for (let c = 0; c < 8; c++) {
+      const x = -7 + c * 2
+      seatBox(group, x, z, r === 0 ? 0x3a4a6a : 0x4a5a7a)
+    }
+  }
+  // Check-in desk row (front).
+  for (let i = 0; i < 4; i++) {
+    const x = -6 + i * 4
+    const desk = box(3, 1.1, 1.0, 0x5a5a66)
+    desk.position.set(x, 0.55, -S * 0.5 + 3)
+    group.add(desk)
+  }
+  // Departures board (emissive).
+  const board = emissive(new THREE.PlaneGeometry(6, 1.5), 0x203040, 1)
+  board.position.set(0, 4, -S * 0.5 + 1)
+  board.rotation.y = Math.PI
+  group.add(board)
+  return { group, height: wallH }
+}
+
+function envCasino(group: THREE.Group): EnvResult {
+  const S = 20
+  const wallH = 3.5
+  shell(group, S, wallH, 0x5a2030, 0x3a2028)
+  // Patterned floor tint.
+  for (let i = 0; i < 5; i++) {
+    const ring = cyl(3 + i * 0.4, 3 + i * 0.4, 0.02, i % 2 === 0 ? 0xc0a040 : 0x8a2030, 20)
+    ring.position.y = 0.02 + i * 0.001
+    ring.receiveShadow = true
+    ring.castShadow = false
+    group.add(ring)
+  }
+  // Slot-machine rows (small glowing boxes).
+  for (let r = 0; r < 2; r++) {
+    const z = -6 + r * 2
+    for (let c = 0; c < 8; c++) {
+      const x = -7 + c * 2
+      const machine = box(0.6, 1.5, 0.5, 0x40404a)
+      machine.position.set(x, 0.75, z)
+      group.add(machine)
+      const glow = emissive(new THREE.PlaneGeometry(0.45, 0.4), c % 2 === 0 ? 0xffd040 : 0xff40a0, 0.9)
+      glow.position.set(x, 1.1, z - 0.26)
+      group.add(glow)
+    }
+  }
+  // Two card tables with stool rings.
+  for (const tx of [-4, 4]) {
+    const table = cyl(1.2, 1.2, 0.4, 0x2a5a3a, 14)
+    table.position.set(tx, 0.7, 5)
+    group.add(table)
+    const stem = cyl(0.15, 0.2, 0.7, 0x40404a, 8)
+    stem.position.set(tx, 0.35, 5)
+    group.add(stem)
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI - Math.PI * 0.5
+      const stool = cyl(0.2, 0.2, 0.06, 0x8a2030, 12)
+      stool.position.set(tx + Math.sin(a) * 1.6, 0.65, 5 + Math.cos(a) * 1.6)
+      group.add(stool)
+    }
+  }
+  // Low ceiling glow.
+  const ceilGlow = emissive(new THREE.PlaneGeometry(S - 2, S - 2), 0x402028, 0.5)
+  ceilGlow.rotation.x = Math.PI / 2
+  ceilGlow.position.y = wallH - 0.1
+  group.add(ceilGlow)
+  return { group, height: wallH }
+}
+
+function envParkingGarage(group: THREE.Group): EnvResult {
+  const S = 28
+  const ceilH = 2.6
+  group.add(ground(S, S, 0x55555c))
+  // Low ceiling slab.
+  const ceiling = box(S, 0.3, S, 0x6a6a72)
+  ceiling.position.y = ceilH
+  ceiling.receiveShadow = true
+  ceiling.castShadow = false
+  group.add(ceiling)
+  // Square columns.
+  for (let cx = -1; cx <= 1; cx++) {
+    for (let cz = -1; cz <= 1; cz++) {
+      const col = box(0.6, ceilH, 0.6, 0x82828a)
+      col.position.set(cx * 8, ceilH * 0.5, cz * 8)
+      group.add(col)
+    }
+  }
+  // Painted stall stripes.
+  for (let i = 0; i <= 8; i++) {
+    const x = -10 + i * 2.5
+    const line = box(0.1, 0.02, 5, 0xd0d0d0)
+    line.position.set(x, 0.02, -9)
+    line.receiveShadow = true
+    line.castShadow = false
+    group.add(line)
+  }
+  // Ramp.
+  const ramp = box(4, 0.15, 8, 0x4a4a52)
+  ramp.position.set(S * 0.5 - 3, 0.6, 5)
+  ramp.rotation.x = 0.15
+  group.add(ramp)
+  // Concrete barriers.
+  for (const [bx, bz] of [[-6, 6], [0, 8]] as [number, number][]) {
+    const barrier = box(1.6, 0.5, 0.4, 0xb4b4b4)
+    barrier.position.set(bx, 0.25, bz)
+    group.add(barrier)
+  }
+  return { group, height: ceilH }
+}
+
+function envStripMall(group: THREE.Group): EnvResult {
+  const S = 40
+  group.add(ground(S, S, 0x55555c))
+  // One long row of storefronts (back +Z) with sign band.
+  const facade = box(S * 0.8, 5, 1, 0x9a9aa2)
+  facade.position.set(0, 2.5, S * 0.25)
+  group.add(facade)
+  const signBand = box(S * 0.8, 1.2, 0.2, 0x40404a)
+  signBand.position.set(0, 4.4, S * 0.25 - 0.5)
+  group.add(signBand)
+  // Storefront windows/openings.
+  for (let i = 0; i < 6; i++) {
+    const x = -13 + i * 5.2
+    const glass = new THREE.Mesh(
+      new THREE.BoxGeometry(4, 3, 0.1),
+      new THREE.MeshLambertMaterial({ color: 0xbcc4cc, transparent: true, opacity: 0.4 })
+    )
+    ;(glass.userData as TintUserData).origColor = 0xbcc4cc
+    glass.position.set(x, 1.6, S * 0.25 - 0.5)
+    group.add(glass)
+    const sign = emissive(new THREE.PlaneGeometry(3.5, 0.8), i % 2 === 0 ? 0x40a0d0 : 0xd06040, 0.9)
+    sign.position.set(x, 4.4, S * 0.25 - 0.6)
+    sign.rotation.y = Math.PI
+    group.add(sign)
+  }
+  // Sidewalk.
+  const sidewalk = box(S * 0.85, 0.15, 4, 0x9a9aa2)
+  sidewalk.position.set(0, 0.075, S * 0.25 - 3)
+  group.add(sidewalk)
+  // Parking stalls (empty for user cars).
+  for (let i = 0; i <= 10; i++) {
+    const x = -13 + i * 2.6
+    const line = box(0.1, 0.02, 5, 0xd0d0d0)
+    line.position.set(x, 0.02, -5)
+    line.receiveShadow = true
+    line.castShadow = false
+    group.add(line)
+  }
+  // Light poles.
+  for (const px of [-12, 0, 12]) {
+    const pole = cyl(0.1, 0.12, 6, 0x55555f)
+    pole.position.set(px, 3, -8)
+    group.add(pole)
+    const headL = box(0.6, 0.2, 0.3, 0x40404a)
+    headL.position.set(px, 6, -8)
+    group.add(headL)
+  }
+  return { group, height: 5 }
+}
+
+function envOutdoorMall(group: THREE.Group): EnvResult {
+  const S = 36
+  group.add(ground(S, S, 0xb4a494))
+  // Promenade strip.
+  const promenade = box(8, 0.05, S, 0xc4c4cc)
+  promenade.position.y = 0.03
+  promenade.receiveShadow = true
+  promenade.castShadow = false
+  group.add(promenade)
+  // Storefront facades both sides.
+  for (const side of [-1, 1]) {
+    const facade = box(1, 5, S, 0x9a9aa2)
+    facade.position.set(side * 6, 2.5, 0)
+    group.add(facade)
+    for (let i = 0; i < 5; i++) {
+      const z = -S * 0.5 + 4 + i * 7
+      const sign = emissive(new THREE.PlaneGeometry(3, 0.8), i % 2 === 0 ? 0x40a0d0 : 0xd06040, 0.9)
+      sign.rotation.y = side * -Math.PI / 2
+      sign.position.set(side * 5.4, 3.5, z)
+      group.add(sign)
+    }
+  }
+  // Central fountain.
+  const basin = cyl(1.6, 1.6, 0.5, 0x9a9aa2, 16)
+  basin.position.y = 0.25
+  group.add(basin)
+  const water = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.4, 1.4, 0.1, 16),
+    new THREE.MeshLambertMaterial({ color: 0x3080c0, transparent: true, opacity: 0.6 })
+  )
+  ;(water.userData as TintUserData).origColor = 0x3080c0
+  water.castShadow = false
+  water.position.y = 0.48
+  group.add(water)
+  const spout = emissive(new THREE.CylinderGeometry(0.05, 0.08, 0.8, 8), 0x90c0e0, 0.7)
+  spout.position.y = 0.9
+  group.add(spout)
+  // Planters + benches + string-light posts.
+  for (const z of [-10, 10]) {
+    const planter = cyl(0.7, 0.7, 0.6, 0x8a7a62, 10)
+    planter.position.set(-2.5, 0.3, z)
+    group.add(planter)
+    const foliage = sphere(0.8, 0x3a5a2a, 10)
+    foliage.position.set(-2.5, 1.1, z)
+    group.add(foliage)
+    const bench = box(1.6, 0.45, 0.5, 0x6a5a4a)
+    bench.position.set(2.5, 0.35, z)
+    group.add(bench)
+  }
+  for (const [px, pz] of [[-3.5, -6], [3.5, 6]] as [number, number][]) {
+    const post = cyl(0.06, 0.08, 4, 0x40404a, 8)
+    post.position.set(px, 2, pz)
+    group.add(post)
+    const light = emissive(new THREE.SphereGeometry(0.12, 8, 8), 0xffe0a0, 0.9)
+    light.position.set(px, 4, pz)
+    group.add(light)
+  }
+  return { group, height: 5 }
+}
+
+function envResidentialStreet(group: THREE.Group): EnvResult {
+  const S = 36
+  group.add(ground(S, S, 0x5a6a48))
+  // Asphalt street down Z.
+  const asphalt = box(7, 0.02, S, 0x53545c)
+  asphalt.position.y = 0.011
+  asphalt.receiveShadow = true
+  asphalt.castShadow = false
+  group.add(asphalt)
+  for (let z = -S * 0.5 + 1; z < S * 0.5; z += 3) {
+    const dash = box(0.2, 0.02, 1.2, 0xd0d060)
+    dash.position.set(0, 0.02, z)
+    group.add(dash)
+  }
+  // Sidewalks both sides.
+  for (const x of [-4.5, 4.5]) {
+    const sw = box(2, 0.15, S, 0x9a9aa2)
+    sw.position.set(x, 0.075, 0)
+    group.add(sw)
+  }
+  // 3 house fronts per side.
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 3; i++) {
+      const z = -10 + i * 10
+      const hx = side * 9
+      const houseBody = box(6, 3, 5, side * i % 2 === 0 ? 0xb4a494 : 0xa49484)
+      houseBody.position.set(hx, 1.5, z)
+      group.add(houseBody)
+      // Gable roof.
+      for (const rside of [-1, 1]) {
+        const roof = box(3.4, 0.1, 5.4, 0x6a4a3a)
+        roof.position.set(hx + rside * 1.5, 3.7, z)
+        roof.rotation.z = rside * -0.6
+        group.add(roof)
+      }
+      // Porch.
+      const porch = box(6, 0.15, 1.5, 0x8a7a62)
+      porch.position.set(hx - side * 3, 0.15, z)
+      group.add(porch)
+      // Lawn.
+      const lawn = box(6, 0.02, 4, 0x4a6a38)
+      lawn.position.set(hx - side * 3.5, 0.02, z)
+      lawn.receiveShadow = true
+      lawn.castShadow = false
+      group.add(lawn)
+      // Driveway.
+      const drive = box(2.5, 0.03, 4, 0x8a8a92)
+      drive.position.set(hx - side * 4, 0.03, z + 3)
+      group.add(drive)
+    }
+    // Street trees + streetlights.
+    for (const z of [-5, 8]) {
+      const tx = side * 5.5
+      const trunk = cyl(0.2, 0.28, 1.6, 0x5a4030, 8)
+      trunk.position.set(tx, 0.8, z)
+      group.add(trunk)
+      const canopy = sphere(1.2, 0x3a5a2a, 10)
+      canopy.position.set(tx, 2.5, z)
+      group.add(canopy)
+    }
+    const pole = cyl(0.1, 0.12, 5, 0x55555f)
+    pole.position.set(side * 4.2, 2.5, side * 6)
+    group.add(pole)
+  }
+  return { group, height: 5 }
+}
+
+function envDowntown(group: THREE.Group): EnvResult {
+  const S = 36
+  group.add(ground(S, S, 0x6e6e74))
+  // Street.
+  const asphalt = box(9, 0.02, S, 0x53545c)
+  asphalt.position.y = 0.011
+  asphalt.receiveShadow = true
+  asphalt.castShadow = false
+  group.add(asphalt)
+  // Crosswalk stripes.
+  for (let i = 0; i < 6; i++) {
+    const stripe = box(1.0, 0.02, 4, 0xe0e0e0)
+    stripe.position.set(-4 + i * 1.5, 0.02, -8)
+    stripe.receiveShadow = true
+    stripe.castShadow = false
+    group.add(stripe)
+  }
+  // Sidewalks.
+  for (const x of [-6.5, 6.5]) {
+    const sw = box(4, 0.2, S, 0x9a9aa2)
+    sw.position.set(x, 0.1, 0)
+    group.add(sw)
+  }
+  // Tall building facades both sides.
+  const heights = [10, 14, 11, 13]
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 4; i++) {
+      const bh = heights[i] ?? 12
+      const b = box(7, bh, 8, i % 2 === 0 ? 0x83838b : 0x8c8c94)
+      b.position.set(side * 11, bh * 0.5, -12 + i * 9)
+      group.add(b)
+      // Storefront base.
+      const store = box(7.2, 3, 8.2, 0x50505a)
+      store.position.set(side * 11, 1.5, -12 + i * 9)
+      group.add(store)
+      const glass = new THREE.Mesh(
+        new THREE.BoxGeometry(6, 2.5, 0.1),
+        new THREE.MeshLambertMaterial({ color: 0xbcc4cc, transparent: true, opacity: 0.4 })
+      )
+      ;(glass.userData as TintUserData).origColor = 0xbcc4cc
+      glass.position.set(side * (11 - side * 4), 1.5, -12 + i * 9)
+      group.add(glass)
+    }
+  }
+  // Traffic lights.
+  for (const [tx, tz] of [[-4.5, -6], [4.5, 6]] as [number, number][]) {
+    const pole = cyl(0.12, 0.14, 5, 0x40404a)
+    pole.position.set(tx, 2.5, tz)
+    group.add(pole)
+    const box0 = box(0.3, 0.9, 0.3, 0x2a2a30)
+    box0.position.set(tx, 5.2, tz)
+    group.add(box0)
+    const red = emissive(new THREE.SphereGeometry(0.1, 8, 8), 0xff3030, 0.95)
+    red.position.set(tx, 5.5, tz - 0.16)
+    group.add(red)
+  }
+  // Bus-stop shelter.
+  const shelterRoof = box(3, 0.1, 1.4, 0x50505a)
+  shelterRoof.position.set(-7, 2.4, 4)
+  group.add(shelterRoof)
+  const shelterBench = box(2.4, 0.1, 0.4, 0x70707a)
+  shelterBench.position.set(-7, 0.5, 4.3)
+  group.add(shelterBench)
+  return { group, height: 14 }
+}
+
+function envTrainStation(group: THREE.Group): EnvResult {
+  const S = 30
+  group.add(ground(20, S, 0x6a6a72))
+  // Outdoor platform slab.
+  const platform = box(8, 0.6, S, 0x9a9aa2)
+  platform.position.set(2, 0.3, 0)
+  group.add(platform)
+  // Yellow edge strip.
+  const edge = box(0.3, 0.02, S, 0xd0c040)
+  edge.position.set(-2, 0.61, 0)
+  group.add(edge)
+  // Canopy on posts.
+  for (let i = 0; i < 4; i++) {
+    const z = -S * 0.5 + 4 + i * 7
+    for (const px of [0, 4]) {
+      const post = cyl(0.12, 0.14, 3.5, 0x55555f, 8)
+      post.position.set(px, 1.75 + 0.6, z)
+      group.add(post)
+    }
+  }
+  const canopy = box(6, 0.2, S * 0.9, 0x70707a)
+  canopy.position.set(2, 4.5, 0)
+  group.add(canopy)
+  // Track bed with rails alongside (-X of platform).
+  const bed = box(6, 0.1, S, 0x3a3a40)
+  bed.position.set(-5, 0.05, 0)
+  group.add(bed)
+  for (const rx of [-6.5, -3.5]) {
+    const rail = box(0.1, 0.15, S, 0xb4b4bc)
+    rail.position.set(rx, 0.15, 0)
+    group.add(rail)
+  }
+  // Benches.
+  for (const z of [-6, 6]) {
+    const bench = box(2, 0.45, 0.5, 0x5a4a3a)
+    bench.position.set(3.5, 0.95, z)
+    group.add(bench)
+  }
+  // Departure sign (emissive).
+  const sign = emissive(new THREE.PlaneGeometry(3, 0.8), 0x203040, 1)
+  sign.position.set(2, 3.8, -6)
+  group.add(sign)
+  return { group, height: 4 }
+}
+
+function envGasStation(group: THREE.Group): EnvResult {
+  const S = 24
+  group.add(ground(S, S, 0x55555c))
+  // Flat canopy on posts.
+  const canopy = box(12, 0.4, 8, 0xe8e8ec)
+  canopy.position.set(-2, 4.5, 0)
+  group.add(canopy)
+  for (const [px, pz] of [[-6, -3], [2, -3], [-6, 3], [2, 3]] as [number, number][]) {
+    const post = box(0.4, 4.3, 0.4, 0x9a9aa2)
+    post.position.set(px, 2.15, pz)
+    group.add(post)
+  }
+  // Two pump islands.
+  for (const iz of [-2, 2]) {
+    const island = box(3, 0.2, 1, 0x6a6a72)
+    island.position.set(-2, 0.1, iz)
+    group.add(island)
+    const pump = box(0.5, 1.4, 0.35, 0xd04040)
+    pump.position.set(-2, 0.9, iz)
+    group.add(pump)
+    const disp = emissive(new THREE.PlaneGeometry(0.36, 0.25), 0x40d0d0, 0.9)
+    disp.position.set(-2, 1.1, iz + 0.18)
+    group.add(disp)
+  }
+  // Convenience-store front with door + windows.
+  const store = box(8, 4, 5, 0x9a9aa2)
+  store.position.set(8, 2, 0)
+  group.add(store)
+  const door = box(0.1, 2.2, 1.2, 0x5a4a3a)
+  door.position.set(8 - 4 - 0.05, 1.1, 0)
+  group.add(door)
+  for (const dz of [-1.6, 1.6]) {
+    const win = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 2, 1.4),
+      new THREE.MeshLambertMaterial({ color: 0xbcc4cc, transparent: true, opacity: 0.4 })
+    )
+    ;(win.userData as TintUserData).origColor = 0xbcc4cc
+    win.position.set(8 - 4 - 0.05, 1.5, dz)
+    group.add(win)
+  }
+  return { group, height: 5 }
+}
+
+function envPark(group: THREE.Group): EnvResult {
+  const S = 32
+  group.add(ground(S, S, 0x4a6a38))
+  // Winding path (flat strips).
+  const pathSegs: [number, number, number][] = [
+    [-8, -8, 0], [-4, -3, 0.6], [0, 2, 0.3], [5, 7, -0.4], [9, 11, 0]
+  ]
+  for (const [x, z, rot] of pathSegs) {
+    const seg = box(2, 0.03, 5, 0xc4b494)
+    seg.position.set(x, 0.02, z)
+    seg.rotation.y = rot
+    seg.receiveShadow = true
+    seg.castShadow = false
+    group.add(seg)
+  }
+  // Pond (translucent water disc).
+  const pond = new THREE.Mesh(
+    new THREE.CylinderGeometry(3, 3, 0.1, 20),
+    new THREE.MeshLambertMaterial({ color: 0x3080c0, transparent: true, opacity: 0.6 })
+  )
+  ;(pond.userData as TintUserData).origColor = 0x3080c0
+  pond.castShadow = false
+  pond.receiveShadow = true
+  pond.position.set(-7, 0.05, 7)
+  group.add(pond)
+  // Trees.
+  for (const [x, z, sc] of [[-10, -2, 1.1], [6, -6, 0.9], [10, 4, 1.2], [2, 9, 1.0], [-4, 6, 0.85]] as [number, number, number][]) {
+    const t = grp(x, 0, z)
+    t.scale.setScalar(sc)
+    group.add(t)
+    const trunk = cyl(0.2, 0.28, 1.6, 0x5a4030, 8)
+    trunk.position.y = 0.8
+    t.add(trunk)
+    const canopy = sphere(1.3, 0x3a5a2a, 10)
+    canopy.position.y = 2.4
+    t.add(canopy)
+  }
+  // Benches.
+  for (const [bx, bz] of [[-2, -4], [4, 3]] as [number, number][]) {
+    const bench = box(1.8, 0.45, 0.5, 0x6a5a4a)
+    bench.position.set(bx, 0.35, bz)
+    group.add(bench)
+  }
+  // Picnic table.
+  const ptable = box(1.6, 0.06, 0.8, 0x9a8a72)
+  ptable.position.set(8, 0.74, -2)
+  group.add(ptable)
+  const plegs = box(1.5, 0.72, 0.7, 0x70707a)
+  plegs.position.set(8, 0.36, -2)
+  group.add(plegs)
+  return { group, height: 4 }
+}
+
+function envPlaygroundPark(group: THREE.Group): EnvResult {
+  const S = 22
+  group.add(ground(S, S, 0x4a6a38))
+  // Safety-surface patch.
+  const surface = box(14, 0.05, 14, 0x9a5a3a)
+  surface.position.y = 0.03
+  surface.receiveShadow = true
+  surface.castShadow = false
+  group.add(surface)
+  // Swing set.
+  const swing = grp(-5, 0, -3)
+  group.add(swing)
+  for (const side of [-1, 1]) {
+    for (const lz of [-0.6, 0.6]) {
+      const leg = box(0.1, 2.3, 0.1, 0x70707a)
+      leg.position.set(side * 0.8, 1.15, lz)
+      leg.rotation.x = lz < 0 ? -0.25 : 0.25
+      swing.add(leg)
+    }
+  }
+  const beam = box(2.0, 0.1, 0.1, 0x8a8a92)
+  beam.position.y = 2.3
+  swing.add(beam)
+  for (const sx of [-0.4, 0.4]) {
+    const chain = box(0.02, 1.3, 0.02, 0x50505a)
+    chain.position.set(sx, 1.65, 0)
+    swing.add(chain)
+    const seat = box(0.4, 0.04, 0.18, 0x40404a)
+    seat.position.set(sx, 1.0, 0)
+    swing.add(seat)
+  }
+  // Slide.
+  const slide = grp(5, 0, -2)
+  group.add(slide)
+  const platform = box(0.8, 0.05, 0.8, 0x82828a)
+  platform.position.set(0, 1.6, 0.4)
+  slide.add(platform)
+  for (const lx of [-0.35, 0.35]) {
+    const post0 = box(0.08, 1.6, 0.08, 0x8a8a92)
+    post0.position.set(lx, 0.8, 0.4)
+    slide.add(post0)
+  }
+  const chute = box(0.6, 0.05, 2.4, 0x40a0c0)
+  chute.position.set(0, 0.8, -0.9)
+  chute.rotation.x = 0.7
+  slide.add(chute)
+  // Climbing frame.
+  const climb = grp(-2, 0, 4)
+  group.add(climb)
+  for (const cx of [-1, 1]) {
+    for (const cz of [-1, 1]) {
+      const post0 = box(0.08, 1.8, 0.08, 0xd04040)
+      post0.position.set(cx, 0.9, cz)
+      climb.add(post0)
+    }
+  }
+  for (let i = 0; i < 4; i++) {
+    const rung = box(2, 0.05, 0.05, 0xffd040)
+    rung.position.set(0, 0.5 + i * 0.4, -1)
+    climb.add(rung)
+  }
+  // Sandbox.
+  for (const [x, z, w, d] of [[3, 5, 2.4, 0.15], [3, 6.5, 2.4, 0.15], [1.9, 5.75, 0.15, 1.5], [4.1, 5.75, 0.15, 1.5]] as [number, number, number, number][]) {
+    const wall = box(w, 0.25, d, 0x8a7a62)
+    wall.position.set(x, 0.125, z)
+    group.add(wall)
+  }
+  const sand = box(2.2, 0.1, 1.5, 0xd8c890)
+  sand.position.set(3, 0.1, 5.75)
+  group.add(sand)
+  // Spring riders.
+  for (const [rx, rz] of [[-6, 3], [-4, 5]] as [number, number][]) {
+    const spring = cyl(0.1, 0.1, 0.4, 0x40404a, 8)
+    spring.position.set(rx, 0.2, rz)
+    group.add(spring)
+    const seat = box(0.4, 0.2, 0.8, 0xffd040)
+    seat.position.set(rx, 0.55, rz)
+    group.add(seat)
+  }
+  // Bench for parents.
+  const bench = box(1.8, 0.45, 0.5, 0x6a5a4a)
+  bench.position.set(6, 0.35, 5)
+  group.add(bench)
+  return { group, height: 3 }
+}
+
+function envBackyard(group: THREE.Group): EnvResult {
+  const S = 24
+  group.add(ground(S, S, 0x4a6a38))
+  // House rear wall with sliding door (back +Z).
+  const rear = box(S * 0.7, 3.5, 0.3, 0xb4a494)
+  rear.position.set(0, 1.75, S * 0.5 - 1)
+  group.add(rear)
+  const slider = new THREE.Mesh(
+    new THREE.BoxGeometry(3, 2.4, 0.1),
+    new THREE.MeshLambertMaterial({ color: 0xbcc4cc, transparent: true, opacity: 0.4 })
+  )
+  ;(slider.userData as TintUserData).origColor = 0xbcc4cc
+  slider.position.set(0, 1.2, S * 0.5 - 1.15)
+  group.add(slider)
+  // Wood fence around the lawn (3 open sides less; fence at edges).
+  for (const side of [-1, 1]) {
+    const fence = box(0.15, 1.6, S - 2, 0x8a7a62)
+    fence.position.set(side * (S * 0.5 - 1), 0.8, 0)
+    group.add(fence)
+  }
+  const fenceBack = box(S - 2, 1.6, 0.15, 0x8a7a62)
+  fenceBack.position.set(0, 0.8, -S * 0.5 + 1)
+  group.add(fenceBack)
+  // In-ground pool with deck edge.
+  const deck = box(6, 0.1, 4, 0x9a9aa2)
+  deck.position.set(-4, 0.05, -2)
+  group.add(deck)
+  const pool = new THREE.Mesh(
+    new THREE.BoxGeometry(5, 0.15, 3),
+    new THREE.MeshLambertMaterial({ color: 0x3080c0, transparent: true, opacity: 0.6 })
+  )
+  ;(pool.userData as TintUserData).origColor = 0x3080c0
+  pool.castShadow = false
+  pool.receiveShadow = true
+  pool.position.set(-4, 0.05, -2)
+  group.add(pool)
+  // Patio with table + chairs.
+  const patio = box(6, 0.06, 5, 0xb4b4bc)
+  patio.position.set(5, 0.03, 3)
+  patio.receiveShadow = true
+  patio.castShadow = false
+  group.add(patio)
+  const table = cyl(0.6, 0.6, 0.05, 0x9a9aa2, 12)
+  table.position.set(5, 0.74, 3)
+  group.add(table)
+  const stem = cyl(0.06, 0.06, 0.72, 0x70707a, 8)
+  stem.position.set(5, 0.36, 3)
+  group.add(stem)
+  for (let c = 0; c < 4; c++) {
+    const a = (c / 4) * TAU
+    const chair = grp(5 + Math.sin(a) * 1.0, 0, 3 + Math.cos(a) * 1.0)
+    chair.rotation.y = a + Math.PI
+    group.add(chair)
+    buildSimpleChair(chair)
+  }
+  // BBQ grill.
+  const grill = box(0.7, 0.5, 0.5, 0x40404a)
+  grill.position.set(8, 0.55, 6)
+  group.add(grill)
+  const lid = sphere(0.4, 0x2a2a30, 12)
+  lid.scale.set(1, 0.6, 0.75)
+  lid.position.set(8, 0.85, 6)
+  group.add(lid)
+  return { group, height: 3 }
+}
+
+function envConstructionSite(group: THREE.Group): EnvResult {
+  const S = 26
+  group.add(ground(S, S, 0x8a7a5a))
+  // Steel beam frame (columns + crossbeams).
+  for (let cx = -1; cx <= 1; cx++) {
+    for (let cz = -1; cz <= 1; cz++) {
+      const col = box(0.3, 6, 0.3, 0xc06020)
+      col.position.set(cx * 5, 3, cz * 5)
+      group.add(col)
+    }
+  }
+  for (const y of [2, 4, 6]) {
+    for (const cz of [-5, 0, 5]) {
+      const beam = box(10.3, 0.3, 0.3, 0xc06020)
+      beam.position.set(0, y, cz)
+      group.add(beam)
+    }
+    for (const cx of [-5, 0, 5]) {
+      const beam = box(0.3, 0.3, 10.3, 0xc06020)
+      beam.position.set(cx, y, 0)
+      group.add(beam)
+    }
+  }
+  // Dirt piles (squashed spheres).
+  for (const [x, z, r] of [[-9, -8, 1.5], [8, 7, 2.0]] as [number, number, number][]) {
+    const pile = sphere(r, 0x6a5a3a, 10)
+    pile.scale.y = 0.4
+    pile.position.set(x, r * 0.2, z)
+    group.add(pile)
+  }
+  // Barriers.
+  for (const [bx, bz] of [[-8, 8], [8, -8]] as [number, number][]) {
+    const barrier = box(2, 1.1, 0.3, 0xff6020)
+    barrier.position.set(bx, 0.55, bz)
+    group.add(barrier)
+  }
+  // Portable site office.
+  const office = box(3, 2.4, 6, 0xd0d0d0)
+  office.position.set(-9, 1.2, 2)
+  group.add(office)
+  // Material stacks.
+  for (let i = 0; i < 3; i++) {
+    const stack = box(1.0, 0.3, 3, 0x9a9aa2)
+    stack.position.set(9, 0.15 + i * 0.32, -2)
+    group.add(stack)
+  }
+  return { group, height: 6 }
+}
+
+function envCemetery(group: THREE.Group): EnvResult {
+  const S = 26
+  group.add(ground(S, S, 0x4a5a38))
+  // Gravel path.
+  const path = box(3, 0.03, S, 0xb4b4a4)
+  path.position.y = 0.02
+  path.receiveShadow = true
+  path.castShadow = false
+  group.add(path)
+  // Rows of varied headstones.
+  const shapes = [0, 1, 2] // flat, rounded, cross-ish
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 6; c++) {
+      const x = c < 3 ? -9 + c * 2.5 : -1 + (c - 3) * 2.5 + 4
+      const z = -8 + r * 4
+      const kind = shapes[(r + c) % 3] ?? 0
+      if (kind === 0) {
+        const hs = box(0.6, 0.8, 0.15, 0x9a9aa2)
+        hs.position.set(x, 0.4, z)
+        group.add(hs)
+      } else if (kind === 1) {
+        const hs = box(0.6, 0.7, 0.15, 0x8a8a92)
+        hs.position.set(x, 0.35, z)
+        group.add(hs)
+        const topR = cyl(0.3, 0.3, 0.15, 0x8a8a92, 10)
+        topR.rotation.x = Math.PI / 2
+        topR.position.set(x, 0.7, z)
+        group.add(topR)
+      } else {
+        const vert = box(0.2, 1.0, 0.15, 0x9a9aa2)
+        vert.position.set(x, 0.5, z)
+        group.add(vert)
+        const horiz = box(0.6, 0.2, 0.15, 0x9a9aa2)
+        horiz.position.set(x, 0.75, z)
+        group.add(horiz)
+      }
+    }
+  }
+  // Iron-ish fence.
+  for (const side of [-1, 1]) {
+    const rail = box(0.1, 1.2, S, 0x2c2c32)
+    rail.position.set(side * S * 0.5, 0.6, 0)
+    group.add(rail)
+  }
+  // One big tree.
+  const trunk = cyl(0.4, 0.55, 3, 0x5a4030, 8)
+  trunk.position.set(9, 1.5, -8)
+  group.add(trunk)
+  const canopy = sphere(2.5, 0x3a5a2a, 12)
+  canopy.position.set(9, 4.5, -8)
+  group.add(canopy)
+  // Mausoleum.
+  const maus = box(3, 2.8, 3, 0xb4b4bc)
+  maus.position.set(-9, 1.4, 8)
+  group.add(maus)
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(2.4, 1, 4), mat(0x9a9aa2))
+  ;(roof.userData as TintUserData).origColor = 0x9a9aa2
+  roof.castShadow = true
+  roof.rotation.y = Math.PI / 4
+  roof.position.set(-9, 3.3, 8)
+  group.add(roof)
+  return { group, height: 4 }
+}
+
+function envStadium(group: THREE.Group): EnvResult {
+  const S = 30
+  group.add(ground(S, S, 0x3a6a2a))
+  // Field patch with line stripes.
+  const field = box(20, 0.03, 14, 0x357028)
+  field.position.set(0, 0.02, -3)
+  field.receiveShadow = true
+  field.castShadow = false
+  group.add(field)
+  for (let i = 0; i <= 4; i++) {
+    const line = box(0.15, 0.02, 14, 0xe0e0e0)
+    line.position.set(-8 + i * 4, 0.03, -3)
+    line.receiveShadow = true
+    line.castShadow = false
+    group.add(line)
+  }
+  // Curved/tiered stand section (stepped rows) along +Z.
+  for (let r = 0; r < 8; r++) {
+    const z = 6 + r * 1.4
+    const y = 0.4 + r * 0.8
+    const tier = box(22, 0.8, 1.4, r % 2 === 0 ? 0x7a7a82 : 0x82828a)
+    tier.position.set(0, y, z)
+    group.add(tier)
+    // Seat hints.
+    for (let c = 0; c < 10; c++) {
+      const seat = box(0.5, 0.4, 0.4, 0x3a5a8a)
+      seat.position.set(-9 + c * 2, y + 0.6, z)
+      group.add(seat)
+    }
+  }
+  // Floodlight towers (emissive heads).
+  for (const [fx, fz] of [[-11, 8], [11, 8]] as [number, number][]) {
+    const tower = cyl(0.2, 0.3, 12, 0x55555f, 8)
+    tower.position.set(fx, 6, fz)
+    group.add(tower)
+    const rig = box(2.5, 1.2, 0.4, 0x40404a)
+    rig.position.set(fx, 12, fz)
+    group.add(rig)
+    for (let i = 0; i < 4; i++) {
+      const light = emissive(new THREE.CircleGeometry(0.3, 10), 0xfff4d0, 0.95)
+      light.position.set(fx - 0.9 + i * 0.6, 12, fz - 0.22)
+      group.add(light)
+    }
+  }
+  return { group, height: 8 }
+}
+
+function envSky(group: THREE.Group): EnvResult {
+  // Flying scenes: no walls, keep origin clear. Faint far-below ground.
+  const farGround = new THREE.Mesh(
+    new THREE.PlaneGeometry(120, 120),
+    new THREE.MeshLambertMaterial({ color: 0x5a6a58, transparent: true, opacity: 0.4 })
+  )
+  ;(farGround.userData as TintUserData).origColor = 0x5a6a58
+  farGround.rotation.x = -Math.PI / 2
+  farGround.position.y = -30
+  farGround.receiveShadow = false
+  farGround.castShadow = false
+  group.add(farGround)
+  // 8 puffy cloud clusters at varied x/z and heights 6–25m, origin kept clear.
+  const clouds: [number, number, number, number][] = [
+    [-18, 8, -14, 1.0],
+    [15, 12, 10, 1.3],
+    [-12, 18, 16, 0.9],
+    [20, 22, -8, 1.1],
+    [8, 7, -20, 0.85],
+    [-22, 15, 4, 1.2],
+    [4, 25, 22, 1.0],
+    [-6, 20, -22, 0.95]
+  ]
+  for (const [cx, cy, cz, sc] of clouds) {
+    const cloud = grp(cx, cy, cz)
+    cloud.scale.setScalar(sc)
+    group.add(cloud)
+    const puffs: [number, number, number, number][] = [
+      [0, 0, 0, 1.4],
+      [1.4, -0.2, 0.4, 1.0],
+      [-1.3, -0.1, -0.3, 1.05],
+      [0.6, 0.35, -0.8, 0.85],
+      [-0.7, 0.25, 0.6, 0.8]
+    ]
+    for (const [px, py, pz, r] of puffs) {
+      const puff = new THREE.Mesh(
+        new THREE.SphereGeometry(r, 10, 10),
+        new THREE.MeshBasicMaterial({ color: 0xf4f6fa, transparent: true, opacity: 0.8 })
+      )
+      puff.castShadow = false
+      puff.receiveShadow = false
+      puff.position.set(px, py, pz)
+      cloud.add(puff)
+    }
+  }
+  return { group, height: 0.1 }
+}
+
+function envHouseFull(group: THREE.Group): EnvResult {
+  const W = 16
+  const D = 12
+  const wallH = 2.4
+  const t = 0.12
+  group.add(ground(W, D, 0x8a7a6a))
+  // Perimeter: back + two sides (front -Z open for camera).
+  const back = box(W, wallH, t, 0xb4a494)
+  back.position.set(0, wallH * 0.5, D * 0.5)
+  group.add(back)
+  for (const side of [-1, 1]) {
+    const sw = box(t, wallH, D, 0xb4a494)
+    sw.position.set(side * W * 0.5, wallH * 0.5, 0)
+    group.add(sw)
+  }
+  // Room floor-tint patches (top-down legibility). x from -8..8, z from -6..6.
+  const roomTile = (x: number, z: number, w: number, d: number, col: number): void => {
+    const tile = box(w, 0.02, d, col)
+    tile.position.set(x, 0.02, z)
+    tile.receiveShadow = true
+    tile.castShadow = false
+    group.add(tile)
+  }
+  // KITCHEN (back-left).
+  roomTile(-5.5, 3.5, 5, 5, 0xc4c4a4)
+  // LIVING ROOM (front-left).
+  roomTile(-5.5, -3, 5, 6, 0x9aa4b4)
+  // DINING ROOM (back-center).
+  roomTile(0.5, 3.5, 5, 5, 0xb4a48a)
+  // BEDROOM (back-right).
+  roomTile(6, 3, 3.5, 6, 0xa494b4)
+  // BATHROOM (front-right).
+  roomTile(6, -3.5, 3.5, 5, 0x94b4b4)
+  // HALLWAY strip through center.
+  roomTile(0.5, -2, 5, 3, 0x9a9080)
+
+  // Interior partition walls with door gaps.
+  const partition = (x: number, z: number, w: number, d: number): void => {
+    const wall = box(w, wallH, d, 0xc4b4a4)
+    wall.position.set(x, wallH * 0.5, z)
+    group.add(wall)
+  }
+  // Kitchen | Dining divider (with gap in middle).
+  partition(-3, 4.5, t, 3)
+  partition(-3, 1.2, t, 1.4)
+  // Kitchen/Dining vs Living/Hall (horizontal wall at z=1, with gaps).
+  partition(-6, 1, 3.5, t)
+  partition(-1, 1, 3, t)
+  // Dining | Bedroom divider.
+  partition(3, 4, t, 4)
+  // Bedroom vs Bathroom (horizontal).
+  partition(6, 0, 3.5, t)
+  // Living vs Hallway divider.
+  partition(-2.5, -3, t, 5)
+  // Bathroom | Hallway divider.
+  partition(4.2, -3, t, 5)
+
+  // KITCHEN dressing: counter L, fridge, stove, small table.
+  const counter = box(4, 0.9, 0.6, 0x9a9aa2)
+  counter.position.set(-5.5, 0.45, D * 0.5 - 0.5)
+  group.add(counter)
+  const fridge = box(0.7, 1.8, 0.7, 0x9a9aa2)
+  fridge.position.set(-7.5, 0.9, D * 0.5 - 0.5)
+  group.add(fridge)
+  const stove = box(0.7, 0.85, 0.6, 0x82828a)
+  stove.position.set(-4, 0.425, D * 0.5 - 0.5)
+  group.add(stove)
+  const kTable = box(1.0, 0.75, 1.0, 0x9a8a72)
+  kTable.position.set(-5.5, 0.375, 2.5)
+  group.add(kTable)
+
+  // LIVING ROOM: couch + armchair + coffee table + TV wall.
+  const couch = box(2.4, 0.7, 0.9, 0x5a5a66)
+  couch.position.set(-6, 0.35, -1)
+  group.add(couch)
+  const armchair = box(0.9, 0.7, 0.9, 0x5a5a66)
+  armchair.position.set(-4, 0.35, -3.5)
+  group.add(armchair)
+  const coffee = box(1.2, 0.35, 0.6, 0x6a5a4a)
+  coffee.position.set(-6, 0.175, -3)
+  group.add(coffee)
+  const tv = box(1.2, 0.7, 0.06, 0x2a2a30)
+  tv.position.set(-7.7, 1.0, -3)
+  tv.rotation.y = Math.PI / 2
+  group.add(tv)
+
+  // DINING ROOM: table + chairs.
+  const dTable = box(1.6, 0.75, 0.9, 0x7a6a52)
+  dTable.position.set(0.5, 0.375, 3.5)
+  group.add(dTable)
+  for (const [cx, cz] of [[-0.6, 3.5], [1.6, 3.5], [0.5, 2.6], [0.5, 4.4]] as [number, number][]) {
+    const chair = grp(cx, 0, cz)
+    group.add(chair)
+    buildSimpleChair(chair)
+  }
+
+  // BEDROOM: bed + dresser.
+  const bedFrame = box(1.6, 0.4, 2.0, 0x6a5a4a)
+  bedFrame.position.set(6, 0.2, 3.5)
+  group.add(bedFrame)
+  const mattress = box(1.5, 0.25, 1.9, 0xd4d4dc)
+  mattress.position.set(6, 0.5, 3.5)
+  group.add(mattress)
+  const dresser = box(1.2, 0.8, 0.5, 0x6a5a4a)
+  dresser.position.set(7, 0.4, 0.5)
+  group.add(dresser)
+
+  // BATHROOM: toilet + sink + tub.
+  const toilet = box(0.4, 0.5, 0.5, 0xe8e8ec)
+  toilet.position.set(5, 0.25, -2)
+  group.add(toilet)
+  const sink = box(0.6, 0.85, 0.4, 0xe8e8ec)
+  sink.position.set(7, 0.425, -2)
+  group.add(sink)
+  const tub = box(1.6, 0.5, 0.8, 0xe8e8ec)
+  tub.position.set(6, 0.25, -5)
+  group.add(tub)
+
   return { group, height: wallH }
 }
 

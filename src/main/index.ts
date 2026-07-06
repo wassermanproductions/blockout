@@ -10,6 +10,9 @@ import { mkdir, readFile, writeFile, copyFile, access, stat, rm } from 'fs/promi
 import { join, dirname, basename, extname, resolve, sep } from 'path'
 import { registerPresetsIpc } from './presets'
 import { startControlServer } from './control'
+// Inlined at build time — app.getVersion() reports Electron's own version
+// when launched unpackaged (e2e runs `electron out/main/index.js`).
+import { version as APP_VERSION } from '../../package.json'
 
 const isDev = !!process.env.ELECTRON_RENDERER_URL
 
@@ -358,7 +361,7 @@ ipcMain.handle('ai:analyzeReference', async (_e, filePath: string) => {
 
 /* Smoke-test hook: allows Playwright to drive export without dialogs. */
 ipcMain.handle('app:versions', () => ({
-  app: app.getVersion(),
+  app: APP_VERSION,
   electron: process.versions.electron,
   node: process.versions.node
 }))

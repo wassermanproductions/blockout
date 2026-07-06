@@ -10,7 +10,7 @@ Video generators produce dramatically better results when you hand them an unamb
 
 ## The 60-second workflow
 
-1. **STAGE** — drag in an environment kit (city street, nightclub, car interior…), place people/animals/vehicles/furniture from the library, label your subjects ("THIEF", red).
+1. **STAGE** — drag in one of 50+ environment kits (downtown, residential street, supermarket, movie theater, train car, backyard with pool, sky for aerials…), place people/animals/vehicles/furniture/props from the library, label your subjects ("THIEF", red).
 2. **SHOOT** — select an actor, press `M`, click the floor to drop numbered marks; the actor walks them on your timeline. Frame the camera (or click **MS** and it auto-frames a medium shot at your lens), drop camera marks, pick a rig — dolly, steadicam, handheld, crane, drone, car-mount. Scrub, retime, play.
 3. **DELIVER** — pick your generator, click **Export shot package**. You get:
 
