@@ -172,6 +172,49 @@ const TOOLS = [
     }
   },
   {
+    name: 'list_action_presets',
+    description:
+      'List motion-path presets for non-character performers: plane takeoff/landing/flyby, helicopter orbit, bird swoop, car chase moves, falling debris, thrown objects. Call before apply_action_preset.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+  },
+  {
+    name: 'apply_action_preset',
+    description:
+      "Lay a full motion path (with altitude) on an entity from its current pose: plane-takeoff, heli-orbit, car-chase-weave, debris-fall… Replaces the entity's existing marks.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entityId: { type: 'string', description: 'Entity id from get_state.' },
+        presetId: { type: 'string', description: 'Preset id from list_action_presets.' }
+      },
+      required: ['entityId', 'presetId'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'list_sequence_styles',
+    description: 'List the styles available per sequence type for spawn_sequence (dance styles, fight formats, chase modes).',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+  },
+  {
+    name: 'spawn_sequence',
+    description:
+      'Stage a whole choreographed crowd in one call: N dancers performing together, a paired brawl or mob fight, a foot chase, or a car chase. Creates the performers AND their choreography. Position with x/z/headingDeg (heading 0 faces -Z).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['dance', 'fight', 'footChase', 'carChase'] },
+        count: { type: 'number', description: 'Number of performers (2-60).' },
+        style: { type: 'string', description: 'Style id from list_sequence_styles (e.g. a dance preset id, "paired", "weaving").' },
+        x: { type: 'number', description: 'Stage center X in meters (default 0).' },
+        z: { type: 'number', description: 'Stage center Z in meters (default 0).' },
+        headingDeg: { type: 'number', description: 'Facing/travel direction in degrees (default 0).' }
+      },
+      required: ['type', 'count'],
+      additionalProperties: false
+    }
+  },
+  {
     name: 'list_camera_moves',
     description:
       'List the classic camera-move presets (orbits, cranes, drone follows, vertigo dolly-zoom, whip pan…) with ids, categories, and descriptions. Call before apply_camera_move.',

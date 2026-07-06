@@ -142,10 +142,36 @@ const TUTORIAL: { section: string; steps: Step[] }[] = [
         title: 'Fights, dances, stunts',
         body: (
           <>
-            Select a person and open <b>Motion presets</b> in the inspector: jab/cross, high kick,
-            knocked down, groove loop, robot, bow, dive dodge… <b>Apply</b> lays the move down as
-            pose marks starting at the playhead — then edit any of them like normal marks. Stage a
-            fight by applying strikes to one character and reactions to the other a beat later.
+            Select a person and open <b>Motion presets</b> in the inspector — 44 moves across
+            fight (roundhouse, spinning backfist, takedown), dance (hip-hop, salsa, moonwalk,
+            breakdance, macarena, twist…), reactions (hit reactions, stumble-and-fall, dodge
+            roll), and gestures. <b>Apply</b> lays the move down as pose marks at the playhead —
+            then edit any of them like normal marks.
+          </>
+        )
+      },
+      {
+        title: 'Planes, cars, and falling buildings',
+        body: (
+          <>
+            Select ANY entity and open <b>Action presets</b>: plane takeoff / landing / flyby /
+            banked circle, helicopter lift-off / orbit / hover, bird swoops, car chase weave /
+            drift turn / screech stop, falling debris, building topple, thrown objects. One click
+            lays the full flight or drive path — with altitude — from wherever the entity is at
+            the playhead. Aim the entity first (rotate it); paths travel the way it faces.
+          </>
+        )
+      },
+      {
+        title: 'Whole crowds in one click',
+        body: (
+          <>
+            In Stage mode, the <b>Sequences</b> box at the top of the Library stages a complete
+            choreographed group: pick <b>Dance number / Fight / Foot chase / Car chase</b>, set
+            how many performers (2–60), pick a style — 15 dance styles, paired brawl or mob fight,
+            straight or weaving pursuits — and it drops the whole cast where you&apos;re looking,
+            already choreographed together. One undo step; every performer stays an ordinary
+            entity you can move, re-style, or delete individually.
           </>
         )
       },
@@ -276,6 +302,7 @@ const REFERENCE: { section: string; items: [string, string][] }[] = [
     section: 'Stage mode',
     items: [
       ['Library', 'Click an item, click the floor to place. ⌥-click places multiples. Search at the top, filter by category, collapse sections by clicking their headers, or pick from the "Place from list…" dropdown.'],
+      ['Sequences', 'One-click choreographed crowds: N dancers (pick a style or mix), paired brawls / mob fights, foot chases, car chases — staged where you look, facing the camera.'],
       ['Stage Presets', 'Save the current staging (set + characters + blocking) globally — "Dinner scene", "Driving scene" — and Stage it as a fresh scene in any project. The original never changes.'],
       ['Environments', '50+ one-click sets: interiors (train car, boat cabin, diner, coffee shop, supermarket, post office, movie theater, mall, hotel, casino, church, police station, school, airport, restaurant, hospital…) and exteriors (residential street, downtown, strip/outdoor mall, backyard w/ pool, playground, park, gas station, train station, stadium, construction site, cemetery, beach, forest, sky for aerials…). Search the Library.'],
       ['⬇ Ground', 'Rest the selection on whatever is beneath it — floor, tabletop, truck bed.'],
@@ -304,7 +331,8 @@ const REFERENCE: { section: string; items: [string, string][] }[] = [
       ['Track subject', 'Aim lock in the camera inspector: the camera stays pointed at a subject no matter how its position moves — drone tracking a plane. Focus follows too.'],
       ['Record control', '🎯 Precise / ✋ Normal / ⚡ Fast — how tightly recordings chase your mouse (smoothing + speed cap).'],
       ['Select marks', 'Click a lane label = select all its marks. ⌘A = every mark in the shot (⇧⌘A just the current lane). ⌫ deletes the whole selection; shift times together in the inspector.'],
-      ['Motion presets', 'Fight, dance, gesture, and stunt moves applied as editable pose marks at the playhead.'],
+      ['Motion presets', '44 fight/dance/gesture/stunt moves applied as editable pose marks at the playhead.'],
+      ['Action presets', 'Flight & drive paths for anything: plane takeoff/landing, heli orbit, bird swoop, car chase moves, debris fall, building topple — from the entity’s pose at the playhead.'],
       ['Board on arrival', 'On an actor mark: after reaching it, ride a vehicle/prop. Marry + later marks = get off.'],
       ['Flying objects', 'While recording a performer, scroll = altitude; or set a mark’s Altitude by hand.'],
       ['180° line', 'A 🎬 chip warns when the camera crosses your two leads’ axis between marks.'],

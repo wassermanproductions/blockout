@@ -9,6 +9,7 @@
 import { useStore } from '../store'
 import { ASSET_CATALOG, assetSpec } from '@engine/assets'
 import { createActorMark, createCameraMark } from '@engine/schema'
+import { newId } from '@engine/ids'
 import { renderStillPngForTest } from '../export/exporter'
 import { getSceneManager } from '../export/scene-access'
 import type { AspectId, GaitId } from '@engine/types'
@@ -317,6 +318,96 @@ async function execute(action: string, params: Params): Promise<unknown> {
         else delete shot.camera.trackEntityId
       })
       return { tracking: entityId ?? null }
+    }
+
+    case 'list_action_presets': {
+      const { ACTION_PRESETS } = await import('@engine/action-presets')
+      return ACTION_PRESETS.map((p) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        description: p.description,
+        suggestedAssets: p.suggestedAssets
+      }))
+    }
+
+    case 'apply_action_preset': {
+      requireDoc()
+      const entityId = str(params, 'entityId') ?? ''
+      const presetId = str(params, 'presetId') ?? ''
+      const { ACTION_PRESETS } = await import('@engine/action-presets')
+      const preset = ACTION_PRESETS.find((p) => p.id === presetId)
+      if (!preset) {
+        throw new Error(
+          `Unknown presetId "${presetId}". Valid: ${ACTION_PRESETS.map((p) => p.id).join(', ')}`
+        )
+      }
+      const scene = s.scene()
+      const shot = s.shot()
+      const entity = scene?.entities.find((e) => e.id === entityId)
+      if (!scene || !shot || !entity) throw new Error(`No entity "${entityId}".`)
+      const specs = preset.generate({
+        start: {
+          x: entity.transform.position.x,
+          y: entity.transform.position.y,
+          z: entity.transform.position.z,
+          heading: entity.transform.rotationY
+        },
+        duration: shot.duration
+      })
+      s.mutate('agent: action preset', (doc) => {
+        const sc = doc.scenes.find((x) => x.id === scene.id)
+        const sh = sc?.shots.find((x) => x.id === shot.id)
+        const take = sc?.blocking.find((b) => b.id === sh?.blockingTakeId)
+        if (!take) return
+        let track = take.tracks.find((t) => t.entityId === entityId)
+        if (!track) {
+          track = { entityId, marks: [] }
+          take.tracks.push(track)
+        }
+        track.marks = specs.map((spec) => ({
+          id: newId('mark'),
+          time: spec.time,
+          hold: spec.hold,
+          easeIn: spec.easeIn,
+          easeOut: spec.easeOut,
+          position: { ...spec.position },
+          gait: spec.gait
+        }))
+      })
+      return { applied: presetId, marks: specs.length }
+    }
+
+    case 'list_sequence_styles': {
+      const { sequenceStyles } = await import('@engine/sequences')
+      return {
+        dance: sequenceStyles('dance'),
+        fight: sequenceStyles('fight'),
+        footChase: sequenceStyles('footChase'),
+        carChase: sequenceStyles('carChase')
+      }
+    }
+
+    case 'spawn_sequence': {
+      requireDoc()
+      const type = str(params, 'type') as
+        | import('@engine/sequences').SequenceType
+        | undefined
+      if (!type || !['dance', 'fight', 'footChase', 'carChase'].includes(type)) {
+        throw new Error('type must be dance | fight | footChase | carChase.')
+      }
+      const count = flt(params, 'count') ?? 10
+      const style = str(params, 'style') ?? (type === 'dance' ? 'mixed' : type === 'fight' ? 'paired' : 'straight')
+      const x = flt(params, 'x') ?? 0
+      const z = flt(params, 'z') ?? 0
+      const headingDeg = flt(params, 'headingDeg') ?? 0
+      s.spawnSequence({ type, count, style, origin: { x, z, heading: toRad(headingDeg) } })
+      const after = useStore.getState()
+      const sel = after.selection
+      return {
+        staged: sel?.kind === 'entities' ? sel.entityIds.length : 0,
+        entityIds: sel?.kind === 'entities' ? sel.entityIds : []
+      }
     }
 
     case 'snap_to_ground': {

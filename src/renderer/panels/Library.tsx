@@ -7,8 +7,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ASSET_CATALOG, type AssetSpec } from '@engine/assets'
 import type { EntityCategory } from '@engine/types'
+import { sequenceStyles, type SequenceType } from '@engine/sequences'
 import { useStore } from '../store'
 import { populateFromReference } from '../ai/populate'
+import { getSceneManager as getSceneManagerSafe } from '../export/scene-access'
 
 interface PresetInfo {
   id: string
@@ -115,6 +117,80 @@ function StagePresets(): JSX.Element {
           ＋ Save current staging as preset
         </button>
       )}
+    </div>
+  )
+}
+
+/**
+ * Sequence director: one click drops a whole choreographed crowd — a dance
+ * number, a brawl, a foot chase, a car chase — sized and styled to taste,
+ * staged where the viewport is looking.
+ */
+function Sequences(): JSX.Element {
+  const [type, setType] = useState<SequenceType>('dance')
+  const [count, setCount] = useState(12)
+  const [style, setStyle] = useState('mixed')
+  const spawnSequence = useStore((s) => s.spawnSequence)
+
+  const styles = sequenceStyles(type)
+  const activeStyle = styles.some((s) => s.id === style) ? style : styles[0]!.id
+
+  const TYPE_LABELS: { id: SequenceType; label: string }[] = [
+    { id: 'dance', label: '💃 Dance number' },
+    { id: 'fight', label: '🥊 Fight' },
+    { id: 'footChase', label: '🏃 Foot chase' },
+    { id: 'carChase', label: '🚗 Car chase' }
+  ]
+
+  return (
+    <div className="panel-section">
+      <div className="panel-title">Sequences</div>
+      <div className="field">
+        <label>Type</label>
+        <select value={type} onChange={(e) => setType(e.target.value as SequenceType)}>
+          {TYPE_LABELS.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field-row">
+        <div className="field" style={{ flex: 1 }}>
+          <label>Performers</label>
+          <input
+            type="number"
+            min={2}
+            max={60}
+            value={count}
+            onChange={(e) => {
+              const v = Number(e.target.value)
+              if (!Number.isNaN(v)) setCount(Math.max(2, Math.min(60, Math.round(v))))
+            }}
+          />
+        </div>
+        <div className="field" style={{ flex: 2 }}>
+          <label>Style</label>
+          <select value={activeStyle} onChange={(e) => setStyle(e.target.value)}>
+            {styles.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <button
+        className="btn primary"
+        style={{ width: '100%' }}
+        onClick={() => {
+          const origin = getSceneManagerSafe()?.viewCenterOnGround()
+          spawnSequence({ type, count, style: activeStyle, origin })
+        }}
+        title="Drops the whole choreographed group where the viewport is looking, facing the camera. One undo step; every performer stays individually editable."
+      >
+        🎬 Stage {count} performers
+      </button>
     </div>
   )
 }
@@ -417,6 +493,7 @@ export function Library(): JSX.Element {
 
   return (
     <>
+      <Sequences />
       <StagePresets />
 
       <div className="library-search">

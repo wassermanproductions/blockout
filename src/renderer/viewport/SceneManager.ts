@@ -1376,6 +1376,24 @@ export class SceneManager {
     )
   }
 
+  /**
+   * Where the editor camera is looking, on the ground, facing back at the
+   * camera — the natural spot to drop a staged sequence.
+   */
+  viewCenterOnGround(): { x: number; z: number; heading: number } {
+    const dir = new THREE.Vector3()
+    this.freeCam.getWorldDirection(dir)
+    const heading = headingOf({ x: -dir.x, y: 0, z: -dir.z })
+    const ray = new THREE.Ray(this.freeCam.position.clone(), dir)
+    const point = new THREE.Vector3()
+    if (ray.intersectPlane(this.groundPlane, point)) {
+      return { x: point.x, z: point.z, heading }
+    }
+    // Looking at the horizon: use a spot 12m ahead at ground level.
+    const ahead = this.freeCam.position.clone().add(dir.multiplyScalar(12))
+    return { x: ahead.x, z: ahead.z, heading }
+  }
+
   /* ------------------------------ recording ----------------------------- */
 
   private beginRecording(): void {

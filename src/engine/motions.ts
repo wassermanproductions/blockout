@@ -771,4 +771,1520 @@ export const MOTION_PRESETS: MotionPreset[] = [
       },
     ],
   },
+
+  // =========================================================================
+  // ROUND 5 ADDITIONS
+  // =========================================================================
+
+  // -------------------------------------------------------------------------
+  // DANCE — distinct silhouettes for one-click crowd dance numbers
+  // -------------------------------------------------------------------------
+  {
+    id: 'hip-hop-bounce',
+    name: 'Hip-Hop Bounce',
+    category: 'dance',
+    duration: 1.2,
+    loop: true,
+    keyframes: [
+      // Low bounce down, right arm swagger out, left tucked.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.6, shoulderRX: -1.1, shoulderLZ: 0.2, shoulderRZ: 0.5,
+          elbowL: 1.5, elbowR: 1.0, torsoX: 0.15, torsoY: 0.2,
+          hipLX: 0.3, hipRX: 0.3, kneeL: 0.5, kneeR: 0.5,
+        },
+      },
+      // Rise through center, arms cross the swagger.
+      {
+        t: 0.3,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, shoulderLZ: 0.35, shoulderRZ: 0.35,
+          elbowL: 1.2, elbowR: 1.2, torsoX: 0.1, torsoY: 0.0,
+          hipLX: 0.1, hipRX: 0.1, kneeL: 0.2, kneeR: 0.2,
+        },
+      },
+      // Low bounce again, left arm swagger out, right tucked.
+      {
+        t: 0.6,
+        joints: {
+          shoulderLX: -1.1, shoulderRX: -0.6, shoulderLZ: 0.5, shoulderRZ: 0.2,
+          elbowL: 1.0, elbowR: 1.5, torsoX: 0.15, torsoY: -0.2,
+          hipLX: 0.3, hipRX: 0.3, kneeL: 0.5, kneeR: 0.5,
+        },
+      },
+      // Rise through center again.
+      {
+        t: 0.9,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, shoulderLZ: 0.35, shoulderRZ: 0.35,
+          elbowL: 1.2, elbowR: 1.2, torsoX: 0.1, torsoY: 0.0,
+          hipLX: 0.1, hipRX: 0.1, kneeL: 0.2, kneeR: 0.2,
+        },
+      },
+      // Loop back to start.
+      {
+        t: 1.2,
+        joints: {
+          shoulderLX: -0.6, shoulderRX: -1.1, shoulderLZ: 0.2, shoulderRZ: 0.5,
+          elbowL: 1.5, elbowR: 1.0, torsoX: 0.15, torsoY: 0.2,
+          hipLX: 0.3, hipRX: 0.3, kneeL: 0.5, kneeR: 0.5,
+        },
+      },
+    ],
+  },
+  {
+    id: 'salsa-step',
+    name: 'Salsa Step',
+    category: 'dance',
+    duration: 1.6,
+    loop: true,
+    keyframes: [
+      // Weight right, hip sways right, left arm open out, right arm closed in.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -0.9, shoulderLZ: 0.7, shoulderRZ: 0.1,
+          elbowL: 0.9, elbowR: 1.4, torsoY: -0.25, torsoX: 0.05,
+          hipLX: -0.2, hipRX: 0.2, kneeL: 0.15, kneeR: 0.3,
+        },
+      },
+      // Cross center — arms swap toward neutral.
+      {
+        t: 0.4,
+        joints: {
+          shoulderLX: -0.95, shoulderRX: -0.95, shoulderLZ: 0.4, shoulderRZ: 0.4,
+          elbowL: 1.15, elbowR: 1.15, torsoY: 0.0, torsoX: 0.05,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.25, kneeR: 0.25,
+        },
+      },
+      // Weight left, hip sways left, right arm open out, left arm closed in.
+      {
+        t: 0.8,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -1.0, shoulderLZ: 0.1, shoulderRZ: 0.7,
+          elbowL: 1.4, elbowR: 0.9, torsoY: 0.25, torsoX: 0.05,
+          hipLX: 0.2, hipRX: -0.2, kneeL: 0.3, kneeR: 0.15,
+        },
+      },
+      // Cross back through center.
+      {
+        t: 1.2,
+        joints: {
+          shoulderLX: -0.95, shoulderRX: -0.95, shoulderLZ: 0.4, shoulderRZ: 0.4,
+          elbowL: 1.15, elbowR: 1.15, torsoY: 0.0, torsoX: 0.05,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.25, kneeR: 0.25,
+        },
+      },
+      // Loop to start.
+      {
+        t: 1.6,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -0.9, shoulderLZ: 0.7, shoulderRZ: 0.1,
+          elbowL: 0.9, elbowR: 1.4, torsoY: -0.25, torsoX: 0.05,
+          hipLX: -0.2, hipRX: 0.2, kneeL: 0.15, kneeR: 0.3,
+        },
+      },
+    ],
+  },
+  {
+    id: 'moonwalk-lean',
+    name: 'Moonwalk Lean',
+    category: 'dance',
+    duration: 2.0,
+    loop: true,
+    keyframes: [
+      // Backward lean, arms loose low, right leg slides back extended.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.2, shoulderRX: -0.2, shoulderLZ: 0.15, shoulderRZ: 0.15,
+          elbowL: 0.4, elbowR: 0.4, torsoX: -0.3,
+          hipLX: 0.0, hipRX: 0.5, kneeL: 0.1, kneeR: 0.05,
+        },
+      },
+      // Right foot plants, left leg slides back, weight shifts.
+      {
+        t: 0.5,
+        joints: {
+          shoulderLX: -0.25, shoulderRX: -0.15, shoulderLZ: 0.15, shoulderRZ: 0.15,
+          elbowL: 0.4, elbowR: 0.4, torsoX: -0.3,
+          hipLX: 0.5, hipRX: 0.0, kneeL: 0.05, kneeR: 0.1,
+        },
+      },
+      // Left foot plants, right leg slides back again.
+      {
+        t: 1.0,
+        joints: {
+          shoulderLX: -0.2, shoulderRX: -0.2, shoulderLZ: 0.15, shoulderRZ: 0.15,
+          elbowL: 0.4, elbowR: 0.4, torsoX: -0.3,
+          hipLX: 0.0, hipRX: 0.5, kneeL: 0.1, kneeR: 0.05,
+        },
+      },
+      // Right plants, left slides back.
+      {
+        t: 1.5,
+        joints: {
+          shoulderLX: -0.25, shoulderRX: -0.15, shoulderLZ: 0.15, shoulderRZ: 0.15,
+          elbowL: 0.4, elbowR: 0.4, torsoX: -0.3,
+          hipLX: 0.5, hipRX: 0.0, kneeL: 0.05, kneeR: 0.1,
+        },
+      },
+      // Loop back to start.
+      {
+        t: 2.0,
+        joints: {
+          shoulderLX: -0.2, shoulderRX: -0.2, shoulderLZ: 0.15, shoulderRZ: 0.15,
+          elbowL: 0.4, elbowR: 0.4, torsoX: -0.3,
+          hipLX: 0.0, hipRX: 0.5, kneeL: 0.1, kneeR: 0.05,
+        },
+      },
+    ],
+  },
+  {
+    id: 'breakdance-freeze',
+    name: 'Breakdance Freeze',
+    category: 'dance',
+    duration: 2.2,
+    loop: false,
+    keyframes: [
+      // Standing ready, arms loose.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, shoulderLZ: 0.2, shoulderRZ: 0.2,
+          elbowL: 0.4, elbowR: 0.4, torsoX: 0.1, torsoY: 0.0,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.1, kneeR: 0.1,
+        },
+      },
+      // Squat and reach one hand down to the floor.
+      {
+        t: 0.5,
+        joints: {
+          shoulderLX: -0.2, shoulderRX: 0.6, shoulderLZ: 0.4, shoulderRZ: 0.3,
+          elbowL: 0.6, elbowR: 0.2, torsoX: 0.7, torsoY: 0.3,
+          hipLX: 0.7, hipRX: 0.7, kneeL: 1.4, kneeR: 1.4,
+        },
+      },
+      // Drop to the hand, torso pitches hard over, legs kick up and out.
+      {
+        t: 1.1,
+        joints: {
+          shoulderLX: 0.2, shoulderRX: 1.0, shoulderLZ: 0.9, shoulderRZ: 0.2,
+          elbowL: 0.3, elbowR: 0.05, torsoX: 1.2, torsoY: 0.6,
+          hipLX: -1.4, hipRX: -0.9, kneeL: 0.3, kneeR: 1.3,
+        },
+      },
+      // Hold the freeze — one-hand support, legs splayed in the air.
+      {
+        t: 1.7,
+        joints: {
+          shoulderLX: 0.2, shoulderRX: 1.0, shoulderLZ: 0.9, shoulderRZ: 0.2,
+          elbowL: 0.3, elbowR: 0.05, torsoX: 1.2, torsoY: 0.6,
+          hipLX: -1.4, hipRX: -0.9, kneeL: 0.3, kneeR: 1.3,
+        },
+      },
+      // Recover to standing.
+      {
+        t: 2.2,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, shoulderLZ: 0.2, shoulderRZ: 0.2,
+          elbowL: 0.4, elbowR: 0.4, torsoX: 0.1, torsoY: 0.0,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.1, kneeR: 0.1,
+        },
+      },
+    ],
+  },
+  {
+    id: 'macarena',
+    name: 'Macarena',
+    category: 'dance',
+    duration: 3.2,
+    loop: true,
+    keyframes: [
+      // Both arms straight out forward, palms down.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -1.55, shoulderRX: -1.55, shoulderLZ: 0.1, shoulderRZ: 0.1,
+          elbowL: 0.1, elbowR: 0.1, torsoY: 0.0, hipLX: 0.0, hipRX: 0.0,
+        },
+      },
+      // Arms out, palms flip up (open the elbows slightly).
+      {
+        t: 0.5,
+        joints: {
+          shoulderLX: -1.55, shoulderRX: -1.55, shoulderLZ: 0.25, shoulderRZ: 0.25,
+          elbowL: 0.3, elbowR: 0.3, torsoY: 0.0, hipLX: 0.0, hipRX: 0.0,
+        },
+      },
+      // Hands cross up to opposite shoulders.
+      {
+        t: 1.0,
+        joints: {
+          shoulderLX: -1.4, shoulderRX: -1.4, shoulderLZ: 0.05, shoulderRZ: 0.05,
+          elbowL: 2.4, elbowR: 2.4, torsoY: 0.0, hipLX: 0.0, hipRX: 0.0,
+        },
+      },
+      // Hands up to the back of the head.
+      {
+        t: 1.6,
+        joints: {
+          shoulderLX: -2.2, shoulderRX: -2.2, shoulderLZ: 0.4, shoulderRZ: 0.4,
+          elbowL: 2.2, elbowR: 2.2, torsoY: 0.0, hipLX: 0.0, hipRX: 0.0,
+        },
+      },
+      // Hands drop to the hips, hip sway right.
+      {
+        t: 2.2,
+        joints: {
+          shoulderLX: -0.4, shoulderRX: -0.4, shoulderLZ: 0.5, shoulderRZ: 0.5,
+          elbowL: 1.6, elbowR: 1.6, torsoY: -0.25, hipLX: -0.15, hipRX: 0.15,
+        },
+      },
+      // Hip sway left (the little wiggle before the jump).
+      {
+        t: 2.7,
+        joints: {
+          shoulderLX: -0.4, shoulderRX: -0.4, shoulderLZ: 0.5, shoulderRZ: 0.5,
+          elbowL: 1.6, elbowR: 1.6, torsoY: 0.25, hipLX: 0.15, hipRX: -0.15,
+        },
+      },
+      // Reset arms straight out forward to loop.
+      {
+        t: 3.2,
+        joints: {
+          shoulderLX: -1.55, shoulderRX: -1.55, shoulderLZ: 0.1, shoulderRZ: 0.1,
+          elbowL: 0.1, elbowR: 0.1, torsoY: 0.0, hipLX: 0.0, hipRX: 0.0,
+        },
+      },
+    ],
+  },
+  {
+    id: 'mosh-jump',
+    name: 'Mosh Jump',
+    category: 'dance',
+    duration: 1.0,
+    loop: true,
+    keyframes: [
+      // Compressed crouch — knees and hips loaded, arms cocked down.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: 0.3, shoulderRX: 0.3, shoulderLZ: 0.3, shoulderRZ: 0.3,
+          elbowL: 0.8, elbowR: 0.8, torsoX: 0.3,
+          hipLX: 0.6, hipRX: 0.6, kneeL: 1.2, kneeR: 1.2,
+        },
+      },
+      // Explode up — legs extend, both arms thrown straight up.
+      {
+        t: 0.35,
+        joints: {
+          shoulderLX: -2.6, shoulderRX: -2.6, shoulderLZ: 0.2, shoulderRZ: 0.2,
+          elbowL: 0.1, elbowR: 0.1, torsoX: -0.05,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.0, kneeR: 0.0,
+        },
+      },
+      // Peak — fully extended, arms up, airborne.
+      {
+        t: 0.6,
+        joints: {
+          shoulderLX: -2.7, shoulderRX: -2.7, shoulderLZ: 0.15, shoulderRZ: 0.15,
+          elbowL: 0.05, elbowR: 0.05, torsoX: -0.1,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.0, kneeR: 0.0,
+        },
+      },
+      // Land back into the compressed crouch to loop.
+      {
+        t: 1.0,
+        joints: {
+          shoulderLX: 0.3, shoulderRX: 0.3, shoulderLZ: 0.3, shoulderRZ: 0.3,
+          elbowL: 0.8, elbowR: 0.8, torsoX: 0.3,
+          hipLX: 0.6, hipRX: 0.6, kneeL: 1.2, kneeR: 1.2,
+        },
+      },
+    ],
+  },
+  {
+    id: 'slow-sway',
+    name: 'Slow Sway',
+    category: 'dance',
+    duration: 3.0,
+    loop: true,
+    keyframes: [
+      // Gentle sway right, arms held mid at partner height.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -1.0, shoulderLZ: 0.5, shoulderRZ: 0.5,
+          elbowL: 1.2, elbowR: 1.2, torsoY: 0.15, torsoX: 0.05,
+          hipLX: -0.1, hipRX: 0.1,
+        },
+      },
+      // Ease through center.
+      {
+        t: 0.75,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -1.0, shoulderLZ: 0.5, shoulderRZ: 0.5,
+          elbowL: 1.2, elbowR: 1.2, torsoY: 0.0, torsoX: 0.05,
+          hipLX: 0.0, hipRX: 0.0,
+        },
+      },
+      // Sway left.
+      {
+        t: 1.5,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -1.0, shoulderLZ: 0.5, shoulderRZ: 0.5,
+          elbowL: 1.2, elbowR: 1.2, torsoY: -0.15, torsoX: 0.05,
+          hipLX: 0.1, hipRX: -0.1,
+        },
+      },
+      // Ease back through center.
+      {
+        t: 2.25,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -1.0, shoulderLZ: 0.5, shoulderRZ: 0.5,
+          elbowL: 1.2, elbowR: 1.2, torsoY: 0.0, torsoX: 0.05,
+          hipLX: 0.0, hipRX: 0.0,
+        },
+      },
+      // Loop back to the right sway.
+      {
+        t: 3.0,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -1.0, shoulderLZ: 0.5, shoulderRZ: 0.5,
+          elbowL: 1.2, elbowR: 1.2, torsoY: 0.15, torsoX: 0.05,
+          hipLX: -0.1, hipRX: 0.1,
+        },
+      },
+    ],
+  },
+  {
+    id: 'twist',
+    name: 'The Twist',
+    category: 'dance',
+    duration: 1.2,
+    loop: true,
+    keyframes: [
+      // Torso twisted right, arms pump opposite (elbows bent, swinging).
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, shoulderLZ: 0.3, shoulderRZ: 0.3,
+          elbowL: 1.3, elbowR: 1.3, torsoY: 0.4, torsoX: 0.1,
+          kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+      // Through center — knees dip.
+      {
+        t: 0.3,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, shoulderLZ: 0.3, shoulderRZ: 0.3,
+          elbowL: 1.3, elbowR: 1.3, torsoY: 0.0, torsoX: 0.1,
+          kneeL: 0.45, kneeR: 0.45,
+        },
+      },
+      // Torso twisted left, arms pump the other way.
+      {
+        t: 0.6,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, shoulderLZ: 0.3, shoulderRZ: 0.3,
+          elbowL: 1.3, elbowR: 1.3, torsoY: -0.4, torsoX: 0.1,
+          kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+      // Back through center.
+      {
+        t: 0.9,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, shoulderLZ: 0.3, shoulderRZ: 0.3,
+          elbowL: 1.3, elbowR: 1.3, torsoY: 0.0, torsoX: 0.1,
+          kneeL: 0.45, kneeR: 0.45,
+        },
+      },
+      // Loop to start.
+      {
+        t: 1.2,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, shoulderLZ: 0.3, shoulderRZ: 0.3,
+          elbowL: 1.3, elbowR: 1.3, torsoY: 0.4, torsoX: 0.1,
+          kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+    ],
+  },
+  {
+    id: 'vogue-pose-chain',
+    name: 'Vogue Pose Chain',
+    category: 'dance',
+    duration: 3.6,
+    loop: false,
+    keyframes: [
+      // Neutral start.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.4, shoulderRX: -0.4, shoulderLZ: 0.2, shoulderRZ: 0.2,
+          elbowL: 0.4, elbowR: 0.4, torsoY: 0.0, headY: 0.0,
+        },
+      },
+      // Pose 1 — right arm framed high over the head, head turned.
+      {
+        t: 0.4,
+        joints: {
+          shoulderLX: -2.4, shoulderRX: -0.5, shoulderLZ: 0.3, shoulderRZ: 0.6,
+          elbowL: 1.8, elbowR: 0.2, torsoY: -0.2, headY: 0.4,
+        },
+      },
+      // Hold pose 1.
+      {
+        t: 1.0,
+        joints: {
+          shoulderLX: -2.4, shoulderRX: -0.5, shoulderLZ: 0.3, shoulderRZ: 0.6,
+          elbowL: 1.8, elbowR: 0.2, torsoY: -0.2, headY: 0.4,
+        },
+      },
+      // Pose 2 — left arm frames the face, right arm out to the side.
+      {
+        t: 1.4,
+        joints: {
+          shoulderLX: -0.5, shoulderRX: -1.5, shoulderLZ: 0.6, shoulderRZ: 0.9,
+          elbowL: 0.2, elbowR: 2.0, torsoY: 0.2, headY: -0.4,
+        },
+      },
+      // Hold pose 2.
+      {
+        t: 2.0,
+        joints: {
+          shoulderLX: -0.5, shoulderRX: -1.5, shoulderLZ: 0.6, shoulderRZ: 0.9,
+          elbowL: 0.2, elbowR: 2.0, torsoY: 0.2, headY: -0.4,
+        },
+      },
+      // Pose 3 — both arms boxed up beside the head, sharp.
+      {
+        t: 2.4,
+        joints: {
+          shoulderLX: -2.0, shoulderRX: -2.0, shoulderLZ: 0.5, shoulderRZ: 0.5,
+          elbowL: 2.0, elbowR: 2.0, torsoY: 0.0, headY: 0.0,
+        },
+      },
+      // Hold pose 3.
+      {
+        t: 3.0,
+        joints: {
+          shoulderLX: -2.0, shoulderRX: -2.0, shoulderLZ: 0.5, shoulderRZ: 0.5,
+          elbowL: 2.0, elbowR: 2.0, torsoY: 0.0, headY: 0.0,
+        },
+      },
+      // Pose 4 — arms sweep down and out, final flourish held.
+      {
+        t: 3.6,
+        joints: {
+          shoulderLX: -0.2, shoulderRX: -0.2, shoulderLZ: 0.9, shoulderRZ: 0.9,
+          elbowL: 0.1, elbowR: 0.1, torsoY: 0.0, headY: 0.0,
+        },
+      },
+    ],
+  },
+  {
+    id: 'charleston',
+    name: 'Charleston',
+    category: 'dance',
+    duration: 1.4,
+    loop: true,
+    keyframes: [
+      // Right knee up, arms swing back (opposition), torso light.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -1.4, shoulderRX: 0.4, shoulderLZ: 0.2, shoulderRZ: 0.2,
+          elbowL: 0.5, elbowR: 0.5, torsoY: 0.15, torsoX: 0.1,
+          hipLX: 0.1, hipRX: -0.8, kneeL: 0.2, kneeR: 1.2,
+        },
+      },
+      // Feet together, arms swing forward through center.
+      {
+        t: 0.35,
+        joints: {
+          shoulderLX: -0.5, shoulderRX: -0.5, shoulderLZ: 0.2, shoulderRZ: 0.2,
+          elbowL: 0.5, elbowR: 0.5, torsoY: 0.0, torsoX: 0.1,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+      // Left knee up, arms swing back the other way.
+      {
+        t: 0.7,
+        joints: {
+          shoulderLX: 0.4, shoulderRX: -1.4, shoulderLZ: 0.2, shoulderRZ: 0.2,
+          elbowL: 0.5, elbowR: 0.5, torsoY: -0.15, torsoX: 0.1,
+          hipLX: -0.8, hipRX: 0.1, kneeL: 1.2, kneeR: 0.2,
+        },
+      },
+      // Feet together, arms forward again.
+      {
+        t: 1.05,
+        joints: {
+          shoulderLX: -0.5, shoulderRX: -0.5, shoulderLZ: 0.2, shoulderRZ: 0.2,
+          elbowL: 0.5, elbowR: 0.5, torsoY: 0.0, torsoX: 0.1,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+      // Loop back to the first kick.
+      {
+        t: 1.4,
+        joints: {
+          shoulderLX: -1.4, shoulderRX: 0.4, shoulderLZ: 0.2, shoulderRZ: 0.2,
+          elbowL: 0.5, elbowR: 0.5, torsoY: 0.15, torsoX: 0.1,
+          hipLX: 0.1, hipRX: -0.8, kneeL: 0.2, kneeR: 1.2,
+        },
+      },
+    ],
+  },
+  {
+    id: 'headbang',
+    name: 'Headbang',
+    category: 'dance',
+    duration: 0.8,
+    loop: true,
+    keyframes: [
+      // Head up, slight crouch, arms cocked in a rock stance.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, shoulderLZ: 0.4, shoulderRZ: 0.4,
+          elbowL: 1.3, elbowR: 1.3, torsoX: 0.0, headX: -0.35,
+          kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+      // Snap the head and torso down hard.
+      {
+        t: 0.2,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, shoulderLZ: 0.4, shoulderRZ: 0.4,
+          elbowL: 1.3, elbowR: 1.3, torsoX: 0.5, headX: 0.4,
+          kneeL: 0.4, kneeR: 0.4,
+        },
+      },
+      // Whip back up.
+      {
+        t: 0.4,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, shoulderLZ: 0.4, shoulderRZ: 0.4,
+          elbowL: 1.3, elbowR: 1.3, torsoX: 0.0, headX: -0.35,
+          kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+      // Second bang down.
+      {
+        t: 0.6,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, shoulderLZ: 0.4, shoulderRZ: 0.4,
+          elbowL: 1.3, elbowR: 1.3, torsoX: 0.5, headX: 0.4,
+          kneeL: 0.4, kneeR: 0.4,
+        },
+      },
+      // Back up to loop.
+      {
+        t: 0.8,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, shoulderLZ: 0.4, shoulderRZ: 0.4,
+          elbowL: 1.3, elbowR: 1.3, torsoX: 0.0, headX: -0.35,
+          kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // FIGHT
+  // -------------------------------------------------------------------------
+  {
+    id: 'roundhouse-kick',
+    name: 'Roundhouse Kick',
+    category: 'fight',
+    duration: 1.3,
+    loop: false,
+    keyframes: [
+      // Guard, feet set.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.8, elbowR: 1.8,
+          torsoX: 0.15, torsoY: 0.0, hipRX: 0, kneeR: 0,
+        },
+      },
+      // Pivot and chamber — knee whips up and across, torso winds.
+      {
+        t: 0.35,
+        joints: {
+          shoulderLX: -0.7, shoulderRX: -1.2, elbowL: 1.6, elbowR: 1.9,
+          torsoX: 0.1, torsoY: 0.6, hipRX: -1.1, kneeR: 1.5,
+        },
+      },
+      // Whip the shin out — leg extends across, torso rotates fully through.
+      {
+        t: 0.65,
+        joints: {
+          shoulderLX: -0.6, shoulderRX: -1.4, elbowL: 1.5, elbowR: 1.8,
+          torsoX: 0.1, torsoY: -0.8, hipRX: -1.5, kneeR: 0.2,
+        },
+      },
+      // Re-chamber after impact.
+      {
+        t: 0.95,
+        joints: {
+          shoulderLX: -0.7, shoulderRX: -1.2, elbowL: 1.6, elbowR: 1.9,
+          torsoX: 0.1, torsoY: 0.2, hipRX: -1.1, kneeR: 1.5,
+        },
+      },
+      // Recover to guard.
+      {
+        t: 1.3,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.8, elbowR: 1.8,
+          torsoX: 0.15, torsoY: 0.0, hipRX: 0, kneeR: 0,
+        },
+      },
+    ],
+  },
+  {
+    id: 'front-kick-combo',
+    name: 'Front Kick / Jab',
+    category: 'fight',
+    duration: 1.6,
+    loop: false,
+    keyframes: [
+      // Guard.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.8, elbowR: 1.8,
+          torsoX: 0.15, torsoY: 0.0, hipRX: 0, kneeR: 0,
+        },
+      },
+      // Chamber front kick — right knee up.
+      {
+        t: 0.3,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.8, elbowR: 1.8,
+          torsoX: 0.1, torsoY: 0.0, hipRX: -1.0, kneeR: 1.6,
+        },
+      },
+      // Front kick snaps straight out.
+      {
+        t: 0.55,
+        joints: {
+          shoulderLX: -0.8, shoulderRX: -0.8, elbowL: 1.7, elbowR: 1.7,
+          torsoX: -0.2, torsoY: 0.0, hipRX: -1.5, kneeR: 0.15,
+        },
+      },
+      // Foot lands back into guard, load the jab.
+      {
+        t: 0.9,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.9, elbowR: 1.8,
+          torsoX: 0.15, torsoY: -0.1, hipRX: 0, kneeR: 0,
+        },
+      },
+      // Left jab fires straight.
+      {
+        t: 1.2,
+        joints: {
+          shoulderLX: -1.5, shoulderRX: -0.9, elbowL: 0.15, elbowR: 1.9,
+          torsoX: 0.15, torsoY: -0.4, hipRX: 0, kneeR: 0,
+        },
+      },
+      // Retract to guard.
+      {
+        t: 1.6,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.8, elbowR: 1.8,
+          torsoX: 0.15, torsoY: 0.0, hipRX: 0, kneeR: 0,
+        },
+      },
+    ],
+  },
+  {
+    id: 'spinning-backfist',
+    name: 'Spinning Backfist',
+    category: 'fight',
+    duration: 1.2,
+    loop: false,
+    keyframes: [
+      // Guard.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, shoulderRZ: 0, elbowL: 1.8, elbowR: 1.8,
+          torsoX: 0.15, torsoY: 0.0,
+        },
+      },
+      // Wind the torso hard clockwise to start the spin.
+      {
+        t: 0.3,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, shoulderRZ: 0.2, elbowL: 1.8, elbowR: 1.6,
+          torsoX: 0.1, torsoY: 0.9,
+        },
+      },
+      // Backfist whips out as the torso unwinds through the spin.
+      {
+        t: 0.6,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -1.5, shoulderRZ: 0.9, elbowL: 1.8, elbowR: 0.4,
+          torsoX: 0.15, torsoY: -0.9,
+        },
+      },
+      // Follow-through past center.
+      {
+        t: 0.9,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -1.1, shoulderRZ: 0.4, elbowL: 1.8, elbowR: 1.0,
+          torsoX: 0.15, torsoY: -1.1,
+        },
+      },
+      // Recover to guard.
+      {
+        t: 1.2,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, shoulderRZ: 0, elbowL: 1.8, elbowR: 1.8,
+          torsoX: 0.15, torsoY: 0.0,
+        },
+      },
+    ],
+  },
+  {
+    id: 'double-jab-body-shot',
+    name: 'Double Jab / Body Shot',
+    category: 'fight',
+    duration: 1.6,
+    loop: false,
+    keyframes: [
+      // Guard.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.8, elbowR: 1.8,
+          torsoX: 0.15, torsoY: 0.0,
+        },
+      },
+      // First jab out (left).
+      {
+        t: 0.25,
+        joints: {
+          shoulderLX: -1.5, shoulderRX: -0.9, elbowL: 0.15, elbowR: 1.8,
+          torsoX: 0.15, torsoY: -0.35,
+        },
+      },
+      // Half-retract.
+      {
+        t: 0.5,
+        joints: {
+          shoulderLX: -1.1, shoulderRX: -0.9, elbowL: 1.0, elbowR: 1.8,
+          torsoX: 0.15, torsoY: -0.1,
+        },
+      },
+      // Second jab out (left again).
+      {
+        t: 0.75,
+        joints: {
+          shoulderLX: -1.5, shoulderRX: -0.9, elbowL: 0.15, elbowR: 1.8,
+          torsoX: 0.15, torsoY: -0.35,
+        },
+      },
+      // Drop level and rip the right hand to the body — torso leans in low.
+      {
+        t: 1.1,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -1.0, elbowL: 1.8, elbowR: 0.6,
+          torsoX: 0.5, torsoY: 0.4,
+        },
+      },
+      // Recover to guard.
+      {
+        t: 1.6,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.8, elbowR: 1.8,
+          torsoX: 0.15, torsoY: 0.0,
+        },
+      },
+    ],
+  },
+  {
+    id: 'guard-up-advance',
+    name: 'Guard-Up Advance',
+    category: 'fight',
+    duration: 1.6,
+    loop: true,
+    keyframes: [
+      // Tight high guard, weight on the back foot.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -1.2, shoulderRX: -1.2, elbowL: 2.0, elbowR: 2.0,
+          torsoX: 0.2, hipLX: -0.15, hipRX: 0.2, kneeL: 0.4, kneeR: 0.3,
+        },
+      },
+      // Lead foot creeps forward, guard stays tight.
+      {
+        t: 0.4,
+        joints: {
+          shoulderLX: -1.25, shoulderRX: -1.25, elbowL: 2.0, elbowR: 2.0,
+          torsoX: 0.2, hipLX: -0.3, hipRX: 0.15, kneeL: 0.3, kneeR: 0.35,
+        },
+      },
+      // Rear foot catches up, settle back into stance.
+      {
+        t: 0.8,
+        joints: {
+          shoulderLX: -1.2, shoulderRX: -1.2, elbowL: 2.0, elbowR: 2.0,
+          torsoX: 0.2, hipLX: -0.15, hipRX: 0.2, kneeL: 0.4, kneeR: 0.3,
+        },
+      },
+      // Another creeping lead step.
+      {
+        t: 1.2,
+        joints: {
+          shoulderLX: -1.25, shoulderRX: -1.25, elbowL: 2.0, elbowR: 2.0,
+          torsoX: 0.2, hipLX: -0.3, hipRX: 0.15, kneeL: 0.3, kneeR: 0.35,
+        },
+      },
+      // Settle — loops to start.
+      {
+        t: 1.6,
+        joints: {
+          shoulderLX: -1.2, shoulderRX: -1.2, elbowL: 2.0, elbowR: 2.0,
+          torsoX: 0.2, hipLX: -0.15, hipRX: 0.2, kneeL: 0.4, kneeR: 0.3,
+        },
+      },
+    ],
+  },
+  {
+    id: 'dodge-weave',
+    name: 'Dodge & Weave',
+    category: 'fight',
+    duration: 1.8,
+    loop: true,
+    keyframes: [
+      // Centered guard.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -1.0, elbowL: 1.9, elbowR: 1.9,
+          torsoX: 0.2, torsoY: 0.0, hipLX: 0.1, hipRX: 0.1, kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+      // Bob down and weave to the left.
+      {
+        t: 0.45,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -1.0, elbowL: 1.9, elbowR: 1.9,
+          torsoX: 0.5, torsoY: 0.4, hipLX: 0.5, hipRX: 0.3, kneeL: 0.9, kneeR: 0.6,
+        },
+      },
+      // Rise back to center.
+      {
+        t: 0.9,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -1.0, elbowL: 1.9, elbowR: 1.9,
+          torsoX: 0.2, torsoY: 0.0, hipLX: 0.1, hipRX: 0.1, kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+      // Bob down and weave to the right.
+      {
+        t: 1.35,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -1.0, elbowL: 1.9, elbowR: 1.9,
+          torsoX: 0.5, torsoY: -0.4, hipLX: 0.3, hipRX: 0.5, kneeL: 0.6, kneeR: 0.9,
+        },
+      },
+      // Rise to center — loops.
+      {
+        t: 1.8,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -1.0, elbowL: 1.9, elbowR: 1.9,
+          torsoX: 0.2, torsoY: 0.0, hipLX: 0.1, hipRX: 0.1, kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+    ],
+  },
+  {
+    id: 'grapple-shove',
+    name: 'Grapple Shove',
+    category: 'fight',
+    duration: 1.2,
+    loop: false,
+    keyframes: [
+      // Guard, weight balanced.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.6, elbowR: 1.6,
+          torsoX: 0.2, hipLX: 0.1, hipRX: 0.1, kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+      // Reach in and grab — arms extend forward, drop into the hips.
+      {
+        t: 0.35,
+        joints: {
+          shoulderLX: -1.4, shoulderRX: -1.4, elbowL: 0.6, elbowR: 0.6,
+          torsoX: 0.4, hipLX: 0.4, hipRX: 0.4, kneeL: 0.7, kneeR: 0.7,
+        },
+      },
+      // Drive and shove — legs extend, arms thrust out, torso rises through.
+      {
+        t: 0.7,
+        joints: {
+          shoulderLX: -1.55, shoulderRX: -1.55, elbowL: 0.1, elbowR: 0.1,
+          torsoX: 0.0, hipLX: 0.0, hipRX: 0.0, kneeL: 0.0, kneeR: 0.0,
+        },
+      },
+      // Recover to guard.
+      {
+        t: 1.2,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.6, elbowR: 1.6,
+          torsoX: 0.2, hipLX: 0.1, hipRX: 0.1, kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+    ],
+  },
+  {
+    id: 'takedown-lunge',
+    name: 'Takedown Lunge',
+    category: 'fight',
+    duration: 1.4,
+    loop: false,
+    keyframes: [
+      // Guard.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.6, elbowR: 1.6,
+          torsoX: 0.2, hipLX: 0.0, hipRX: 0.0, kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+      // Level change — drop the hips low, hands reach for the legs.
+      {
+        t: 0.4,
+        joints: {
+          shoulderLX: -1.2, shoulderRX: -1.2, elbowL: 0.5, elbowR: 0.5,
+          torsoX: 0.7, hipLX: 0.7, hipRX: 0.7, kneeL: 1.3, kneeR: 1.3,
+        },
+      },
+      // Explosive lunge — lead knee drives forward, arms clamp, torso spears in.
+      {
+        t: 0.75,
+        joints: {
+          shoulderLX: -0.8, shoulderRX: -0.8, elbowL: 1.4, elbowR: 1.4,
+          torsoX: 1.0, hipLX: -0.9, hipRX: 0.6, kneeL: 1.0, kneeR: 0.4,
+        },
+      },
+      // Drive through the finish, held low.
+      {
+        t: 1.05,
+        joints: {
+          shoulderLX: -0.6, shoulderRX: -0.6, elbowL: 1.6, elbowR: 1.6,
+          torsoX: 1.1, hipLX: -0.6, hipRX: 0.8, kneeL: 1.2, kneeR: 0.6,
+        },
+      },
+      // Recover to guard.
+      {
+        t: 1.4,
+        joints: {
+          shoulderLX: -0.9, shoulderRX: -0.9, elbowL: 1.6, elbowR: 1.6,
+          torsoX: 0.2, hipLX: 0.0, hipRX: 0.0, kneeL: 0.3, kneeR: 0.3,
+        },
+      },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // REACTIONS & STUNTS — fight "defender" moves and falls
+  // -------------------------------------------------------------------------
+  {
+    id: 'hit-reaction-head',
+    name: 'Hit Reaction — Head',
+    category: 'stunt',
+    duration: 1.0,
+    loop: false,
+    keyframes: [
+      // Standing, loose guard.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.6, shoulderRX: -0.6, elbowL: 1.2, elbowR: 1.2,
+          torsoX: 0.1, torsoY: 0.0, headX: 0.0, headY: 0.0,
+          hipLX: 0.0, hipRX: 0.0,
+        },
+      },
+      // Impact — head snaps back and to the side, torso recoils.
+      {
+        t: 0.2,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -0.4, elbowL: 1.0, elbowR: 1.0,
+          torsoX: -0.4, torsoY: 0.4, headX: -0.4, headY: 0.5,
+          hipLX: 0.0, hipRX: 0.0,
+        },
+      },
+      // Stagger a step, off balance to the side.
+      {
+        t: 0.55,
+        joints: {
+          shoulderLX: -0.5, shoulderRX: -0.9, elbowL: 0.9, elbowR: 0.9,
+          torsoX: 0.2, torsoY: -0.3, headX: 0.2, headY: -0.3,
+          hipLX: -0.3, hipRX: 0.3,
+        },
+      },
+      // Regain composure.
+      {
+        t: 1.0,
+        joints: {
+          shoulderLX: -0.6, shoulderRX: -0.6, elbowL: 1.2, elbowR: 1.2,
+          torsoX: 0.1, torsoY: 0.0, headX: 0.0, headY: 0.0,
+          hipLX: 0.0, hipRX: 0.0,
+        },
+      },
+    ],
+  },
+  {
+    id: 'hit-reaction-body',
+    name: 'Hit Reaction — Body',
+    category: 'stunt',
+    duration: 1.1,
+    loop: false,
+    keyframes: [
+      // Standing, loose guard.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.6, shoulderRX: -0.6, elbowL: 1.2, elbowR: 1.2,
+          torsoX: 0.1, headX: 0.0, hipLX: 0.0, hipRX: 0.0, kneeL: 0.1, kneeR: 0.1,
+        },
+      },
+      // Gut shot lands — double over hard, arms clamp to the middle.
+      {
+        t: 0.25,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, elbowL: 1.9, elbowR: 1.9,
+          torsoX: 1.0, headX: 0.4, hipLX: 0.3, hipRX: 0.3, kneeL: 0.7, kneeR: 0.7,
+        },
+      },
+      // Hold, hunched, absorbing it.
+      {
+        t: 0.6,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, elbowL: 1.9, elbowR: 1.9,
+          torsoX: 0.9, headX: 0.4, hipLX: 0.3, hipRX: 0.3, kneeL: 0.6, kneeR: 0.6,
+        },
+      },
+      // Slowly straighten back up.
+      {
+        t: 1.1,
+        joints: {
+          shoulderLX: -0.6, shoulderRX: -0.6, elbowL: 1.2, elbowR: 1.2,
+          torsoX: 0.1, headX: 0.0, hipLX: 0.0, hipRX: 0.0, kneeL: 0.1, kneeR: 0.1,
+        },
+      },
+    ],
+  },
+  {
+    id: 'stumble-back-fall',
+    name: 'Stumble Back & Fall',
+    category: 'stunt',
+    duration: 1.8,
+    loop: false,
+    keyframes: [
+      // Standing.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.4, shoulderRX: -0.4, shoulderLZ: 0.1, shoulderRZ: 0.1,
+          elbowL: 0.4, elbowR: 0.4, torsoX: 0.0, headX: 0.0,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.1, kneeR: 0.1,
+        },
+      },
+      // Knocked back — arms fly up, torso recoils, one leg lifts.
+      {
+        t: 0.3,
+        joints: {
+          shoulderLX: -1.8, shoulderRX: -1.8, shoulderLZ: 0.7, shoulderRZ: 0.7,
+          elbowL: 0.4, elbowR: 0.4, torsoX: -0.5, headX: -0.3,
+          hipLX: -0.6, hipRX: 0.3, kneeL: 0.5, kneeR: 0.1,
+        },
+      },
+      // Losing it — arms windmill, torso pitching, knees buckling.
+      {
+        t: 0.7,
+        joints: {
+          shoulderLX: -1.2, shoulderRX: -0.4, shoulderLZ: 0.9, shoulderRZ: 0.5,
+          elbowL: 0.3, elbowR: 0.5, torsoX: -0.2, headX: 0.2,
+          hipLX: 0.4, hipRX: 0.6, kneeL: 1.2, kneeR: 1.3,
+        },
+      },
+      // Hitting the ground — collapsing onto the back.
+      {
+        t: 1.2,
+        joints: {
+          shoulderLX: -1.0, shoulderRX: -1.0, shoulderLZ: 0.6, shoulderRZ: 0.6,
+          elbowL: 0.6, elbowR: 0.6, torsoX: -0.9, headX: 0.3,
+          hipLX: -1.2, hipRX: -1.2, kneeL: 0.8, kneeR: 0.8,
+        },
+      },
+      // Prone on the ground — the app holds this final pose (legs up, torso back).
+      {
+        t: 1.8,
+        joints: {
+          shoulderLX: -0.5, shoulderRX: -0.5, shoulderLZ: 0.9, shoulderRZ: 0.9,
+          elbowL: 0.3, elbowR: 0.3, torsoX: -1.3, headX: 0.4,
+          hipLX: -1.5, hipRX: -1.5, kneeL: 1.0, kneeR: 1.0,
+        },
+      },
+    ],
+  },
+  {
+    id: 'shield-block',
+    name: 'Shield Block',
+    category: 'stunt',
+    duration: 1.4,
+    loop: true,
+    keyframes: [
+      // Braced behind a raised shield — forearms up, weight low and set.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -1.4, shoulderRX: -1.4, elbowL: 2.0, elbowR: 2.0,
+          torsoX: 0.25, headX: 0.15, hipLX: 0.1, hipRX: 0.2, kneeL: 0.4, kneeR: 0.4,
+        },
+      },
+      // Absorb an impact — driven back slightly, dig in harder.
+      {
+        t: 0.4,
+        joints: {
+          shoulderLX: -1.5, shoulderRX: -1.5, elbowL: 2.1, elbowR: 2.1,
+          torsoX: 0.35, headX: 0.25, hipLX: 0.3, hipRX: 0.4, kneeL: 0.6, kneeR: 0.6,
+        },
+      },
+      // Push back to the braced hold.
+      {
+        t: 0.9,
+        joints: {
+          shoulderLX: -1.4, shoulderRX: -1.4, elbowL: 2.0, elbowR: 2.0,
+          torsoX: 0.25, headX: 0.15, hipLX: 0.1, hipRX: 0.2, kneeL: 0.4, kneeR: 0.4,
+        },
+      },
+      // Loop back to the braced hold.
+      {
+        t: 1.4,
+        joints: {
+          shoulderLX: -1.4, shoulderRX: -1.4, elbowL: 2.0, elbowR: 2.0,
+          torsoX: 0.25, headX: 0.15, hipLX: 0.1, hipRX: 0.2, kneeL: 0.4, kneeR: 0.4,
+        },
+      },
+    ],
+  },
+  {
+    id: 'roll-dodge',
+    name: 'Roll Dodge',
+    category: 'stunt',
+    duration: 1.4,
+    loop: false,
+    keyframes: [
+      // Standing ready.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.4, shoulderRX: -0.4, elbowL: 0.5, elbowR: 0.5,
+          torsoX: 0.1, hipLX: 0.0, hipRX: 0.0, kneeL: 0.1, kneeR: 0.1,
+        },
+      },
+      // Duck low and dive — tuck the chin, hips fold, arms reach down-forward.
+      {
+        t: 0.3,
+        joints: {
+          shoulderLX: -1.6, shoulderRX: -1.6, elbowL: 1.2, elbowR: 1.2,
+          torsoX: 1.0, hipLX: 0.9, hipRX: 0.9, kneeL: 1.5, kneeR: 1.5,
+        },
+      },
+      // Over the shoulder — fully tucked ball through the roll.
+      {
+        t: 0.7,
+        joints: {
+          shoulderLX: -0.5, shoulderRX: -0.5, elbowL: 2.2, elbowR: 2.2,
+          torsoX: 1.3, hipLX: 1.0, hipRX: 1.0, kneeL: 2.0, kneeR: 2.0,
+        },
+      },
+      // Coming up out of the roll to one knee.
+      {
+        t: 1.05,
+        joints: {
+          shoulderLX: -0.7, shoulderRX: -0.7, elbowL: 0.9, elbowR: 0.9,
+          torsoX: 0.6, hipLX: -0.4, hipRX: 0.8, kneeL: 0.9, kneeR: 1.3,
+        },
+      },
+      // Back to standing ready.
+      {
+        t: 1.4,
+        joints: {
+          shoulderLX: -0.4, shoulderRX: -0.4, elbowL: 0.5, elbowR: 0.5,
+          torsoX: 0.1, hipLX: 0.0, hipRX: 0.0, kneeL: 0.1, kneeR: 0.1,
+        },
+      },
+    ],
+  },
+  {
+    id: 'dazed-wobble',
+    name: 'Dazed Wobble',
+    category: 'stunt',
+    duration: 2.4,
+    loop: true,
+    keyframes: [
+      // Woozy — head lolls right, torso tips, arms hang heavy.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.2, shoulderRX: -0.2, elbowL: 0.5, elbowR: 0.5,
+          torsoX: 0.1, torsoY: 0.2, headX: 0.2, headY: 0.3,
+          hipLX: -0.1, hipRX: 0.1, kneeL: 0.2, kneeR: 0.2,
+        },
+      },
+      // Sway forward, nearly pitching over.
+      {
+        t: 0.6,
+        joints: {
+          shoulderLX: -0.4, shoulderRX: -0.4, elbowL: 0.4, elbowR: 0.4,
+          torsoX: 0.4, torsoY: 0.0, headX: 0.35, headY: 0.0,
+          hipLX: 0.1, hipRX: 0.1, kneeL: 0.35, kneeR: 0.35,
+        },
+      },
+      // Lurch the other way — head lolls left, torso tips back.
+      {
+        t: 1.2,
+        joints: {
+          shoulderLX: -0.2, shoulderRX: -0.2, elbowL: 0.5, elbowR: 0.5,
+          torsoX: -0.1, torsoY: -0.2, headX: -0.1, headY: -0.3,
+          hipLX: 0.1, hipRX: -0.1, kneeL: 0.2, kneeR: 0.2,
+        },
+      },
+      // Sway forward again.
+      {
+        t: 1.8,
+        joints: {
+          shoulderLX: -0.4, shoulderRX: -0.4, elbowL: 0.4, elbowR: 0.4,
+          torsoX: 0.4, torsoY: 0.0, headX: 0.35, headY: 0.0,
+          hipLX: 0.1, hipRX: 0.1, kneeL: 0.35, kneeR: 0.35,
+        },
+      },
+      // Loop back to the woozy start.
+      {
+        t: 2.4,
+        joints: {
+          shoulderLX: -0.2, shoulderRX: -0.2, elbowL: 0.5, elbowR: 0.5,
+          torsoX: 0.1, torsoY: 0.2, headX: 0.2, headY: 0.3,
+          hipLX: -0.1, hipRX: 0.1, kneeL: 0.2, kneeR: 0.2,
+        },
+      },
+    ],
+  },
+
+  // -------------------------------------------------------------------------
+  // GESTURE
+  // -------------------------------------------------------------------------
+  {
+    id: 'cheer-jump',
+    name: 'Cheer Jump',
+    category: 'gesture',
+    duration: 1.2,
+    loop: false,
+    keyframes: [
+      // Crouch to load the jump, arms cocked down.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: 0.2, shoulderRX: 0.2, shoulderLZ: 0.3, shoulderRZ: 0.3,
+          elbowL: 0.6, elbowR: 0.6, torsoX: 0.3,
+          hipLX: 0.5, hipRX: 0.5, kneeL: 1.1, kneeR: 1.1,
+        },
+      },
+      // Launch — legs extend, arms fly straight up in a V.
+      {
+        t: 0.35,
+        joints: {
+          shoulderLX: -2.6, shoulderRX: -2.6, shoulderLZ: 0.6, shoulderRZ: 0.6,
+          elbowL: 0.1, elbowR: 0.1, torsoX: 0.0,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.0, kneeR: 0.0,
+        },
+      },
+      // Peak — arms up, celebrating.
+      {
+        t: 0.6,
+        joints: {
+          shoulderLX: -2.7, shoulderRX: -2.7, shoulderLZ: 0.7, shoulderRZ: 0.7,
+          elbowL: 0.05, elbowR: 0.05, torsoX: -0.05,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.0, kneeR: 0.0,
+        },
+      },
+      // Land, arms coming down, absorb.
+      {
+        t: 0.9,
+        joints: {
+          shoulderLX: -0.8, shoulderRX: -0.8, shoulderLZ: 0.5, shoulderRZ: 0.5,
+          elbowL: 0.4, elbowR: 0.4, torsoX: 0.2,
+          hipLX: 0.4, hipRX: 0.4, kneeL: 0.7, kneeR: 0.7,
+        },
+      },
+      // Settle to standing.
+      {
+        t: 1.2,
+        joints: {
+          shoulderLX: -0.2, shoulderRX: -0.2, shoulderLZ: 0.15, shoulderRZ: 0.15,
+          elbowL: 0.3, elbowR: 0.3, torsoX: 0.0,
+          hipLX: 0.0, hipRX: 0.0, kneeL: 0.1, kneeR: 0.1,
+        },
+      },
+    ],
+  },
+  {
+    id: 'argue-point',
+    name: 'Argue & Point',
+    category: 'gesture',
+    duration: 1.6,
+    loop: true,
+    keyframes: [
+      // Lean in, right hand jabbing a point forward, left hand on hip-ish.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.5, shoulderRX: -1.4, shoulderLZ: 0.5, shoulderRZ: 0.1,
+          elbowL: 1.6, elbowR: 0.3, torsoX: 0.3, torsoY: -0.2, headX: 0.15,
+        },
+      },
+      // Pull the point back, gesture builds.
+      {
+        t: 0.4,
+        joints: {
+          shoulderLX: -0.5, shoulderRX: -1.0, shoulderLZ: 0.5, shoulderRZ: 0.2,
+          elbowL: 1.6, elbowR: 1.2, torsoX: 0.15, torsoY: 0.1, headX: 0.0,
+        },
+      },
+      // Jab the point forward again, harder.
+      {
+        t: 0.8,
+        joints: {
+          shoulderLX: -0.5, shoulderRX: -1.5, shoulderLZ: 0.5, shoulderRZ: 0.1,
+          elbowL: 1.6, elbowR: 0.2, torsoX: 0.35, torsoY: -0.25, headX: 0.2,
+        },
+      },
+      // Ease back, hands open in exasperation.
+      {
+        t: 1.2,
+        joints: {
+          shoulderLX: -0.7, shoulderRX: -0.7, shoulderLZ: 0.7, shoulderRZ: 0.7,
+          elbowL: 0.9, elbowR: 0.9, torsoX: 0.05, torsoY: 0.0, headX: -0.1,
+        },
+      },
+      // Loop back to the leaning-in jab.
+      {
+        t: 1.6,
+        joints: {
+          shoulderLX: -0.5, shoulderRX: -1.4, shoulderLZ: 0.5, shoulderRZ: 0.1,
+          elbowL: 1.6, elbowR: 0.3, torsoX: 0.3, torsoY: -0.2, headX: 0.15,
+        },
+      },
+    ],
+  },
+  {
+    id: 'salute',
+    name: 'Salute',
+    category: 'gesture',
+    duration: 1.6,
+    loop: false,
+    keyframes: [
+      // Attention — arms at sides, standing tall.
+      {
+        t: 0.0,
+        joints: {
+          shoulderRX: 0.0, shoulderRZ: 0.0, elbowR: 0.0, headX: 0.0,
+        },
+      },
+      // Snap the right hand up to the brow.
+      {
+        t: 0.35,
+        joints: {
+          shoulderRX: -1.3, shoulderRZ: 0.35, elbowR: 2.3, headX: 0.05,
+        },
+      },
+      // Hold the salute crisply.
+      {
+        t: 1.0,
+        joints: {
+          shoulderRX: -1.3, shoulderRZ: 0.35, elbowR: 2.3, headX: 0.05,
+        },
+      },
+      // Cut the hand back down to the side.
+      {
+        t: 1.6,
+        joints: {
+          shoulderRX: 0.0, shoulderRZ: 0.0, elbowR: 0.0, headX: 0.0,
+        },
+      },
+    ],
+  },
+  {
+    id: 'look-around-paranoid',
+    name: 'Look Around (Paranoid)',
+    category: 'gesture',
+    duration: 2.8,
+    loop: true,
+    keyframes: [
+      // Neutral, slightly hunched, glancing right.
+      {
+        t: 0.0,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, elbowL: 0.6, elbowR: 0.6,
+          torsoX: 0.15, torsoY: -0.2, headX: 0.0, headY: -0.5,
+        },
+      },
+      // Whip the head and torso to look sharply left.
+      {
+        t: 0.6,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, elbowL: 0.6, elbowR: 0.6,
+          torsoX: 0.15, torsoY: 0.3, headX: 0.0, headY: 0.6,
+        },
+      },
+      // Hold, scanning left.
+      {
+        t: 1.1,
+        joints: {
+          shoulderLX: -0.35, shoulderRX: -0.35, elbowL: 0.65, elbowR: 0.65,
+          torsoX: 0.15, torsoY: 0.3, headX: 0.0, headY: 0.65,
+        },
+      },
+      // Glance back over the right shoulder.
+      {
+        t: 1.7,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, elbowL: 0.6, elbowR: 0.6,
+          torsoX: 0.2, torsoY: -0.35, headX: 0.0, headY: -0.65,
+        },
+      },
+      // Ease back toward center-right.
+      {
+        t: 2.2,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, elbowL: 0.6, elbowR: 0.6,
+          torsoX: 0.15, torsoY: -0.1, headX: 0.0, headY: -0.3,
+        },
+      },
+      // Loop back to the first glance.
+      {
+        t: 2.8,
+        joints: {
+          shoulderLX: -0.3, shoulderRX: -0.3, elbowL: 0.6, elbowR: 0.6,
+          torsoX: 0.15, torsoY: -0.2, headX: 0.0, headY: -0.5,
+        },
+      },
+    ],
+  },
 ]

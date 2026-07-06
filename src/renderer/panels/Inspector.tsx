@@ -14,6 +14,7 @@ import { GAITS } from '@engine/gaits'
 import { RIGS } from '@engine/rigs'
 import { MOTION_PRESETS, type MotionPreset } from '@engine/motions'
 import { CAMERA_MOVE_PRESETS } from '@engine/camera-moves'
+import { ACTION_PRESETS } from '@engine/action-presets'
 import { ShotEvaluator } from '@engine/evaluate'
 import { newId } from '@engine/ids'
 import { getSceneManager } from '../export/scene-access'
@@ -526,6 +527,8 @@ function EntityInspector({
         <MotionPresetsSection scene={scene} shot={shot} entity={entity} />
       )}
 
+      {mode === 'shoot' && <ActionPresetsSection scene={scene} shot={shot} entity={entity} />}
+
       <div className="panel-section">
         <div className="panel-title">Danger zone</div>
         <button
@@ -657,6 +660,105 @@ function MotionPresetsSection({
           </button>
         </div>
       ))}
+    </div>
+  )
+}
+
+/* --------------------------- action presets ---------------------------- */
+
+/**
+ * Motion-path presets for anything that flies, drives, falls, or gets
+ * thrown: plane takeoffs and landings, helicopter orbits, bird swoops, car
+ * chases, collapsing debris. Applying one lays a full flight/drive path of
+ * marks (with altitude) from the entity's pose at the playhead.
+ */
+function ActionPresetsSection({
+  scene,
+  shot,
+  entity
+}: {
+  scene: Scene
+  shot: Shot
+  entity: Entity
+}): JSX.Element {
+  const mutate = useMutate()
+  const time = useStore((s) => s.time)
+  const toast = useStore((s) => s.toast)
+  const [presetId, setPresetId] = useState(ACTION_PRESETS[0]!.id)
+  const preset = ACTION_PRESETS.find((p) => p.id === presetId)
+  const categories = [...new Set(ACTION_PRESETS.map((p) => p.category))]
+
+  const apply = (): void => {
+    if (!preset) return
+    const remaining = shot.duration - time
+    if (remaining < 1) {
+      toast('Not enough shot left after the playhead — move it earlier.', 'info')
+      return
+    }
+    // Pose at the playhead: the path starts where the entity IS.
+    const state = new ShotEvaluator(scene, shot).evaluate(time)
+    const es = state.entities.find((e) => e.entityId === entity.id)
+    const start = es
+      ? { x: es.position.x, y: es.position.y, z: es.position.z, heading: es.heading }
+      : {
+          x: entity.transform.position.x,
+          y: entity.transform.position.y,
+          z: entity.transform.position.z,
+          heading: entity.transform.rotationY
+        }
+    const specs = preset.generate({ start, duration: remaining })
+    mutate(`action: ${preset.name}`, (doc) => {
+      const sc = findScene(doc, scene.id)
+      const sh = findShot(doc, scene.id, shot.id)
+      const take = sc?.blocking.find((b) => b.id === sh?.blockingTakeId)
+      if (!sc || !take) return
+      let track = take.tracks.find((t) => t.entityId === entity.id)
+      if (!track) {
+        track = { entityId: entity.id, marks: [] }
+        take.tracks.push(track)
+      }
+      // The action owns the timeline from the playhead on — clear the way.
+      track.marks = track.marks.filter((m) => m.time < time - 1e-6)
+      for (const spec of specs) {
+        track.marks.push({
+          id: newId('mark'),
+          time: time + spec.time,
+          hold: spec.hold,
+          easeIn: spec.easeIn,
+          easeOut: spec.easeOut,
+          position: { ...spec.position },
+          gait: spec.gait
+        })
+      }
+    })
+    toast(`${preset.name} from ${time.toFixed(1)}s — ▶ to watch. Every mark stays editable.`, 'success')
+  }
+
+  return (
+    <div className="panel-section">
+      <div className="panel-title">Action presets</div>
+      <div className="field">
+        <label>Flight, drive & stunt paths — starts at the playhead</label>
+        <select value={presetId} onChange={(e) => setPresetId(e.target.value)}>
+          {categories.map((cat) => (
+            <optgroup key={cat} label={cat.toUpperCase()}>
+              {ACTION_PRESETS.filter((p) => p.category === cat).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </div>
+      {preset && (
+        <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>
+          {preset.description}
+        </p>
+      )}
+      <button className="btn primary" style={{ width: '100%' }} onClick={apply}>
+        Apply action
+      </button>
     </div>
   )
 }

@@ -19,6 +19,7 @@ import {
 } from '@engine/schema'
 import { assetSpec } from '@engine/assets'
 import { newId } from '@engine/ids'
+import { generateSequence } from '@engine/sequences'
 
 export type Mode = 'stage' | 'shoot' | 'deliver'
 
@@ -140,6 +141,16 @@ interface BlockoutState {
   clearCameraMarks(): void
   /** Snapshot the current shot as a draft version ("1A v2"). */
   saveDraftOfShot(): void
+  /**
+   * Drop a whole choreographed sequence — N dancers, a brawl, a chase —
+   * into the current scene as one undoable step.
+   */
+  spawnSequence(opts: {
+    type: import('@engine/sequences').SequenceType
+    count: number
+    style: string
+    origin?: { x: number; z: number; heading: number }
+  }): void
   /** Save the current scene's staging as a reusable, globally persistent preset. */
   saveStagePreset(name: string): Promise<void>
   /** Stage a preset into a brand-new scene (originals stay untouched). */
@@ -742,6 +753,55 @@ export const useStore = create<BlockoutState>((set, get) => ({
       if (shotId === draftId) fallback = draft?.draftOf ?? scene.shots[0]?.id ?? null
     })
     if (fallback) set({ shotId: fallback, time: 0, playing: false })
+  },
+
+  spawnSequence(opts) {
+    const { sceneId, shotId } = get()
+    const duration = get().shot()?.duration ?? 8
+    const origin = opts.origin ?? { x: 0, z: 0, heading: 0 }
+    const specs = generateSequence({
+      type: opts.type,
+      count: opts.count,
+      style: opts.style,
+      origin,
+      duration
+    })
+    const newIds: string[] = []
+    get().mutate(`stage ${opts.type} sequence`, (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      const shot = scene?.shots.find((s) => s.id === shotId)
+      const take = scene?.blocking.find((b) => b.id === shot?.blockingTakeId)
+      if (!scene || !take) return
+      for (const spec of specs) {
+        const entity = createEntity(spec.assetId, spec.name, { ...spec.position })
+        entity.transform.rotationY = spec.rotationY
+        if (spec.label) entity.label = { ...spec.label }
+        scene.entities.push(entity)
+        newIds.push(entity.id)
+        if (spec.marks.length > 0) {
+          take.tracks.push({
+            entityId: entity.id,
+            marks: spec.marks.map((m) => ({
+              id: newId('mark'),
+              time: m.time,
+              hold: m.hold,
+              easeIn: m.easeIn,
+              easeOut: m.easeOut,
+              position: { ...m.position },
+              gait: m.gait,
+              joints: m.joints ? { ...m.joints } : undefined
+            }))
+          })
+        }
+      }
+    })
+    if (newIds.length > 0) {
+      set({ selection: { kind: 'entities', entityIds: newIds } })
+      get().toast(
+        `${newIds.length} performers staged and choreographed — ▶ to watch. Drag the group to reposition; every performer stays individually editable.`,
+        'success'
+      )
+    }
   },
 
   async saveStagePreset(name) {
