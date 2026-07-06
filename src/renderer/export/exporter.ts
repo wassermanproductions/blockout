@@ -235,6 +235,9 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
           : 'viewport not ready'
     return { ok: false, error: `Cannot export: ${missing}.` }
   }
+  if (useStore.getState().exportProgress.running) {
+    return { ok: false, error: 'An export is already running.' }
+  }
   const profile = getProfile(opts.profileId)
   const { width, height } = exportDims(profile, shot.aspect)
 

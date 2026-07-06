@@ -243,14 +243,14 @@ export class SceneManager {
     const wanted = new Map((docScene?.entities ?? []).map((e) => [e.id, e]))
     for (const [id, visual] of this.visuals) {
       if (!wanted.has(id)) {
-        this.scene.remove(visual.root)
+        this.removeEntityVisual(visual)
         this.visuals.delete(id)
       }
     }
     for (const entity of wanted.values()) {
       const existing = this.visuals.get(entity.id)
       if (!existing || existing.entity.assetId !== entity.assetId || existing.entity.params !== entity.params) {
-        if (existing) this.scene.remove(existing.root)
+        if (existing) this.removeEntityVisual(existing)
         this.addEntityVisual(entity)
       } else {
         existing.entity = entity
@@ -263,6 +263,22 @@ export class SceneManager {
     this.applyEnvironment()
     this.applyTime(s.time)
     this.syncSelection()
+  }
+
+  /** Remove a visual and free its GPU resources (long sessions must not leak). */
+  private removeEntityVisual(visual: EntityVisual): void {
+    this.scene.remove(visual.root)
+    visual.root.traverse((o) => {
+      if (o instanceof THREE.Mesh || o instanceof THREE.Line) {
+        o.geometry.dispose()
+        const mats = Array.isArray(o.material) ? o.material : [o.material]
+        for (const m of mats) m.dispose()
+      }
+      if (o instanceof THREE.Sprite) {
+        o.material.map?.dispose()
+        o.material.dispose()
+      }
+    })
   }
 
   private addEntityVisual(entity: Entity): void {
