@@ -24,9 +24,18 @@ export type Mode = 'stage' | 'shoot' | 'deliver'
 
 export type Selection =
   | { kind: 'entity'; entityId: string }
+  | { kind: 'entities'; entityIds: string[] } // shift-click multi-select
   | { kind: 'camera' }
   | { kind: 'mark'; entityId: string | 'camera'; markId: string }
+  | { kind: 'marks'; entityId: string | 'camera'; markIds: string[] } // shift-click on pills
   | null
+
+/** All entity ids covered by the current selection (single or multi). */
+export function selectedEntityIds(sel: Selection): string[] {
+  if (sel?.kind === 'entity') return [sel.entityId]
+  if (sel?.kind === 'entities') return sel.entityIds
+  return []
+}
 
 export interface Toast {
   id: string
@@ -103,6 +112,25 @@ interface BlockoutState {
   addShotToScene(sceneId: string): void
   dropActorMark(entityId: string, position: V3): void
   dropCameraMark(position: V3, pan: number, tilt: number, focalLength: number): void
+  /** Shift-click: add/remove an entity from a multi-selection. */
+  toggleEntitySelected(entityId: string): void
+  /** Shift-click on a timeline pill: add/remove a mark from a multi-selection. */
+  toggleMarkSelected(entityId: string | 'camera', markId: string): void
+  /** Marry entities to a parent: they follow its motion at a fixed offset. */
+  marryEntities(childIds: string[], parentId: string): void
+  /** Detach entities, baking their current world pose into the transform. */
+  unmarryEntities(entityIds: string[]): void
+  /** Switch the shot's active camera to a bank entry by name ('A','B',…). */
+  switchCamera(name: string): void
+  /** Bank the active camera and start a fresh one (B, C, …). */
+  addCameraToShot(): void
+  /** Delete the active camera's move (all its marks) — e.g. to re-record. */
+  clearCameraMarks(): void
+  /** Snapshot the current shot as a draft version ("1A v2"). */
+  saveDraftOfShot(): void
+  /** Copy a draft's content back into its main shot. */
+  promoteDraft(draftId: string): void
+  deleteDraft(draftId: string): void
   toast(text: string, kind?: Toast['kind']): void
   dismissToast(id: string): void
   setExportProgress(p: Partial<ExportProgress>): void
@@ -295,7 +323,12 @@ export const useStore = create<BlockoutState>((set, get) => ({
   shot() {
     const { shotId } = get()
     const scene = get().scene()
-    return scene?.shots.find((s) => s.id === shotId) ?? null
+    if (!scene) return null
+    return (
+      scene.shots.find((s) => s.id === shotId) ??
+      scene.drafts?.find((s) => s.id === shotId) ??
+      null
+    )
   },
 
   addEntity(assetId, position) {
@@ -370,6 +403,264 @@ export const useStore = create<BlockoutState>((set, get) => ({
       const t = marks.length === 0 ? 0 : Math.max(time, lastTime + 2)
       marks.push(createCameraMark(position, Math.min(t, shot.duration), pan, tilt, focalLength))
     })
+  },
+
+  toggleEntitySelected(entityId) {
+    const sel = get().selection
+    let ids = selectedEntityIds(sel)
+    if (sel && sel.kind !== 'entity' && sel.kind !== 'entities') ids = []
+    ids = ids.includes(entityId) ? ids.filter((i) => i !== entityId) : [...ids, entityId]
+    set({
+      selection:
+        ids.length === 0
+          ? null
+          : ids.length === 1
+            ? { kind: 'entity', entityId: ids[0]! }
+            : { kind: 'entities', entityIds: ids },
+      droppingMarks: false
+    })
+  },
+
+  toggleMarkSelected(entityId, markId) {
+    const sel = get().selection
+    let ids: string[] = []
+    if (sel?.kind === 'mark' && sel.entityId === entityId) ids = [sel.markId]
+    else if (sel?.kind === 'marks' && sel.entityId === entityId) ids = [...sel.markIds]
+    ids = ids.includes(markId) ? ids.filter((i) => i !== markId) : [...ids, markId]
+    set({
+      selection:
+        ids.length === 0
+          ? null
+          : ids.length === 1
+            ? { kind: 'mark', entityId, markId: ids[0]! }
+            : { kind: 'marks', entityId, markIds: ids }
+    })
+  },
+
+  marryEntities(childIds, parentId) {
+    const sceneId = get().sceneId
+    let married = 0
+    let cycles = 0
+    get().mutate('marry entities', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      if (!scene) return
+      // World pose through the marriage chain (parents may be married too).
+      const worldOf = (id: string, depth = 0): { x: number; y: number; z: number; rotY: number } => {
+        const e = scene.entities.find((x) => x.id === id)
+        if (!e) return { x: 0, y: 0, z: 0, rotY: 0 }
+        if (e.attachedTo && e.attachedLocal && depth < 4) {
+          const p = worldOf(e.attachedTo, depth + 1)
+          const cos = Math.cos(p.rotY)
+          const sin = Math.sin(p.rotY)
+          const l = e.attachedLocal
+          return {
+            x: p.x + l.x * cos + l.z * sin,
+            y: p.y + l.y,
+            z: p.z - l.x * sin + l.z * cos,
+            rotY: p.rotY + l.rotY
+          }
+        }
+        return { ...e.transform.position, rotY: e.transform.rotationY }
+      }
+      const wouldCycle = (childId: string): boolean => {
+        let cursor: string | undefined = parentId
+        for (let i = 0; i < 8 && cursor; i++) {
+          if (cursor === childId) return true
+          cursor = scene.entities.find((x) => x.id === cursor)?.attachedTo
+        }
+        return false
+      }
+      const pw = worldOf(parentId)
+      for (const childId of childIds) {
+        if (childId === parentId) continue
+        if (wouldCycle(childId)) {
+          cycles++
+          continue
+        }
+        const child = scene.entities.find((x) => x.id === childId)
+        if (!child) continue
+        const cw = worldOf(childId)
+        const dx = cw.x - pw.x
+        const dz = cw.z - pw.z
+        const cos = Math.cos(pw.rotY)
+        const sin = Math.sin(pw.rotY)
+        child.attachedTo = parentId
+        child.attachedLocal = {
+          x: dx * cos - dz * sin,
+          y: cw.y - pw.y,
+          z: dx * sin + dz * cos,
+          rotY: cw.rotY - pw.rotY
+        }
+        married++
+      }
+    })
+    if (married > 0) get().toast(`Married ${married} to the anchor — they now move together.`, 'success')
+    if (cycles > 0) get().toast('Skipped a marriage that would loop back on itself.', 'error')
+  },
+
+  unmarryEntities(entityIds) {
+    const sceneId = get().sceneId
+    get().mutate('unmarry entities', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      if (!scene) return
+      const worldOf = (id: string, depth = 0): { x: number; y: number; z: number; rotY: number } => {
+        const e = scene.entities.find((x) => x.id === id)
+        if (!e) return { x: 0, y: 0, z: 0, rotY: 0 }
+        if (e.attachedTo && e.attachedLocal && depth < 4) {
+          const p = worldOf(e.attachedTo, depth + 1)
+          const cos = Math.cos(p.rotY)
+          const sin = Math.sin(p.rotY)
+          const l = e.attachedLocal
+          return {
+            x: p.x + l.x * cos + l.z * sin,
+            y: p.y + l.y,
+            z: p.z - l.x * sin + l.z * cos,
+            rotY: p.rotY + l.rotY
+          }
+        }
+        return { ...e.transform.position, rotY: e.transform.rotationY }
+      }
+      for (const id of entityIds) {
+        const entity = scene.entities.find((x) => x.id === id)
+        if (!entity?.attachedTo) continue
+        const w = worldOf(id)
+        entity.transform.position = { x: w.x, y: w.y, z: w.z }
+        entity.transform.rotationY = w.rotY
+        delete entity.attachedTo
+        delete entity.attachedLocal
+      }
+    })
+    get().toast('Unmarried — they move independently again.', 'info')
+  },
+
+  switchCamera(name) {
+    const { sceneId, shotId } = get()
+    get().mutate('switch camera', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      const shot =
+        scene?.shots.find((s) => s.id === shotId) ?? scene?.drafts?.find((s) => s.id === shotId)
+      if (!shot?.cameraBank) return
+      const idx = shot.cameraBank.findIndex((b) => b.name === name)
+      if (idx < 0) return
+      const incoming = shot.cameraBank[idx]!
+      shot.cameraBank[idx] = { name: shot.cameraName ?? 'A', camera: shot.camera }
+      shot.camera = incoming.camera
+      shot.cameraName = incoming.name
+    })
+    set({ selection: { kind: 'camera' } })
+  },
+
+  addCameraToShot() {
+    const { sceneId, shotId } = get()
+    let added = ''
+    get().mutate('add camera', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      const shot =
+        scene?.shots.find((s) => s.id === shotId) ?? scene?.drafts?.find((s) => s.id === shotId)
+      if (!shot) return
+      const used = new Set([shot.cameraName ?? 'A', ...(shot.cameraBank ?? []).map((b) => b.name)])
+      let letter = 'B'
+      for (let i = 1; i < 26; i++) {
+        const candidate = String.fromCharCode(65 + i)
+        if (!used.has(candidate)) {
+          letter = candidate
+          break
+        }
+      }
+      shot.cameraBank = shot.cameraBank ?? []
+      shot.cameraBank.push({ name: shot.cameraName ?? 'A', camera: shot.camera })
+      shot.camera = {
+        sensorId: shot.camera.sensorId,
+        rig: 'sticks',
+        rigIntensity: 0.5,
+        seed: Math.floor(Math.random() * 1e9),
+        marks: []
+      }
+      shot.cameraName = letter
+      added = letter
+    })
+    if (added) {
+      set({ selection: { kind: 'camera' } })
+      get().toast(`Camera ${added} added — frame it and drop marks. Switch cameras with the A/B chips.`, 'success')
+    }
+  },
+
+  clearCameraMarks() {
+    const { sceneId, shotId } = get()
+    get().mutate('clear camera move', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      const shot =
+        scene?.shots.find((s) => s.id === shotId) ?? scene?.drafts?.find((s) => s.id === shotId)
+      if (shot) shot.camera.marks = []
+    })
+    get().toast('Camera move cleared — record or drop new marks.', 'info')
+  },
+
+  saveDraftOfShot() {
+    const { sceneId, shotId } = get()
+    let draftName = ''
+    get().mutate('save draft', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      if (!scene) return
+      const current =
+        scene.shots.find((s) => s.id === shotId) ?? scene.drafts?.find((s) => s.id === shotId)
+      if (!current) return
+      const mainId = current.draftOf ?? current.id
+      const main = scene.shots.find((s) => s.id === mainId) ?? current
+      const clone = structuredClone(current)
+      clone.id = newId('shot')
+      clone.draftOf = mainId
+      clone.camera.marks = clone.camera.marks.map((m) => ({ ...m, id: newId('cmark') }))
+      clone.cameraBank = clone.cameraBank?.map((b) => ({
+        ...b,
+        camera: { ...b.camera, marks: b.camera.marks.map((m) => ({ ...m, id: newId('cmark') })) }
+      }))
+      scene.drafts = scene.drafts ?? []
+      const version = scene.drafts.filter((d) => d.draftOf === mainId).length + 1
+      clone.name = `${main.name} v${version}`
+      draftName = clone.name
+      scene.drafts.push(clone)
+    })
+    if (draftName) get().toast(`Saved as draft "${draftName}" — keep experimenting safely.`, 'success')
+  },
+
+  promoteDraft(draftId) {
+    const { sceneId } = get()
+    let promotedInto: string | null = null
+    get().mutate('promote draft', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      const draft = scene?.drafts?.find((d) => d.id === draftId)
+      if (!scene || !draft?.draftOf) return
+      const main = scene.shots.find((s) => s.id === draft.draftOf)
+      if (!main) return
+      main.duration = draft.duration
+      main.fps = draft.fps
+      main.aspect = draft.aspect
+      main.blockingTakeId = draft.blockingTakeId
+      main.camera = structuredClone(draft.camera)
+      main.cameraName = draft.cameraName
+      main.cameraBank = draft.cameraBank ? structuredClone(draft.cameraBank) : undefined
+      main.notes = draft.notes
+      main.referenceVideo = draft.referenceVideo ? { ...draft.referenceVideo } : undefined
+      promotedInto = main.id
+    })
+    if (promotedInto) {
+      set({ shotId: promotedInto, time: 0, playing: false })
+      get().toast('Draft promoted — it is now the shot.', 'success')
+    }
+  },
+
+  deleteDraft(draftId) {
+    const { sceneId, shotId } = get()
+    let fallback: string | null = null
+    get().mutate('delete draft', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      if (!scene?.drafts) return
+      const draft = scene.drafts.find((d) => d.id === draftId)
+      scene.drafts = scene.drafts.filter((d) => d.id !== draftId)
+      if (shotId === draftId) fallback = draft?.draftOf ?? scene.shots[0]?.id ?? null
+    })
+    if (fallback) set({ shotId: fallback, time: 0, playing: false })
   },
 
   toast(text, kind = 'info') {

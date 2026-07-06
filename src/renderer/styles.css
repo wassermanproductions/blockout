@@ -260,12 +260,14 @@ input[type='color'] {
 /* -------------------------------- HUD ---------------------------------- */
 
 .hud {
+  /* Top-LEFT so it can never collide with the tool stack on the right. */
   position: absolute;
   top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 10px;
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
+  max-width: 40%;
   background: rgba(17, 17, 19, 0.82);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -273,6 +275,30 @@ input[type='color'] {
   backdrop-filter: blur(12px);
   z-index: 5;
 }
+
+/* Single right-aligned column for ALL viewport tools — rows stack with a
+   fixed gap so nothing can overlap at any window size. */
+.viewport-tools {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  z-index: 5;
+  max-width: 55%;
+}
+
+.viewport-tools .tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.viewport-tools .btn { background: rgba(17,17,19,0.82); backdrop-filter: blur(12px); }
+.viewport-tools .btn.active { border-color: var(--accent); color: var(--accent); }
 
 .hud button {
   border: none; background: transparent; color: var(--text);
@@ -291,10 +317,12 @@ input[type='color'] {
 .viewport-toolbar .btn.active { border-color: var(--accent); color: var(--accent); }
 
 .viewport-hint {
-  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+  /* Bottom-left: keeps clear of the PiP preview (bottom-right). */
+  position: absolute; bottom: 14px; left: 14px;
   background: rgba(17,17,19,0.85); border: 1px solid var(--border);
   color: var(--text-dim); padding: 8px 16px; border-radius: 20px;
-  font-size: 12px; z-index: 5; pointer-events: none; white-space: nowrap;
+  font-size: 12px; z-index: 5; pointer-events: none;
+  max-width: 55%; white-space: normal; line-height: 1.4;
 }
 
 .empty-state {
@@ -492,3 +520,16 @@ input[type='color'] {
 }
 
 .rail-btn:hover { background: var(--border-strong); color: var(--text); }
+
+/* --- added by round3-panels --- */
+
+/* Draft shot rows: indented under their main shot, dimmer than a real shot. */
+.rail-shot.rail-draft {
+  padding-left: 32px;
+  color: var(--text-faint);
+  font-size: 11px;
+}
+.rail-shot.rail-draft.active { color: var(--accent); }
+.rail-shot.rail-draft .rail-label {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

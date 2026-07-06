@@ -8,6 +8,7 @@
 
 import { useStore } from '../store'
 import { emit } from '../bus'
+import { useState } from 'react'
 import { SENSORS, LENS_SET } from '@engine/camera'
 import { GAITS } from '@engine/gaits'
 import { RIGS } from '@engine/rigs'
@@ -62,7 +63,20 @@ export function Inspector(): JSX.Element {
   if (selection.kind === 'entity') {
     return <EntityInspector scene={scene} shot={shot} entityId={selection.entityId} />
   }
+  if (selection.kind === 'entities') {
+    return <MultiEntityInspector scene={scene} entityIds={selection.entityIds} />
+  }
   if (selection.kind === 'camera') return <CameraInspector scene={scene} shot={shot} />
+  if (selection.kind === 'marks') {
+    return (
+      <MultiMarkInspector
+        scene={scene}
+        shot={shot}
+        entityId={selection.entityId}
+        markIds={selection.markIds}
+      />
+    )
+  }
   return (
     <MarkInspector
       scene={scene}
@@ -84,6 +98,11 @@ function findScene(doc: ProjectDoc, sceneId: string): Scene | undefined {
 }
 function findShot(doc: ProjectDoc, sceneId: string, shotId: string): Shot | undefined {
   return findScene(doc, sceneId)?.shots.find((s) => s.id === shotId)
+}
+/** Find a shot that may live in scene.shots OR scene.drafts (a draft is the current shot). */
+function findShotOrDraft(doc: ProjectDoc, sceneId: string, shotId: string): Shot | undefined {
+  const sc = findScene(doc, sceneId)
+  return sc?.shots.find((s) => s.id === shotId) ?? sc?.drafts?.find((s) => s.id === shotId)
 }
 function findEntity(doc: ProjectDoc, sceneId: string, entityId: string): Entity | undefined {
   return findScene(doc, sceneId)?.entities.find((e) => e.id === entityId)
@@ -407,9 +426,29 @@ function EntityInspector({
             </div>
           </>
         )}
+        <div className="field">
+          <label>
+            <input
+              type="checkbox"
+              checked={entity.excludeFromExport === true}
+              onChange={(e) => {
+                const hide = e.target.checked
+                editEntity('hide in exports', (en) => {
+                  if (hide) en.excludeFromExport = true
+                  else delete en.excludeFromExport
+                })
+              }}
+              style={{ width: 'auto', marginRight: 6 }}
+            />
+            Hide in exports
+          </label>
+        </div>
       </div>
 
       {isPerson && <PoseSection entity={entity} editEntity={editEntity} />}
+
+      <MarriageSection scene={scene} entity={entity} />
+
 
       <div className="panel-section">
         <div className="panel-title">Label</div>
@@ -507,27 +546,308 @@ function EntityInspector({
   )
 }
 
+/* ---------------------------- marriage --------------------------------- */
+
+function MarriageSection({ scene, entity }: { scene: Scene; entity: Entity }): JSX.Element {
+  const unmarryEntities = useStore((s) => s.unmarryEntities)
+  const marryEntities = useStore((s) => s.marryEntities)
+
+  const parent = entity.attachedTo
+    ? scene.entities.find((e) => e.id === entity.attachedTo)
+    : undefined
+  const parentName = parent ? parent.label?.text || parent.name : entity.attachedTo
+
+  return (
+    <div className="panel-section">
+      <div className="panel-title">Marriage</div>
+      {entity.attachedTo ? (
+        <>
+          <p style={{ color: 'var(--text-dim)', fontSize: 12, marginBottom: 4 }}>
+            Married to {parentName}
+          </p>
+          <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>
+            Follows it everywhere. Drag this entity to adjust its riding offset.
+          </p>
+          <button
+            className="btn"
+            style={{ width: '100%' }}
+            onClick={() => unmarryEntities([entity.id])}
+          >
+            Unmarry
+          </button>
+        </>
+      ) : (
+        <div className="field">
+          <label>Marry to…</label>
+          <select
+            value=""
+            onChange={(e) => {
+              const id = e.target.value
+              if (id) marryEntities([entity.id], id)
+            }}
+          >
+            <option value="">— choose an anchor —</option>
+            {scene.entities
+              .filter((e) => e.id !== entity.id)
+              .map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.label?.text || e.name}
+                </option>
+              ))}
+          </select>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ===================== B2) Multi-entity selection ==================== */
+
+function MultiEntityInspector({
+  scene,
+  entityIds
+}: {
+  scene: Scene
+  entityIds: string[]
+}): JSX.Element {
+  const mutate = useMutate()
+  const setSelection = useStore((s) => s.setSelection)
+  const marryEntities = useStore((s) => s.marryEntities)
+  const unmarryEntities = useStore((s) => s.unmarryEntities)
+
+  const entities = entityIds
+    .map((id) => scene.entities.find((e) => e.id === id))
+    .filter((e): e is Entity => e != null)
+
+  const anchor = entities[entities.length - 1]
+  const anchorName = anchor ? anchor.label?.text || anchor.name : '—'
+  const anyMarried = entities.some((e) => e.attachedTo)
+
+  return (
+    <div>
+      <div className="panel-section">
+        <div className="panel-title">{entities.length} selected</div>
+        {entities.map((e) => (
+          <div key={e.id} style={{ color: 'var(--text-dim)', fontSize: 11, padding: '2px 0' }}>
+            {e.label?.text || e.name}
+          </div>
+        ))}
+      </div>
+
+      {entities.length >= 2 && (
+        <div className="panel-section">
+          <div className="panel-title">Marry</div>
+          <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>
+            The LAST selected is the anchor — the others will follow it.
+          </p>
+          <button
+            className="btn primary"
+            style={{ width: '100%', marginBottom: anyMarried ? 8 : 0 }}
+            onClick={() => marryEntities(entityIds.slice(0, -1), entityIds[entityIds.length - 1]!)}
+          >
+            Marry to {anchorName}
+          </button>
+          {anyMarried && (
+            <button
+              className="btn"
+              style={{ width: '100%' }}
+              onClick={() => unmarryEntities(entityIds)}
+            >
+              Unmarry selected
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="panel-section">
+        <div className="panel-title">Danger zone</div>
+        <button
+          className="btn danger"
+          style={{ width: '100%' }}
+          onClick={() => {
+            const idSet = new Set(entityIds)
+            mutate('delete entities', (doc) => {
+              const sc = findScene(doc, scene.id)
+              if (!sc) return
+              sc.entities = sc.entities.filter((e) => !idSet.has(e.id))
+              // Clean blocking tracks for the removed entities.
+              for (const take of sc.blocking) {
+                take.tracks = take.tracks.filter((t) => !idSet.has(t.entityId))
+              }
+              // Widow any attachedTo pointers into the removed set.
+              for (const e of sc.entities) {
+                if (e.attachedTo && idSet.has(e.attachedTo)) {
+                  delete e.attachedTo
+                  delete e.attachedLocal
+                }
+              }
+              // Clear camera mounts across both shots and drafts.
+              const clearMounts = (shots: Shot[] | undefined): void => {
+                for (const sh of shots ?? []) {
+                  if (sh.camera.mountEntityId && idSet.has(sh.camera.mountEntityId)) {
+                    delete sh.camera.mountEntityId
+                  }
+                  for (const b of sh.cameraBank ?? []) {
+                    if (b.camera.mountEntityId && idSet.has(b.camera.mountEntityId)) {
+                      delete b.camera.mountEntityId
+                    }
+                  }
+                }
+              }
+              clearMounts(sc.shots)
+              clearMounts(sc.drafts)
+            })
+            setSelection(null)
+          }}
+        >
+          Delete {entities.length} entities
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ===================== D2) Multi-mark selection ===================== */
+
+function MultiMarkInspector({
+  scene,
+  shot,
+  entityId,
+  markIds
+}: {
+  scene: Scene
+  shot: Shot
+  entityId: string | 'camera'
+  markIds: string[]
+}): JSX.Element {
+  const mutate = useMutate()
+  const setSelection = useStore((s) => s.setSelection)
+  const [offset, setOffset] = useState(0)
+
+  const isCamera = entityId === 'camera'
+  const idSet = new Set(markIds)
+
+  return (
+    <div>
+      <div className="panel-section">
+        <div className="panel-title">{markIds.length} marks selected</div>
+      </div>
+
+      <div className="panel-section">
+        <div className="panel-title">Shift times</div>
+        <div className="field-row">
+          <div className="field" style={{ flex: 1 }}>
+            <label>Offset (s)</label>
+            <input
+              type="number"
+              step={0.1}
+              value={offset}
+              onChange={(e) => {
+                const v = num(e.target.value)
+                if (v !== null) setOffset(v)
+              }}
+            />
+          </div>
+          <button
+            className="btn"
+            style={{ alignSelf: 'flex-end' }}
+            onClick={() => {
+              mutate('shift marks', (doc) => {
+                const sh = findShotOrDraft(doc, scene.id, shot.id)
+                if (!sh) return
+                if (isCamera) {
+                  for (const m of sh.camera.marks) {
+                    if (idSet.has(m.id)) m.time = Math.max(0, m.time + offset)
+                  }
+                } else {
+                  const sc = findScene(doc, scene.id)
+                  const tk = sc?.blocking.find((b) => b.id === sh.blockingTakeId)
+                  const tr = tk?.tracks.find((t) => t.entityId === entityId)
+                  for (const m of tr?.marks ?? []) {
+                    if (idSet.has(m.id)) m.time = Math.max(0, m.time + offset)
+                  }
+                }
+              })
+            }}
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+
+      <div className="panel-section">
+        <button
+          className="btn danger"
+          style={{ width: '100%' }}
+          onClick={() => {
+            mutate('delete marks', (doc) => {
+              const sh = findShotOrDraft(doc, scene.id, shot.id)
+              if (!sh) return
+              if (isCamera) {
+                sh.camera.marks = sh.camera.marks.filter((m) => !idSet.has(m.id))
+              } else {
+                const sc = findScene(doc, scene.id)
+                const tk = sc?.blocking.find((b) => b.id === sh.blockingTakeId)
+                const tr = tk?.tracks.find((t) => t.entityId === entityId)
+                if (tr) tr.marks = tr.marks.filter((m) => !idSet.has(m.id))
+              }
+            })
+            setSelection(null)
+          }}
+        >
+          Delete {markIds.length} marks
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* =========================== C) Camera ============================= */
 
 function CameraInspector({ scene, shot }: { scene: Scene; shot: Shot }): JSX.Element {
   const mutate = useMutate()
   const setSelection = useStore((s) => s.setSelection)
+  const switchCamera = useStore((s) => s.switchCamera)
+  const addCameraToShot = useStore((s) => s.addCameraToShot)
+  const clearCameraMarks = useStore((s) => s.clearCameraMarks)
 
   const cam = shot.camera
   const orderedMarks = [...cam.marks].sort((a, b) => a.time - b.time)
   const lastMark = orderedMarks[orderedMarks.length - 1]
   const currentFocal = lastMark?.focalLength ?? 35
   const rigSpec = RIGS[cam.rig]
+  const activeCamName = shot.cameraName ?? 'A'
 
+  // A camera edit may target the current shot even when it is a draft.
   const editCam = (label: string, fn: (c: Shot['camera']) => void): void => {
     mutate(label, (doc) => {
-      const sh = findShot(doc, scene.id, shot.id)
+      const sh = findShotOrDraft(doc, scene.id, shot.id)
       if (sh) fn(sh.camera)
     })
   }
 
   return (
     <div>
+      <div className="panel-section">
+        <div className="panel-title">Cameras (A/B/C)</div>
+        <div className="seg">
+          <button
+            className="active"
+            onClick={() => switchCamera(activeCamName)}
+          >
+            {activeCamName}
+          </button>
+          {(shot.cameraBank ?? []).map((b) => (
+            <button key={b.name} onClick={() => switchCamera(b.name)}>
+              {b.name}
+            </button>
+          ))}
+          <button onClick={() => addCameraToShot()} title="Add a camera">
+            +
+          </button>
+        </div>
+      </div>
+
       <div className="panel-section">
         <div className="panel-title">Camera</div>
         <div className="field">
@@ -643,6 +963,15 @@ function CameraInspector({ scene, shot }: { scene: Scene; shot: Shot }): JSX.Ele
             Mark {i + 1} — {m.time.toFixed(1)}s — {m.focalLength}mm
           </div>
         ))}
+        {orderedMarks.length > 0 && (
+          <button
+            className="btn danger"
+            style={{ width: '100%', marginTop: 8 }}
+            onClick={() => clearCameraMarks()}
+          >
+            Clear camera move (delete all marks)
+          </button>
+        )}
       </div>
     </div>
   )

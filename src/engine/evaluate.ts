@@ -239,7 +239,51 @@ export class ShotEvaluator {
       })
     }
 
+    this.resolveMarriages(entities)
+
     return { time, camera: this.evaluateCamera(time, entities), entities }
+  }
+
+  /**
+   * Married entities ride their parent: world pose = parent pose ∘ the local
+   * offset captured at marry time. Own blocking marks override the marriage.
+   * Multiple passes resolve chains (rider on cart on truck); marry-time
+   * cycle guards keep this finite.
+   */
+  private resolveMarriages(entities: EntityState[]): void {
+    const byId = new Map(entities.map((e) => [e.entityId, e]))
+    for (let pass = 0; pass < 4; pass++) {
+      let changed = false
+      for (const entity of this.scene.entities) {
+        if (!entity.attachedTo || !entity.attachedLocal) continue
+        if (this.entityLegs.has(entity.id)) continue // own marks win
+        const child = byId.get(entity.id)
+        const parent = byId.get(entity.attachedTo)
+        if (!child || !parent) continue
+        const local = entity.attachedLocal
+        const cosH = Math.cos(parent.heading)
+        const sinH = Math.sin(parent.heading)
+        const nx = parent.position.x + local.x * cosH + local.z * sinH
+        const ny = parent.position.y + local.y
+        const nz = parent.position.z - local.x * sinH + local.z * cosH
+        const nh = parent.heading + local.rotY
+        if (
+          Math.abs(child.position.x - nx) > 1e-9 ||
+          Math.abs(child.position.y - ny) > 1e-9 ||
+          Math.abs(child.position.z - nz) > 1e-9 ||
+          Math.abs(child.heading - nh) > 1e-9
+        ) {
+          changed = true
+        }
+        child.position = { x: nx, y: ny, z: nz }
+        child.heading = nh
+        // Ride the parent's motion for animation purposes (a married cart's
+        // wheels spin with the truck); the pose itself comes from params.pose.
+        child.speed = parent.speed
+        child.distanceTravelled = parent.distanceTravelled
+      }
+      if (!changed) break
+    }
   }
 
   private lastTravelHeading<M extends MarkBase>(legs: Leg<M>[], t: number): number | null {

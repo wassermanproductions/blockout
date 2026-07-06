@@ -46,6 +46,7 @@ export function Timeline(): JSX.Element {
   const setTime = useStore((s) => s.setTime)
   const setPlaying = useStore((s) => s.setPlaying)
   const setSelection = useStore((s) => s.setSelection)
+  const toggleMarkSelected = useStore((s) => s.toggleMarkSelected)
   const mutate = useStore((s) => s.mutate)
 
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -169,7 +170,9 @@ export function Timeline(): JSX.Element {
     const startX = e.clientX
     const startTime = mark.time
     const startHold = mark.hold
-    setSelection({ kind: 'mark', entityId, markId: mark.id })
+    // Shift-click multi-selection is handled on click (toggleMarkSelected);
+    // don't collapse it to a single mark here on pointer-down.
+    if (!e.shiftKey) setSelection({ kind: 'mark', entityId, markId: mark.id })
 
     const localState: DragState = { entityId, markId: mark.id, mode, time: startTime, hold: startHold }
     setDrag(localState)
@@ -290,7 +293,10 @@ export function Timeline(): JSX.Element {
               duration={duration}
               drag={drag}
               selection={selection}
-              onSelect={(markId) => setSelection({ kind: 'mark', entityId: lane.entityId, markId })}
+              onSelect={(markId, shiftKey) => {
+                if (shiftKey) toggleMarkSelected(lane.entityId, markId)
+                else setSelection({ kind: 'mark', entityId: lane.entityId, markId })
+              }}
               onBeginDrag={beginDrag}
               onDelete={deleteMark}
               laneWidth={laneWidth}
@@ -313,7 +319,7 @@ interface LaneProps {
   duration: number
   drag: DragState | null
   selection: ReturnType<typeof useStore.getState>['selection']
-  onSelect: (markId: string) => void
+  onSelect: (markId: string, shiftKey: boolean) => void
   onBeginDrag: (
     entityId: string | 'camera',
     mark: MarkBase,
@@ -347,9 +353,12 @@ function Lane({
         const w = laneWidth()
         const width = Math.max(22, (hold / duration) * w)
         const selected =
-          selection?.kind === 'mark' &&
-          selection.entityId === lane.entityId &&
-          selection.markId === mark.id
+          (selection?.kind === 'mark' &&
+            selection.entityId === lane.entityId &&
+            selection.markId === mark.id) ||
+          (selection?.kind === 'marks' &&
+            selection.entityId === lane.entityId &&
+            selection.markIds.includes(mark.id))
         return (
           <div
             key={mark.id}
@@ -358,7 +367,7 @@ function Lane({
             onPointerDown={(e) => onBeginDrag(lane.entityId, mark, 'move', e)}
             onClick={(e) => {
               e.stopPropagation()
-              onSelect(mark.id)
+              onSelect(mark.id, e.shiftKey)
             }}
             onDoubleClick={(e) => {
               e.stopPropagation()

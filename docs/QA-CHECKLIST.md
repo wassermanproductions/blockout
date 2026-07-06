@@ -22,6 +22,19 @@ Then the manual script, in order. Check each box.
 - [ ] Import a custom GLB; it appears and persists (copied into project assets/).
 - [ ] 50 mixed undo operations (⌘Z) walk state back correctly; redo replays them.
 
+## Round 3 (marriage, cameras, drafts, recording v2, multi-select, rotation)
+- [ ] Marry: sit a person, shift-click person then bike, "Marry to…" — dragging the bike moves both; dragging the person adjusts its riding offset; Unmarry bakes the world pose and they separate cleanly.
+- [ ] A married rider follows a vehicle's blocking marks during playback AND in the exported video/glb.
+- [ ] Cameras: add Camera B, frame it differently, switch A↔B chips — each keeps its own marks/rig; export uses the active camera.
+- [ ] Clear camera move deletes all camera marks; ● Record afterwards lays a new move.
+- [ ] Record performer: select a character, ● Record, steer with the cursor — marks land with speed-matched gaits (walk/jog/run); record camera afterwards and the blocking replays underneath, auto-stopping at the shot end.
+- [ ] Drafts: + Draft snapshots the shot as "1A v1"; drafts play/export independently; ▲ promotes one back into the main shot; ✕ deletes.
+- [ ] Shift-click builds a multi-selection (extra blue boxes); dragging moves the group rigidly; ⌫ deletes all; shift-click timeline pills multi-selects marks for delete/time-shift.
+- [ ] Rotate: ⟳ Rotate button (or R) rotates people/cars/props a full 360° around Y; the camera rotates on all axes; ⇄ Move (or G) returns to arrows.
+- [ ] "Hide in exports" on an entity: visible in the editor, absent from every export pass.
+- [ ] No overlapping UI at any window width ≥ 1100px: HUD top-left, tool rows top-right stack, hint bottom-left, PiP bottom-right.
+- [ ] Export works from the packaged DMG on a machine with NO Homebrew ffmpeg (bundled binary ships).
+
 ## AI & choreography (added after user feedback round 2)
 - [ ] Pose per mark: set different joint poses on two marks — limbs blend between them during travel; export shows the move.
 - [ ] ✨ Populate from reference: pick a photo of a staged scene — entities land in matching positions with poses/labels, lighting is set, and (on an empty shot) Camera Mark 1 approximates the reference framing.

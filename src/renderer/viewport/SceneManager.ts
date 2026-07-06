@@ -20,7 +20,7 @@ import { frameSubject as frameSubjectMath, ASPECT_RATIOS } from '@engine/camera'
 import { entityHeight } from '@engine/assets'
 import { headingOf } from '@engine/path'
 import type { Entity, LightingPresetId, Scene as DocScene, Shot } from '@engine/types'
-import { useStore } from '../store'
+import { useStore, selectedEntityIds } from '../store'
 import { on } from '../bus'
 import { buildAsset, markMesh, labelSprite, type BuiltAsset } from './builders'
 
@@ -55,6 +55,13 @@ export class SceneManager {
   private overlay = new THREE.Group() // marks, paths, camera body — hidden in exports
   private cameraBody: THREE.Group
   private selectionBox = new THREE.BoxHelper(new THREE.Object3D(), 0xf5a524)
+  /** Additional boxes for multi-selection members. */
+  private extraSelectionBoxes: THREE.BoxHelper[] = []
+  /** Doc transforms snapshotted when a gizmo drag starts (group moves). */
+  private dragStart: Map<string, { pos: THREE.Vector3; rotY: number }> | null = null
+  private dragAnchorId: string | null = null
+  /** Last pointer position in NDC — drives entity performance recording. */
+  private lastPointerNdc = new THREE.Vector2(0, 0)
 
   private sun: THREE.DirectionalLight
   private ambient: THREE.HemisphereLight
@@ -104,10 +111,15 @@ export class SceneManager {
   /** Set by Viewport: the PiP shot-preview rect in CSS px (null = hidden). */
   onPipRect?: (rect: { x: number; y: number; w: number; h: number } | null) => void
 
-  /** Live camera-move recording buffer. */
+  /** Live performance-recording state (camera flight or entity puppeteering). */
   private recSamples: { t: number; pos: THREE.Vector3; pan: number; tilt: number; roll: number }[] = []
+  private entitySamples: { t: number; x: number; z: number }[] = []
   private recStartedAt = 0
   private recLens = 35
+  /** 'camera' or the entity id being puppeteered. */
+  private recTarget: string = 'camera'
+  /** True when recording against the playback clock (other motion replays). */
+  private recPlaybackSynced = false
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -181,12 +193,15 @@ export class SceneManager {
     this.transform.setTranslationSnap(0.05)
     this.transform.setRotationSnap(THREE.MathUtils.degToRad(15))
     this.transform.addEventListener('dragging-changed', (e) => {
-      this.controls.enabled = !(e as unknown as { value: boolean }).value
-      if (!(e as unknown as { value: boolean }).value) this.commitGizmo()
+      const dragging = (e as unknown as { value: boolean }).value
+      this.controls.enabled = !dragging
+      if (dragging) this.beginGizmoDrag()
+      else this.commitGizmo()
     })
     this.scene.add(this.transform.getHelper ? this.transform.getHelper() : (this.transform as unknown as THREE.Object3D))
 
     canvas.addEventListener('pointerdown', this.onPointerDown)
+    canvas.addEventListener('pointermove', this.onPointerMove)
     window.addEventListener('keydown', this.onKeyDown)
 
     // Store subscriptions: rebuild world on doc/scene/shot change.
@@ -238,6 +253,7 @@ export class SceneManager {
     cancelAnimationFrame(this.raf)
     this.unsubscribers.forEach((u) => u())
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
+    this.canvas.removeEventListener('pointermove', this.onPointerMove)
     window.removeEventListener('keydown', this.onKeyDown)
     this.controls.dispose()
     this.transform.dispose()
@@ -506,6 +522,14 @@ export class SceneManager {
     )
   }
 
+  private onPointerMove = (e: PointerEvent): void => {
+    const rect = this.canvas.getBoundingClientRect()
+    this.lastPointerNdc.set(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    )
+  }
+
   private onPointerDown = (e: PointerEvent): void => {
     if (e.button !== 0) return
     // Pointer is on the transform gizmo (axis set on hover) — the gizmo owns
@@ -513,6 +537,8 @@ export class SceneManager {
     if (this.transform.dragging || this.transform.axis) return
     const s = this.currentState()
     if (s.mode === 'deliver') return
+    // While recording a performance, clicks must not change the selection.
+    if (s.recording) return
     const ndc = this.pointerNdc(e)
     this.raycaster.setFromCamera(ndc, s.lookThrough ? this.shotCam : this.freeCam)
 
@@ -558,7 +584,10 @@ export class SceneManager {
       let o: THREE.Object3D | null = hit.object
       while (o) {
         if (o.userData.entityId) {
-          s.setSelection({ kind: 'entity', entityId: o.userData.entityId as string })
+          const id = o.userData.entityId as string
+          // Shift-click: build/extend a multi-selection.
+          if (e.shiftKey) s.toggleEntitySelected(id)
+          else s.setSelection({ kind: 'entity', entityId: id })
           return
         }
         if (o === this.cameraBody) {
@@ -568,8 +597,8 @@ export class SceneManager {
         o = o.parent
       }
     }
-    // Clicked empty space
-    if (!this.transform.dragging) s.setSelection(null)
+    // Clicked empty space (shift-click on empty keeps the multi-selection)
+    if (!this.transform.dragging && !e.shiftKey) s.setSelection(null)
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {
@@ -577,8 +606,8 @@ export class SceneManager {
       document.activeElement instanceof HTMLInputElement ||
       document.activeElement instanceof HTMLTextAreaElement
     if (inField) return
-    if (e.key === 'g' || e.key === 'G') this.transform.setMode('translate')
-    if (e.key === 'r' || e.key === 'R') this.transform.setMode('rotate')
+    if (e.key === 'g' || e.key === 'G') this.setGizmoMode('translate')
+    if (e.key === 'r' || e.key === 'R') this.setGizmoMode('rotate')
     if ((e.metaKey || e.ctrlKey) && (e.key === 'd' || e.key === 'D')) {
       e.preventDefault()
       this.duplicateSelection()
@@ -609,8 +638,32 @@ export class SceneManager {
     const sel = this.currentState().selection
     if (!sel) return null
     if (sel.kind === 'entity') return this.visuals.get(sel.entityId)?.root ?? null
+    if (sel.kind === 'entities') {
+      const last = sel.entityIds[sel.entityIds.length - 1]
+      return last ? (this.visuals.get(last)?.root ?? null) : null
+    }
     if (sel.kind === 'camera') return this.cameraBody
     return null
+  }
+
+  /** Set the gizmo mode; entities rotate around Y only (they stay upright). */
+  setGizmoMode(mode: 'translate' | 'rotate'): void {
+    this.transform.setMode(mode)
+    this.applyGizmoAxisLimits()
+  }
+
+  private applyGizmoAxisLimits(): void {
+    const sel = this.currentState().selection
+    const isEntity = sel?.kind === 'entity' || sel?.kind === 'entities'
+    if (this.transform.mode === 'rotate' && isEntity) {
+      this.transform.showX = false
+      this.transform.showZ = false
+      this.transform.showY = true
+    } else {
+      this.transform.showX = true
+      this.transform.showY = true
+      this.transform.showZ = true
+    }
   }
 
   private syncSelection(): void {
@@ -618,15 +671,74 @@ export class SceneManager {
     const obj = this.selectedObject()
     this.transform.detach()
     this.selectionBox.visible = false
+    for (const box of this.extraSelectionBoxes) {
+      this.scene.remove(box)
+      box.dispose()
+    }
+    this.extraSelectionBoxes = []
+
+    const isEntitySel = s.selection?.kind === 'entity' || s.selection?.kind === 'entities'
     if (obj && !s.lookThrough && s.mode !== 'deliver') {
-      // Entities are draggable in Stage; the camera body is draggable in
-      // both Stage and Shoot (drags commit to the active camera mark).
-      if (s.selection?.kind === 'entity' && s.mode === 'stage') this.transform.attach(obj)
+      // Entities are transformable in BOTH Stage and Shoot (move/rotate);
+      // the camera body likewise (drags commit to the active camera mark).
+      if (isEntitySel) this.transform.attach(obj)
       if (s.selection?.kind === 'camera') this.transform.attach(this.cameraBody)
+      this.applyGizmoAxisLimits()
     }
     if (obj) {
       this.selectionBox.setFromObject(obj)
       this.selectionBox.visible = true
+    }
+    // Extra boxes for the other members of a multi-selection.
+    if (s.selection?.kind === 'entities') {
+      for (const id of s.selection.entityIds.slice(0, -1)) {
+        const visual = this.visuals.get(id)
+        if (!visual) continue
+        const box = new THREE.BoxHelper(visual.root, 0x7dd3fc)
+        this.scene.add(box)
+        this.extraSelectionBoxes.push(box)
+      }
+    }
+  }
+
+  /** Snapshot doc transforms of every selected entity when a drag starts. */
+  private beginGizmoDrag(): void {
+    const s = this.currentState()
+    const ids = selectedEntityIds(s.selection)
+    if (ids.length === 0) {
+      this.dragStart = null
+      this.dragAnchorId = null
+      return
+    }
+    this.dragAnchorId = ids[ids.length - 1]!
+    this.dragStart = new Map()
+    for (const id of ids) {
+      const visual = this.visuals.get(id)
+      if (visual) {
+        this.dragStart.set(id, {
+          pos: visual.root.position.clone(),
+          rotY: visual.root.rotation.y
+        })
+      }
+    }
+  }
+
+  /** Rigid-group transform: apply the anchor's drag delta to a member. */
+  private groupTransformed(
+    start: { pos: THREE.Vector3; rotY: number },
+    anchorStart: { pos: THREE.Vector3; rotY: number },
+    anchorNow: { pos: THREE.Vector3; rotY: number }
+  ): { pos: THREE.Vector3; rotY: number } {
+    const dRot = anchorNow.rotY - anchorStart.rotY
+    const rel = start.pos.clone().sub(anchorStart.pos)
+    const cos = Math.cos(dRot)
+    const sin = Math.sin(dRot)
+    // Y-rotation of the offset about the anchor pivot (matches heading math)
+    const rx = rel.x * cos + rel.z * sin
+    const rz = -rel.x * sin + rel.z * cos
+    return {
+      pos: new THREE.Vector3(anchorNow.pos.x + rx, anchorNow.pos.y + rel.y, anchorNow.pos.z + rz),
+      rotY: start.rotY + dRot
     }
   }
 
@@ -661,19 +773,55 @@ export class SceneManager {
       return
     }
 
-    if (sel.kind !== 'entity') return
-    const visual = this.visuals.get(sel.entityId)
-    if (!visual) return
-    const pos = visual.root.position
-    const rotY = visual.root.rotation.y
-    const scale = visual.root.scale.x
-    s.mutate('move entity', (doc) => {
+    const ids = selectedEntityIds(sel)
+    if (ids.length === 0) return
+    const anchorId = this.dragAnchorId ?? ids[ids.length - 1]!
+    const anchorVisual = this.visuals.get(anchorId)
+    const anchorStart = this.dragStart?.get(anchorId)
+    if (!anchorVisual) return
+    const anchorNow = {
+      pos: anchorVisual.root.position.clone(),
+      rotY: anchorVisual.root.rotation.y
+    }
+    const scale = anchorVisual.root.scale.x
+    const dragStart = this.dragStart
+    this.dragStart = null
+    this.dragAnchorId = null
+
+    s.mutate(ids.length > 1 ? 'move group' : 'move entity', (doc) => {
       for (const scene of doc.scenes) {
-        const entity = scene.entities.find((e) => e.id === sel.entityId)
-        if (entity) {
-          entity.transform.position = { x: pos.x, y: Math.max(0, pos.y), z: pos.z }
-          entity.transform.rotationY = rotY
-          entity.transform.scale = scale
+        for (const id of ids) {
+          const entity = scene.entities.find((e) => e.id === id)
+          if (!entity) continue
+          let next: { pos: THREE.Vector3; rotY: number }
+          if (id === anchorId || !anchorStart || !dragStart?.get(id)) {
+            next = id === anchorId ? anchorNow : null!
+            if (!next) continue
+          } else {
+            next = this.groupTransformed(dragStart.get(id)!, anchorStart, anchorNow)
+          }
+          if (entity.attachedTo && entity.attachedLocal) {
+            // Married: a drag adjusts the local offset on the parent instead
+            // of the world transform (the evaluator would snap it back).
+            const parentVisual = this.visuals.get(entity.attachedTo)
+            if (parentVisual) {
+              const ph = parentVisual.root.rotation.y
+              const dx = next.pos.x - parentVisual.root.position.x
+              const dz = next.pos.z - parentVisual.root.position.z
+              const cos = Math.cos(ph)
+              const sin = Math.sin(ph)
+              entity.attachedLocal = {
+                x: dx * cos - dz * sin,
+                y: next.pos.y - parentVisual.root.position.y,
+                z: dx * sin + dz * cos,
+                rotY: next.rotY - ph
+              }
+            }
+          } else {
+            entity.transform.position = { x: next.pos.x, y: Math.max(0, next.pos.y), z: next.pos.z }
+            entity.transform.rotationY = next.rotY
+            if (id === anchorId) entity.transform.scale = scale
+          }
         }
       }
     })
@@ -681,31 +829,43 @@ export class SceneManager {
 
   private duplicateSelection(): void {
     const s = this.currentState()
-    if (s.selection?.kind !== 'entity') return
-    const visual = this.visuals.get(s.selection.entityId)
-    if (!visual) return
-    const e = visual.entity
-    s.addEntity(e.assetId, {
-      x: e.transform.position.x + 0.8,
-      y: e.transform.position.y,
-      z: e.transform.position.z + 0.8
-    })
+    const ids = selectedEntityIds(s.selection)
+    for (const id of ids) {
+      const visual = this.visuals.get(id)
+      if (!visual) continue
+      const e = visual.entity
+      s.addEntity(e.assetId, {
+        x: e.transform.position.x + 0.8,
+        y: e.transform.position.y,
+        z: e.transform.position.z + 0.8
+      })
+    }
   }
 
   private deleteSelection(): void {
     const s = this.currentState()
-    if (s.selection?.kind !== 'entity') return
-    const id = s.selection.entityId
-    s.mutate('delete entity', (doc) => {
+    const ids = selectedEntityIds(s.selection)
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+    s.mutate(ids.length > 1 ? 'delete entities' : 'delete entity', (doc) => {
       for (const scene of doc.scenes) {
-        scene.entities = scene.entities.filter((e) => e.id !== id)
-        for (const take of scene.blocking) {
-          take.tracks = take.tracks.filter((t) => t.entityId !== id)
+        scene.entities = scene.entities.filter((e) => !idSet.has(e.id))
+        for (const entity of scene.entities) {
+          // Widow any marriages pointing at a deleted parent.
+          if (entity.attachedTo && idSet.has(entity.attachedTo)) {
+            delete entity.attachedTo
+            delete entity.attachedLocal
+          }
         }
-        // A camera mounted to the deleted entity would silently re-base its
+        for (const take of scene.blocking) {
+          take.tracks = take.tracks.filter((t) => !idSet.has(t.entityId))
+        }
+        // A camera mounted to a deleted entity would silently re-base its
         // local-frame marks to world space — unmount instead.
-        for (const shot of scene.shots) {
-          if (shot.camera.mountEntityId === id) delete shot.camera.mountEntityId
+        for (const shot of [...scene.shots, ...(scene.drafts ?? [])]) {
+          if (shot.camera.mountEntityId && idSet.has(shot.camera.mountEntityId)) {
+            delete shot.camera.mountEntityId
+          }
         }
       }
     })
@@ -822,15 +982,58 @@ export class SceneManager {
 
   private beginRecording(): void {
     this.recSamples = []
+    this.entitySamples = []
     this.recStartedAt = performance.now()
     this.recLens = this.currentLens()
     const s = this.currentState()
-    s.setPlaying(false)
-    s.toast('Recording — fly the viewport; the shot camera follows. Click ● again to stop.', 'info')
+
+    // Target: a single selected entity means "record ITS move" (puppeteer
+    // with the cursor); anything else records the camera.
+    const ids = selectedEntityIds(s.selection)
+    this.recTarget = ids.length === 1 ? ids[0]! : 'camera'
+
+    // Playback-synced when there is other motion to perform against — the
+    // existing choreography replays while you record, so a camera flight
+    // (or a second character) lands in sync with it.
+    const take = this.docScene?.blocking.find((b) => b.id === this.shot?.blockingTakeId)
+    const hasOtherMotion =
+      this.recTarget === 'camera'
+        ? !!take?.tracks.some((t) => t.marks.length > 0)
+        : !!take?.tracks.some((t) => t.entityId !== this.recTarget && t.marks.length > 0) ||
+          (this.shot?.camera.marks.length ?? 0) > 0
+    this.recPlaybackSynced = hasOtherMotion
+
+    if (this.recPlaybackSynced) {
+      s.setTime(0)
+      s.setPlaying(true)
+    } else {
+      s.setPlaying(false)
+    }
+
+    if (this.recTarget === 'camera') {
+      s.toast(
+        this.recPlaybackSynced
+          ? 'Recording camera — the blocking replays while you fly the viewport. Stops at the end of the shot.'
+          : 'Recording — fly the viewport; the shot camera follows. Click ■ to stop.',
+        'info'
+      )
+    } else {
+      s.toast(
+        this.recPlaybackSynced
+          ? 'Recording performance — move the cursor over the floor to puppeteer while the rest replays.'
+          : 'Recording performance — move the cursor over the floor; the character follows it. Click ■ to stop.',
+        'info'
+      )
+    }
   }
 
   private finishRecording(): void {
     const s = this.currentState()
+    s.setPlaying(false)
+    if (this.recTarget !== 'camera') {
+      this.finishEntityRecording()
+      return
+    }
     const shotId = this.shot?.id
     const samples = this.recSamples
     this.recSamples = []
@@ -838,7 +1041,9 @@ export class SceneManager {
       if (samples.length > 0) s.toast('Recording too short — nothing saved.', 'info')
       return
     }
-    const length = Math.min(60, Math.max(0.5, samples[samples.length - 1]!.t))
+    const length = this.recPlaybackSynced
+      ? (this.shot?.duration ?? 5)
+      : Math.min(60, Math.max(0.5, samples[samples.length - 1]!.t))
     // Downsample to a mark every 250ms (plus the final pose). Marks with
     // zero easing replay the move exactly; the rig still layers on top.
     const step = 0.25
@@ -863,10 +1068,11 @@ export class SceneManager {
     }
     s.mutate('record camera move', (doc) => {
       for (const scene of doc.scenes) {
-        const shot = scene.shots.find((x) => x.id === shotId)
+        const shot =
+          scene.shots.find((x) => x.id === shotId) ?? scene.drafts?.find((x) => x.id === shotId)
         if (shot) {
           shot.camera.marks = marks
-          shot.duration = Math.round(length * 10) / 10
+          if (!this.recPlaybackSynced) shot.duration = Math.round(length * 10) / 10
         }
       }
     })
@@ -874,22 +1080,91 @@ export class SceneManager {
     s.toast(`Camera move recorded — ${marks.length} marks over ${length.toFixed(1)}s.`, 'success')
   }
 
+  /** Convert a puppeteered entity performance into actor marks. */
+  private finishEntityRecording(): void {
+    const s = this.currentState()
+    const entityId = this.recTarget
+    const shotId = this.shot?.id
+    const samples = this.entitySamples
+    this.entitySamples = []
+    if (!shotId || samples.length < 5) {
+      if (samples.length > 0) s.toast('Recording too short — nothing saved.', 'info')
+      return
+    }
+    const length = this.recPlaybackSynced
+      ? (this.shot?.duration ?? 5)
+      : Math.min(60, Math.max(0.5, samples[samples.length - 1]!.t))
+
+    const step = 0.25
+    const marks: import('@engine/types').ActorMark[] = []
+    let cursor = 0
+    let prev: { x: number; z: number } | null = null
+    for (let t = 0; t <= length + 1e-6; t += step) {
+      while (cursor < samples.length - 1 && samples[cursor]!.t < t) cursor++
+      const sm = samples[cursor]!
+      // Gait for the leg ENDING at this mark, from its implied speed.
+      let gait: import('@engine/types').GaitId = 'walk'
+      if (prev) {
+        const speed = Math.hypot(sm.x - prev.x, sm.z - prev.z) / step
+        gait = speed > 3.4 ? 'run' : speed > 2.0 ? 'jog' : 'walk'
+      }
+      marks.push({
+        id: newId('mark'),
+        time: Math.min(t, length),
+        hold: 0,
+        easeIn: 0,
+        easeOut: 0,
+        position: { x: sm.x, y: 0, z: sm.z },
+        gait
+      })
+      prev = { x: sm.x, z: sm.z }
+    }
+
+    s.mutate('record performance', (doc) => {
+      for (const scene of doc.scenes) {
+        const shot =
+          scene.shots.find((x) => x.id === shotId) ?? scene.drafts?.find((x) => x.id === shotId)
+        if (!shot) continue
+        const take = scene.blocking.find((b) => b.id === shot.blockingTakeId)
+        if (!take) continue
+        let track = take.tracks.find((tr) => tr.entityId === entityId)
+        if (!track) {
+          track = { entityId, marks: [] }
+          take.tracks.push(track)
+        }
+        track.marks = marks
+        if (!this.recPlaybackSynced) shot.duration = Math.round(length * 10) / 10
+      }
+    })
+    s.setSelection({ kind: 'entity', entityId })
+    s.toast(
+      `Performance recorded — ${marks.length} marks over ${length.toFixed(1)}s. Now select the camera and ● Record to fly it while this replays.`,
+      'success'
+    )
+  }
+
   /* ------------------------------- playback ----------------------------- */
 
   private applyTime(t: number): void {
     if (!this.evaluator || !this.shot) return
     const state = this.evaluator.evaluate(t)
+    const live = this.currentState()
+    const puppeteering = live.recording && this.recTarget !== 'camera' ? this.recTarget : null
 
     for (const es of state.entities) {
       const visual = this.visuals.get(es.entityId)
       if (!visual) continue
       // An active gizmo drag owns this object's transform — re-applying the
-      // evaluator pose every frame would freeze the drag in place.
+      // evaluator pose every frame would freeze the drag in place. Same for
+      // every member of a live group drag and a puppeteered recording target.
+      if (this.transform.dragging && this.dragStart?.has(es.entityId)) continue
       if (this.transform.dragging && this.transform.object === visual.root) continue
+      if (puppeteering === es.entityId) continue
       visual.root.position.set(es.position.x, es.position.y, es.position.z)
       // Static entities keep their authored Y (a lamp stays on its table);
-      // tracked entities travel on the ground plane.
-      if (!this.entityHasTrack(es.entityId)) {
+      // tracked and MARRIED entities take the evaluator's Y (a rider keeps
+      // its height offset on a moving vehicle).
+      if (!this.entityHasTrack(es.entityId) && !visual.entity.attachedTo) {
         visual.root.position.y = visual.entity.transform.position.y
       }
       visual.root.rotation.y = es.heading
@@ -927,6 +1202,52 @@ export class SceneManager {
         time: t,
         overrides
       })
+    }
+
+    // Live group drag: the other members of a multi-selection follow the
+    // anchor rigidly while the gizmo moves it.
+    if (this.transform.dragging && this.dragStart && this.dragAnchorId) {
+      const anchorVisual = this.visuals.get(this.dragAnchorId)
+      const anchorStart = this.dragStart.get(this.dragAnchorId)
+      if (anchorVisual && anchorStart) {
+        const anchorNow = {
+          pos: anchorVisual.root.position.clone(),
+          rotY: anchorVisual.root.rotation.y
+        }
+        for (const [id, start] of this.dragStart) {
+          if (id === this.dragAnchorId) continue
+          const member = this.visuals.get(id)
+          if (!member) continue
+          const next = this.groupTransformed(start, anchorStart, anchorNow)
+          member.root.position.copy(next.pos)
+          member.root.rotation.y = next.rotY
+        }
+      }
+    }
+
+    // Marriage live-follow: attached entities ride their parent's CURRENT
+    // visual (covers gizmo drags before commit; matches the evaluator at
+    // rest). Three passes settle rider-on-cart-on-truck chains.
+    for (let pass = 0; pass < 3; pass++) {
+      for (const visual of this.visuals.values()) {
+        const e = visual.entity
+        if (!e.attachedTo || !e.attachedLocal) continue
+        if (this.entityHasTrack(e.id)) continue
+        if (this.transform.dragging && this.dragStart?.has(e.id)) continue // being adjusted
+        if (puppeteering === e.id) continue
+        const parent = this.visuals.get(e.attachedTo)
+        if (!parent) continue
+        const h = parent.root.rotation.y
+        const cos = Math.cos(h)
+        const sin = Math.sin(h)
+        const l = e.attachedLocal
+        visual.root.position.set(
+          parent.root.position.x + l.x * cos + l.z * sin,
+          parent.root.position.y + l.y,
+          parent.root.position.z - l.x * sin + l.z * cos
+        )
+        visual.root.rotation.y = h + l.rotY
+      }
     }
 
     // Shot camera
@@ -969,21 +1290,52 @@ export class SceneManager {
     this.applyTime(s.time)
     this.controls.update()
 
-    // Live recording: the shot camera mirrors the free camera — what you
-    // see while flying IS the shot — and each frame is sampled.
+    // Live recording. Playback-synced recordings sample against the shot
+    // clock (the choreography replays underneath); free recordings run on
+    // wall time and define the shot duration when stopped.
     if (s.recording) {
-      const t = (now - this.recStartedAt) / 1000
-      this.shotCam.position.copy(this.freeCam.position)
-      const e = new THREE.Euler().setFromQuaternion(this.freeCam.quaternion, 'YXZ')
-      this.shotCam.rotation.set(e.x, e.y, e.z, 'YXZ')
-      this.recSamples.push({
-        t,
-        pos: this.freeCam.position.clone(),
-        pan: e.y,
-        tilt: e.x,
-        roll: e.z
-      })
-      if (t >= 60) s.setRecording(false) // hard stop at the 60s duration cap
+      const t = this.recPlaybackSynced ? s.time : (now - this.recStartedAt) / 1000
+      // Playback wrapped past the end before the auto-stop fired — end now
+      // rather than recording a second lap over the first.
+      const lastT =
+        this.recTarget === 'camera'
+          ? this.recSamples[this.recSamples.length - 1]?.t
+          : this.entitySamples[this.entitySamples.length - 1]?.t
+      if (this.recPlaybackSynced && lastT !== undefined && t < lastT) {
+        s.setRecording(false)
+        return
+      }
+      if (this.recTarget === 'camera') {
+        // The shot camera mirrors the free camera — what you see is the shot.
+        this.shotCam.position.copy(this.freeCam.position)
+        const e = new THREE.Euler().setFromQuaternion(this.freeCam.quaternion, 'YXZ')
+        this.shotCam.rotation.set(e.x, e.y, e.z, 'YXZ')
+        this.recSamples.push({
+          t,
+          pos: this.freeCam.position.clone(),
+          pan: e.y,
+          tilt: e.x,
+          roll: e.z
+        })
+      } else {
+        // Puppeteer: the selected entity chases the ground point under the
+        // cursor, facing its direction of travel.
+        this.raycaster.setFromCamera(this.lastPointerNdc, this.freeCam)
+        const point = this.groundHit()
+        const visual = this.visuals.get(this.recTarget)
+        if (point && visual) {
+          const dx = point.x - visual.root.position.x
+          const dz = point.z - visual.root.position.z
+          if (dx * dx + dz * dz > 1e-6) {
+            visual.root.rotation.y = headingOf({ x: dx, y: 0, z: dz })
+          }
+          visual.root.position.set(point.x, 0, point.z)
+          this.entitySamples.push({ t, x: point.x, z: point.z })
+        }
+      }
+      // Auto-stop: at the end of the shot when synced, at 60s otherwise.
+      const cap = this.recPlaybackSynced ? (this.shot?.duration ?? 60) - 1 / 60 : 60
+      if (t >= cap) s.setRecording(false)
     }
 
     // Resize
@@ -1138,6 +1490,14 @@ export class SceneManager {
     this.applyTime(t)
     const overlayWas = this.overlay.visible
     this.overlay.visible = false
+    // Entities the filmmaker excluded from exports stay editor-only.
+    const excludedStates: [THREE.Object3D, boolean][] = []
+    for (const v of this.visuals.values()) {
+      if (v.entity.excludeFromExport) {
+        excludedStates.push([v.root, v.root.visible])
+        v.root.visible = false
+      }
+    }
     // Editor chrome must never reach an export: selection box + gizmo.
     const selectionWas = this.selectionBox.visible
     this.selectionBox.visible = false
@@ -1188,6 +1548,7 @@ export class SceneManager {
     this.selectionBox.visible = selectionWas
     gizmo.visible = gizmoWas
     for (const [sprite, was] of labelStates) sprite.visible = was
+    for (const [root, was] of excludedStates) root.visible = was
   }
 
   /** Top-down blocking diagram camera + overlay paths forced visible. */

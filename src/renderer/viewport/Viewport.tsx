@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { emit } from '../bus'
 import { SceneManager } from './SceneManager'
-import { registerSceneManager } from '../export/scene-access'
+import { registerSceneManager, getSceneManager as getSceneManagerSafe } from '../export/scene-access'
 import { ReferenceUnderlay, ReferenceControls } from './ReferenceUnderlay'
 import { LENS_SET, SHOT_SIZES } from '@engine/camera'
 import type { AspectId, ShotSizeId } from '@engine/types'
@@ -77,10 +77,10 @@ function Hud(): JSX.Element | null {
   )
 }
 
-function ShotSizeBar(): JSX.Element {
+function ShotSizeRow(): JSX.Element {
   const sizes: ShotSizeId[] = ['WS', 'FS', 'MS', 'MCU', 'CU']
   return (
-    <div className="viewport-toolbar" style={{ top: 52 }}>
+    <div className="tool-row">
       {sizes.map((size) => (
         <button
           key={size}
@@ -91,6 +91,32 @@ function ShotSizeBar(): JSX.Element {
           {size}
         </button>
       ))}
+    </div>
+  )
+}
+
+function GizmoModeRow(): JSX.Element {
+  const [mode, setMode] = useState<'translate' | 'rotate'>('translate')
+  const apply = (m: 'translate' | 'rotate'): void => {
+    setMode(m)
+    getSceneManagerSafe()?.setGizmoMode(m)
+  }
+  return (
+    <div className="tool-row">
+      <button
+        className={`btn small ${mode === 'translate' ? 'active' : ''}`}
+        onClick={() => apply('translate')}
+        title="Move the selection with the gizmo arrows (G)"
+      >
+        ⇄ Move
+      </button>
+      <button
+        className={`btn small ${mode === 'rotate' ? 'active' : ''}`}
+        onClick={() => apply('rotate')}
+        title="Rotate the selection — spin people, cars, props, the camera (R)"
+      >
+        ⟳ Rotate
+      </button>
     </div>
   )
 }
@@ -140,53 +166,67 @@ export function Viewport(): JSX.Element {
 
   const showLetterbox = (lookThrough || mode === 'deliver') && viewRect
 
+  const singleEntitySelected = selection?.kind === 'entity'
+
   let hint: string | null = null
   if (placingAssetId) hint = 'Click the floor to place · ⌥-click to place multiple · Esc to cancel'
   else if (droppingMarks && selection?.kind === 'entity')
     hint = 'Click the floor to drop marks in order · Esc when done'
   else if (droppingMarks && selection?.kind === 'camera')
     hint = 'Click the floor to drop a camera mark · or use “Drop camera mark at view”'
+  else if (selection?.kind === 'entities')
+    hint = `${selection.entityIds.length} selected — drag moves the group · Marry in the inspector · ⌫ deletes all`
 
   return (
     <>
       <canvas ref={canvasRef} />
       {mode !== 'deliver' && <Hud />}
-      {mode === 'shoot' && (
-        <div className="viewport-toolbar">
-          <button
-            className={`btn small ${lookThrough ? 'active' : ''}`}
-            onClick={() => setLookThrough(!lookThrough)}
-            title="Look through the shot camera (C)"
-          >
-            🎥 Look through
-          </button>
-          <button
-            className="btn small"
-            onClick={() => {
-              setSelection({ kind: 'camera' })
-              emit('dropCameraMarkAtView', {})
-            }}
-            title="Drop a camera mark at the current view"
-          >
-            + Cam mark
-          </button>
-          <button
-            className={`btn small ${droppingMarks ? 'active' : ''}`}
-            onClick={() => setDroppingMarks(!droppingMarks)}
-            disabled={!selection}
-            title="Drop marks for the selection by clicking the floor (M)"
-          >
-            + Marks
-          </button>
-          <button
-            className={`btn small ${recording ? 'active' : ''}`}
-            style={recording ? { color: 'var(--danger)', borderColor: 'var(--danger)' } : undefined}
-            onClick={() => setRecording(!recording)}
-            title="Record a camera move: fly the viewport and the shot camera follows; recording converts to camera marks"
-          >
-            {recording ? '■ Stop' : '● Record move'}
-          </button>
-          <ReferenceControls />
+      {mode !== 'deliver' && (
+        <div className="viewport-tools">
+          {mode === 'shoot' && (
+            <div className="tool-row">
+              <button
+                className={`btn small ${lookThrough ? 'active' : ''}`}
+                onClick={() => setLookThrough(!lookThrough)}
+                title="Look through the shot camera (C)"
+              >
+                🎥 Look through
+              </button>
+              <button
+                className="btn small"
+                onClick={() => {
+                  setSelection({ kind: 'camera' })
+                  emit('dropCameraMarkAtView', {})
+                }}
+                title="Drop a camera mark at the current view"
+              >
+                + Cam mark
+              </button>
+              <button
+                className={`btn small ${droppingMarks ? 'active' : ''}`}
+                onClick={() => setDroppingMarks(!droppingMarks)}
+                disabled={!selection}
+                title="Drop marks for the selection by clicking the floor (M)"
+              >
+                + Marks
+              </button>
+              <button
+                className={`btn small ${recording ? 'active' : ''}`}
+                style={recording ? { color: 'var(--danger)', borderColor: 'var(--danger)' } : undefined}
+                onClick={() => setRecording(!recording)}
+                title={
+                  singleEntitySelected
+                    ? 'Record THIS character/vehicle: puppeteer it with the cursor; other motion replays underneath'
+                    : 'Record the camera: fly the viewport; existing blocking replays while you record'
+                }
+              >
+                {recording ? '■ Stop' : singleEntitySelected ? '● Record performer' : '● Record camera'}
+              </button>
+              <ReferenceControls />
+            </div>
+          )}
+          {mode === 'shoot' && <ShotSizeRow />}
+          <GizmoModeRow />
         </div>
       )}
       {mode === 'shoot' && <ReferenceUnderlay />}
@@ -255,10 +295,11 @@ export function Viewport(): JSX.Element {
       )}
       {recording && (
         <div className="viewport-hint" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}>
-          ● REC — fly the view (orbit/pan/zoom); this is the shot. Click ■ Stop to save the move.
+          {singleEntitySelected
+            ? '● REC — move the cursor over the floor; the performer chases it. ■ Stop saves the performance.'
+            : '● REC — fly the view (orbit/pan/zoom); this is the shot. ■ Stop saves the move.'}
         </div>
       )}
-      {mode === 'shoot' && <ShotSizeBar />}
 
       {showLetterbox && viewRect && (
         <div

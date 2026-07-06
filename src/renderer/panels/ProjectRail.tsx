@@ -33,6 +33,9 @@ export function ProjectRail(): JSX.Element {
   const addShotToScene = useStore((s) => s.addShotToScene)
   const mutate = useStore((s) => s.mutate)
   const toast = useStore((s) => s.toast)
+  const saveDraftOfShot = useStore((s) => s.saveDraftOfShot)
+  const promoteDraft = useStore((s) => s.promoteDraft)
+  const deleteDraft = useStore((s) => s.deleteDraft)
 
   const [rename, setRename] = useState<RenameState | null>(null)
 
@@ -99,6 +102,8 @@ export function ProjectRail(): JSX.Element {
       const target = d.scenes.find((s) => s.id === scene.id)
       if (!target) return
       target.shots = target.shots.filter((s) => s.id !== shot.id)
+      // A deleted shot takes its draft versions with it.
+      target.drafts = target.drafts?.filter((dr) => dr.draftOf !== shot.id)
     })
     if (wasCurrent && remainingId) selectShot(remainingId)
   }
@@ -178,58 +183,107 @@ export function ProjectRail(): JSX.Element {
                 const isCurrentShot = shot.id === shotId
                 const renamingShot =
                   rename?.kind === 'shot' && rename.id === shot.id ? rename : null
+                const drafts = (scene.drafts ?? []).filter((d) => d.draftOf === shot.id)
                 return (
-                  <div
-                    className={`rail-shot${isCurrentShot ? ' active' : ''}`}
-                    key={shot.id}
-                    onClick={() => selectShot(shot.id)}
-                    onDoubleClick={() =>
-                      setRename({ kind: 'shot', id: shot.id, value: shot.name })
-                    }
-                  >
-                    {renamingShot ? (
-                      <input
-                        type="text"
-                        autoFocus
-                        value={renamingShot.value}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) =>
-                          setRename({ kind: 'shot', id: shot.id, value: e.target.value })
-                        }
-                        onBlur={commitRename}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commitRename()
-                          else if (e.key === 'Escape') setRename(null)
-                        }}
-                      />
-                    ) : (
-                      <>
-                        <span className="rail-label">{shot.name}</span>
-                        <span className="rail-dur">{Math.round(shot.duration)}s</span>
-                        <span className="rail-actions">
-                          <button
-                            className="rail-btn"
-                            title="Duplicate shot"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              duplicateShot(scene, shot)
-                            }}
-                          >
-                            ⧉
-                          </button>
-                          <button
-                            className="rail-btn"
-                            title="Delete shot"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteShot(scene, shot)
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </span>
-                      </>
-                    )}
+                  <div key={shot.id}>
+                    <div
+                      className={`rail-shot${isCurrentShot ? ' active' : ''}`}
+                      onClick={() => selectShot(shot.id)}
+                      onDoubleClick={() =>
+                        setRename({ kind: 'shot', id: shot.id, value: shot.name })
+                      }
+                    >
+                      {renamingShot ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={renamingShot.value}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) =>
+                            setRename({ kind: 'shot', id: shot.id, value: e.target.value })
+                          }
+                          onBlur={commitRename}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitRename()
+                            else if (e.key === 'Escape') setRename(null)
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <span className="rail-label">{shot.name}</span>
+                          <span className="rail-dur">{Math.round(shot.duration)}s</span>
+                          <span className="rail-actions">
+                            {isCurrentShot && (
+                              <button
+                                className="rail-btn"
+                                title="Save current shot as a draft"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  saveDraftOfShot()
+                                }}
+                              >
+                                + Draft
+                              </button>
+                            )}
+                            <button
+                              className="rail-btn"
+                              title="Duplicate shot"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                duplicateShot(scene, shot)
+                              }}
+                            >
+                              ⧉
+                            </button>
+                            <button
+                              className="rail-btn"
+                              title="Delete shot"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deleteShot(scene, shot)
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {drafts.map((draft) => {
+                      const isCurrentDraft = draft.id === shotId
+                      return (
+                        <div
+                          className={`rail-shot rail-draft${isCurrentDraft ? ' active' : ''}`}
+                          key={draft.id}
+                          onClick={() => selectShot(draft.id)}
+                        >
+                          <span className="rail-label">└ {draft.name}</span>
+                          <span className="rail-actions">
+                            <button
+                              className="rail-btn"
+                              title="Make this the shot"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                promoteDraft(draft.id)
+                              }}
+                            >
+                              ▲
+                            </button>
+                            <button
+                              className="rail-btn"
+                              title="Delete draft"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deleteDraft(draft.id)
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )
               })}

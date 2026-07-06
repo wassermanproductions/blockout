@@ -102,9 +102,12 @@ test('PiP preview reports a rect and can be resized/hidden', async () => {
 test('camera-move recording converts flight into camera marks', async () => {
   const before = await page.evaluate(() => {
     const store = (window as any).__blockout.store.getState()
+    // Camera recording requires the camera (or nothing) selected — an
+    // entity selection would record that performer instead.
+    store.setSelection({ kind: 'camera' })
     return store.shot().camera.marks.length
   })
-  await page.getByRole('button', { name: '● Record move' }).click()
+  await page.getByRole('button', { name: '● Record camera' }).click()
   // Fly: orbit-drag the viewport for ~1.5s
   const canvas = page.locator('.viewport-wrap canvas')
   const box = (await canvas.boundingBox())!

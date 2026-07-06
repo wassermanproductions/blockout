@@ -83,6 +83,16 @@ export interface Entity {
   params?: Record<string, number | string>
   /** For custom imports: path relative to project assets/ dir. */
   sourceFile?: string
+  /**
+   * Marriage: when set, this entity rides the named entity — it follows the
+   * parent's motion (blocking marks, gizmo drags) at a fixed local offset.
+   * A married entity with its own marks ignores the marriage while tracked.
+   */
+  attachedTo?: string
+  /** Local offset in the parent's frame (position + yaw), captured at marry time. */
+  attachedLocal?: { x: number; y: number; z: number; rotY: number }
+  /** Hide this entity in every export pass (still visible in the editor). */
+  excludeFromExport?: boolean
 }
 
 /** Shared mark fields. A mark = a position an entity/camera hits at a time. */
@@ -172,9 +182,16 @@ export interface Shot {
   fps: number
   aspect: AspectId
   blockingTakeId: string
+  /** The ACTIVE camera (playback + export always use this one). */
   camera: ShotCamera
+  /** Name of the active camera: 'A', 'B', 'C'… (default 'A'). */
+  cameraName?: string
+  /** Inactive cameras — switch via the camera inspector (Cam A/B/C chips). */
+  cameraBank?: { name: string; camera: ShotCamera }[]
   notes?: string
   referenceVideo?: ReferenceVideo
+  /** Set on shots living in scene.drafts: the main shot this is a version of. */
+  draftOf?: string
 }
 
 export interface SceneEnvironment {
@@ -194,6 +211,12 @@ export interface Scene {
   entities: Entity[]
   blocking: BlockingTake[]
   shots: Shot[]
+  /**
+   * Draft versions of shots (experiments — "1A v1", "1A v2"). Full Shot
+   * objects with draftOf pointing at the main shot; playable and exportable
+   * like any shot, listed separately in the rail, promotable back.
+   */
+  drafts?: Shot[]
 }
 
 export interface ProjectDoc {

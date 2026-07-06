@@ -5,6 +5,9 @@ directories:
 files:
   - out/**
   - package.json
+  # ffmpeg-static is external to the main bundle — ship the real package
+  # (the binary is what makes exports work on machines without ffmpeg).
+  - node_modules/ffmpeg-static/**
 asarUnpack:
   - node_modules/ffmpeg-static/**
 mac:

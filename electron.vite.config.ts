@@ -6,7 +6,13 @@ export default defineConfig({
   main: {
     build: {
       outDir: 'out/main',
-      rollupOptions: { input: resolve(__dirname, 'src/main/index.ts') }
+      rollupOptions: {
+        input: resolve(__dirname, 'src/main/index.ts'),
+        // ffmpeg-static resolves its binary path with __dirname at module
+        // scope — bundling it breaks the path. Keep it external so the
+        // runtime require hits the real (asar-unpacked) package.
+        external: ['ffmpeg-static']
+      }
     }
   },
   preload: {

@@ -58,18 +58,24 @@ app.on('window-all-closed', () => {
 async function resolveFfmpeg(): Promise<string> {
   if (process.env.BLOCKOUT_FFMPEG) return process.env.BLOCKOUT_FFMPEG
   try {
-    // Optional dependency; bundled binary when packaged.
+    // Bundled binary (external to the main bundle; asar-unpacked when packaged).
     const mod = await import('ffmpeg-static')
     const p = (mod.default ?? mod) as unknown as string
     if (p) {
-      // electron-builder asar: binary lives unpacked
       const real = p.replace('app.asar', 'app.asar.unpacked')
       await access(real)
       return real
     }
   } catch {}
-  // Fall back to system ffmpeg on PATH (checked at export time).
-  return 'ffmpeg'
+  // GUI apps launched from Finder don't inherit the shell PATH, so a bare
+  // 'ffmpeg' spawn fails even when Homebrew has it — probe absolute paths.
+  for (const candidate of ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg']) {
+    try {
+      await access(candidate)
+      return candidate
+    } catch {}
+  }
+  return 'ffmpeg' // last resort: PATH (works when launched from a terminal)
 }
 
 /* --------------------------------- IPC ---------------------------------- */
@@ -257,8 +263,11 @@ ipcMain.handle(
     })
     child.on('error', (err) => {
       job.dead = true
-      job.deadReason = String(err)
-      mainWindow?.webContents.send('export:closed', jobId, -1, String(err))
+      const friendly = /ENOENT/.test(String(err))
+        ? 'ffmpeg not found. Reinstall Blockout from the latest DMG (it bundles ffmpeg), or `brew install ffmpeg`.'
+        : String(err)
+      job.deadReason = friendly
+      mainWindow?.webContents.send('export:closed', jobId, -1, friendly)
       jobs.delete(jobId)
     })
     return true
