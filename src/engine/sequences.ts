@@ -87,25 +87,34 @@ function fightPresets(ids: string[], fallback: string[]): MotionPreset[] {
 }
 
 /**
- * Lay a motion's keyframes down as stationary joint marks starting at
- * `startT`, looping to fill the window. Returns the time it finished.
+ * Lay a motion's keyframes down as joint marks starting at `startT`,
+ * looping to fill the window. Keyframe `move` offsets (jumps, crawls) are
+ * applied relative to `pos` along `heading`. Returns the time it finished.
  */
 function appendMotion(
   marks: SequenceMarkSpec[],
   preset: MotionPreset,
   pos: { x: number; y: number; z: number },
   startT: number,
-  endT: number
+  endT: number,
+  heading = 0
 ): number {
   let t = startT
   const cycle = preset.duration + (preset.loop ? 0.05 : 0.4)
+  const fwd = { x: -Math.sin(heading), z: -Math.cos(heading) }
   while (t <= endT + 1e-6 && marks.length < MAX_MARKS_PER_ENTITY) {
     for (const kf of preset.keyframes) {
       const time = t + kf.t
       if (time > endT + 1e-6 || marks.length >= MAX_MARKS_PER_ENTITY) break
+      const forward = kf.move?.forward ?? 0
+      const up = kf.move?.up ?? 0
       marks.push({
         time,
-        position: { ...pos },
+        position: {
+          x: pos.x + fwd.x * forward,
+          y: Math.max(0, pos.y + up),
+          z: pos.z + fwd.z * forward
+        },
         gait: 'stand',
         easeIn: 0,
         easeOut: 0,

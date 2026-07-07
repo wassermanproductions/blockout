@@ -53,6 +53,7 @@ export type ActionCategory =
   | 'vehicle'
   | 'destruction'
   | 'object'
+  | 'person'
 
 export interface ActionPreset {
   id: string
@@ -795,6 +796,137 @@ const objectTornadoSpiral: ActionPreset = {
 }
 
 // ---------------------------------------------------------------------------
+// PERSON — one-click character locomotion paths (walk / run / stairs / hop)
+// ---------------------------------------------------------------------------
+
+const walkForward: ActionPreset = {
+  id: 'walk-forward',
+  name: 'Walk Forward',
+  category: 'person',
+  description: 'A steady walk straight ahead along the heading at ~1.4 m/s.',
+  suggestedAssets: ['person.man', 'person.woman'],
+  generate(ctx) {
+    const speed = 1.4 // m/s
+    const total = speed * ctx.duration
+    const ts = times(7, ctx.duration)
+    return build(
+      ctx,
+      ts.map((t, i) => {
+        const u = t / ctx.duration
+        const last = ts.length - 1
+        return {
+          t,
+          pos: at(ctx, total * u, 0, 0),
+          gait: 'walk' as Gait,
+          easeIn: i === 0 ? 0.25 : 0,
+          easeOut: i === last ? 0.25 : 0
+        }
+      })
+    )
+  }
+}
+
+const runForward: ActionPreset = {
+  id: 'run-forward',
+  name: 'Run Forward',
+  category: 'person',
+  description: 'A fast run straight ahead along the heading at ~5 m/s.',
+  suggestedAssets: ['person.man', 'person.woman'],
+  generate(ctx) {
+    const speed = 5 // m/s
+    const total = speed * ctx.duration
+    const ts = times(7, ctx.duration)
+    return build(
+      ctx,
+      ts.map((t, i) => {
+        const u = t / ctx.duration
+        const last = ts.length - 1
+        return {
+          t,
+          pos: at(ctx, total * u, 0, 0),
+          gait: 'run' as Gait,
+          easeIn: i === 0 ? 0.25 : 0,
+          easeOut: i === last ? 0.25 : 0
+        }
+      })
+    )
+  }
+}
+
+const walkUpStairs: ActionPreset = {
+  id: 'walk-up-stairs',
+  name: 'Walk Up Stairs',
+  category: 'person',
+  description: 'Climbs a staircase: eight even steps up ~1.4m of rise over ~6m forward, then a level hold at the top.',
+  suggestedAssets: ['person.man', 'person.woman'],
+  generate(ctx) {
+    const steps = 8
+    const riseEach = 0.17 // ~1.36m total rise
+    const climbFwd = 6 // horizontal run of the climb
+    const raw: MarkBuild[] = []
+    // First mark at start (pinned by build()).
+    raw.push({ t: 0, pos: at(ctx, 0, 0, ctx.start.y), gait: 'walk', easeIn: 0.25 })
+    // Eight stepping marks, each advancing forward and rising one step.
+    // Climb occupies ~85% of the duration; the last 15% is the level hold.
+    const climbEnd = ctx.duration * 0.85
+    for (let k = 1; k <= steps; k++) {
+      const u = k / steps
+      raw.push({
+        t: climbEnd * u,
+        pos: at(ctx, climbFwd * u, 0, ctx.start.y + riseEach * k),
+        gait: 'walk'
+      })
+    }
+    // Level hold at the top: step off onto the landing and stand.
+    raw.push({
+      t: ctx.duration,
+      pos: at(ctx, climbFwd + 1.2, 0, ctx.start.y + riseEach * steps),
+      gait: 'stand',
+      easeIn: 0.25,
+      hold: 1
+    })
+    return build(ctx, raw)
+  }
+}
+
+const jumpForward: ActionPreset = {
+  id: 'jump-forward',
+  name: 'Jump Forward',
+  category: 'person',
+  description: 'Three forward hops — each arcs up ~0.5m while advancing ~1.2m.',
+  suggestedAssets: ['person.man', 'person.woman'],
+  generate(ctx) {
+    const hops = 3
+    const advanceEach = 1.2
+    const peak = 0.5
+    // Two marks per hop (peak + landing) plus the start.
+    const raw: MarkBuild[] = []
+    raw.push({ t: 0, pos: at(ctx, 0, 0, ctx.start.y), gait: 'jog', easeIn: 0.25 })
+    const perHop = ctx.duration / hops
+    for (let h = 0; h < hops; h++) {
+      const baseFwd = advanceEach * h
+      const t0 = perHop * h
+      // Apex of the hop.
+      raw.push({
+        t: t0 + perHop * 0.5,
+        pos: at(ctx, baseFwd + advanceEach * 0.5, 0, ctx.start.y + peak),
+        gait: 'jog'
+      })
+      // Landing.
+      const isLast = h === hops - 1
+      raw.push({
+        t: t0 + perHop,
+        pos: at(ctx, baseFwd + advanceEach, 0, ctx.start.y),
+        gait: isLast ? 'stand' : 'jog',
+        easeOut: isLast ? 0.25 : 0,
+        hold: isLast ? 0.5 : 0
+      })
+    }
+    return build(ctx, raw)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
@@ -824,5 +956,10 @@ export const ACTION_PRESETS: ActionPreset[] = [
   debrisFall,
   buildingTopple,
   objectThrownArc,
-  objectTornadoSpiral
+  objectTornadoSpiral,
+  // person
+  walkForward,
+  runForward,
+  walkUpStairs,
+  jumpForward
 ]

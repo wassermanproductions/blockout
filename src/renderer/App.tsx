@@ -13,6 +13,7 @@ import { Timeline } from './panels/Timeline'
 import { DeliverPanel } from './panels/DeliverPanel'
 import { Toasts } from './panels/Toasts'
 import { HelpOverlay } from './panels/Help'
+import logoUrl from './assets/logo.png'
 
 function CreditLink({ url, children }: { url: string; children: string }): JSX.Element {
   return (
@@ -47,6 +48,12 @@ export function Credits({ compact = false }: { compact?: boolean }): JSX.Element
       <CreditLink url="https://wassermanproductions.com">wassermanproductions.com</CreditLink>
       {' · '}
       <CreditLink url="https://wasserman.ai">wasserman.ai</CreditLink>
+      {!compact && (
+        <>
+          <br />
+          Open source under Apache-2.0 — keep this credit when using or forking.
+        </>
+      )}
     </div>
   )
 }
@@ -87,7 +94,11 @@ function Welcome(): JSX.Element {
 
   return (
     <div className="welcome">
-      <h1>Blockout</h1>
+      <img
+        src={logoUrl}
+        alt="Blockout"
+        style={{ width: 260, height: 260, objectFit: 'contain', borderRadius: 16, marginBottom: -8 }}
+      />
       <p>
         Stage a scene, choreograph camera and character blocking with marks, and export
         motion-reference packages for AI video generators.

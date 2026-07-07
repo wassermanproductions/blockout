@@ -62,19 +62,25 @@ export function Inspector(): JSX.Element {
   const selection = useStore((s) => s.selection)
   const scene = useStore((s) => s.scene())
   const shot = useStore((s) => s.shot())
+  // Pinned camera tab: every camera control — lens, position, aim, rig,
+  // moves, tracking — reachable at ANY time, whatever is selected.
+  const [tab, setTab] = useState<'auto' | 'camera'>('auto')
 
   if (!scene || !shot) return <div />
 
-  if (selection === null) return <SceneInspector scene={scene} shot={shot} />
-  if (selection.kind === 'entity') {
-    return <EntityInspector scene={scene} shot={shot} entityId={selection.entityId} />
-  }
-  if (selection.kind === 'entities') {
-    return <MultiEntityInspector scene={scene} entityIds={selection.entityIds} />
-  }
-  if (selection.kind === 'camera') return <CameraInspector scene={scene} shot={shot} />
-  if (selection.kind === 'marks') {
-    return (
+  let body: JSX.Element
+  if (tab === 'camera') {
+    body = <CameraInspector scene={scene} shot={shot} />
+  } else if (selection === null) {
+    body = <SceneInspector scene={scene} shot={shot} />
+  } else if (selection.kind === 'entity') {
+    body = <EntityInspector scene={scene} shot={shot} entityId={selection.entityId} />
+  } else if (selection.kind === 'entities') {
+    body = <MultiEntityInspector scene={scene} entityIds={selection.entityIds} />
+  } else if (selection.kind === 'camera') {
+    body = <CameraInspector scene={scene} shot={shot} />
+  } else if (selection.kind === 'marks') {
+    body = (
       <MultiMarkInspector
         scene={scene}
         shot={shot}
@@ -82,14 +88,39 @@ export function Inspector(): JSX.Element {
         markIds={selection.markIds}
       />
     )
+  } else {
+    body = (
+      <MarkInspector
+        scene={scene}
+        shot={shot}
+        entityId={selection.entityId}
+        markId={selection.markId}
+      />
+    )
   }
+
   return (
-    <MarkInspector
-      scene={scene}
-      shot={shot}
-      entityId={selection.entityId}
-      markId={selection.markId}
-    />
+    <div>
+      <div className="panel-section" style={{ paddingBottom: 0 }}>
+        <div className="seg">
+          <button
+            className={tab === 'auto' ? 'active' : ''}
+            onClick={() => setTab('auto')}
+            title="Show whatever is selected"
+          >
+            Selection
+          </button>
+          <button
+            className={tab === 'camera' ? 'active' : ''}
+            onClick={() => setTab('camera')}
+            title="Pin the camera controls: lens, position, aim, rig, moves, tracking — always here, no matter what's selected"
+          >
+            🎥 Camera
+          </button>
+        </div>
+      </div>
+      {body}
+    </div>
   )
 }
 
@@ -587,12 +618,16 @@ function MotionPresetsSection({
   const [category, setCategory] = useState<MotionPreset['category']>('fight')
 
   const apply = (preset: MotionPreset): void => {
-    // Where the character stands at the playhead — the motion plays in place.
+    // Where the character stands at the playhead — the motion plays from
+    // there. Keyframe `move` offsets (jump height, crawl distance, stair
+    // climb) are applied along the character's heading.
     const state = new ShotEvaluator(scene, shot).evaluate(time)
     const es = state.entities.find((e) => e.entityId === entity.id)
     const pos = es
       ? { x: es.position.x, y: es.position.y, z: es.position.z }
       : { ...entity.transform.position }
+    const heading = es?.heading ?? entity.transform.rotationY
+    const fwd = { x: -Math.sin(heading), z: -Math.cos(heading) }
     let added = 0
     mutate(`motion: ${preset.name}`, (doc) => {
       const sc = findScene(doc, scene.id)
@@ -607,13 +642,19 @@ function MotionPresetsSection({
       for (const kf of preset.keyframes) {
         const t = time + kf.t
         if (t > sh.duration + 1e-6) break
+        const forward = kf.move?.forward ?? 0
+        const up = kf.move?.up ?? 0
         track.marks.push({
           id: newId('mark'),
           time: t,
           hold: 0,
           easeIn: 0,
           easeOut: 0,
-          position: { ...pos },
+          position: {
+            x: pos.x + fwd.x * forward,
+            y: Math.max(0, pos.y + up),
+            z: pos.z + fwd.z * forward
+          },
           gait: 'stand',
           joints: { ...kf.joints }
         })
@@ -1013,6 +1054,100 @@ function MultiMarkInspector({
   )
 }
 
+/* ------------------------ camera pose fields ------------------------ */
+
+/**
+ * Direct numeric control of the camera: position, aim, and lens of the
+ * ACTIVE camera mark (the one at/before the playhead) — always available
+ * from the pinned 🎥 Camera tab, no viewport clicking required.
+ */
+function CameraPoseSection({ scene, shot }: { scene: Scene; shot: Shot }): JSX.Element {
+  const mutate = useMutate()
+  const time = useStore((s) => s.time)
+
+  const ordered = [...shot.camera.marks].sort((a, b) => a.time - b.time)
+  let active: CameraMark | undefined = ordered[0]
+  for (const m of ordered) if (m.time <= time + 1e-6) active = m
+
+  const editActive = (label: string, fn: (m: CameraMark) => void): void => {
+    if (!active) return
+    const id = active.id
+    mutate(label, (doc) => {
+      const sh = findShotOrDraft(doc, scene.id, shot.id)
+      const m = sh?.camera.marks.find((x) => x.id === id)
+      if (m) fn(m)
+    })
+  }
+
+  if (!active) {
+    return (
+      <div className="panel-section">
+        <div className="panel-title">Position &amp; aim</div>
+        <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4, marginBottom: 8 }}>
+          No camera marks yet — drop one and these fields control it directly.
+        </p>
+        <button
+          className="btn"
+          style={{ width: '100%' }}
+          onClick={() => emit('dropCameraMarkAtView', {})}
+        >
+          + Drop camera mark at current view
+        </button>
+      </div>
+    )
+  }
+
+  const numField = (
+    label: string,
+    value: number,
+    step: number,
+    apply: (m: CameraMark, v: number) => void,
+    unit?: string
+  ): JSX.Element => (
+    <div className="field" style={{ flex: 1 }}>
+      <label>
+        {label}
+        {unit ? ` (${unit})` : ''}
+      </label>
+      <input
+        type="number"
+        step={step}
+        value={Number(value.toFixed(2))}
+        onChange={(e) => {
+          const v = num(e.target.value)
+          if (v !== null) editActive(`camera ${label.toLowerCase()}`, (m) => apply(m, v))
+        }}
+      />
+    </div>
+  )
+
+  const markIndex = ordered.findIndex((m) => m.id === active!.id) + 1
+  return (
+    <div className="panel-section">
+      <div className="panel-title">
+        Position &amp; aim — mark {markIndex}/{ordered.length}
+      </div>
+      <div className="field-row">
+        {numField('X', active.position.x, 0.1, (m, v) => (m.position.x = v))}
+        {numField('Height', active.position.y, 0.1, (m, v) => (m.position.y = Math.max(0, v)))}
+        {numField('Z', active.position.z, 0.1, (m, v) => (m.position.z = v))}
+      </div>
+      <div className="field-row">
+        {numField('Pan', toDeg(active.pan), 1, (m, v) => (m.pan = toRad(v)), '°')}
+        {numField('Tilt', toDeg(active.tilt), 1, (m, v) => (m.tilt = toRad(clamp(v, -89, 89))), '°')}
+        {numField('Roll', toDeg(active.roll), 1, (m, v) => (m.roll = toRad(clamp(v, -180, 180))), '°')}
+      </div>
+      <div className="field-row">
+        {numField('Lens', active.focalLength, 1, (m, v) => (m.focalLength = clamp(v, 8, 300)), 'mm')}
+        {numField('At time', active.time, 0.1, (m, v) => (m.time = clamp(v, 0, shot.duration)), 's')}
+      </div>
+      <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4 }}>
+        Edits the mark at/before the playhead — scrub the timeline to reach a different mark.
+      </p>
+    </div>
+  )
+}
+
 /* ----------------------- camera move presets ------------------------ */
 
 /**
@@ -1159,6 +1294,8 @@ function CameraInspector({ scene, shot }: { scene: Scene; shot: Shot }): JSX.Ele
           </div>
         </div>
       </div>
+
+      <CameraPoseSection scene={scene} shot={shot} />
 
       <div className="panel-section">
         <div className="panel-title">Track subject</div>

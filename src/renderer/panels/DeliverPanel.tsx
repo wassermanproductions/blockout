@@ -7,7 +7,14 @@ import { useMemo, useState } from 'react'
 import { useStore } from '../store'
 import { BUILTIN_PROFILES, getProfile } from '@engine/profiles'
 import { generatePrompt } from '@engine/prompt'
-import { exportShot, exportAnimatic, exportContactSheet, exportDims } from '../export/exporter'
+import {
+  exportShot,
+  exportAnimatic,
+  exportContactSheet,
+  exportDims,
+  exportStillAtPlayhead,
+  type ExportResolution
+} from '../export/exporter'
 import { exportGlb } from '../export/gltf'
 
 export function DeliverPanel(): JSX.Element {
@@ -25,6 +32,7 @@ export function DeliverPanel(): JSX.Element {
   const [profileId, setProfileId] = useState(doc?.settings.defaultProfileId ?? 'seedance-2')
   const [passes, setPasses] = useState({ clean: true, depth: true, normal: false })
   const [labels, setLabels] = useState<'on' | 'stillsOnly' | 'off'>('stillsOnly')
+  const [resolution, setResolution] = useState<ExportResolution>('auto')
 
   const profile = getProfile(profileId)
   const prompt = useMemo(
@@ -41,13 +49,13 @@ export function DeliverPanel(): JSX.Element {
     )
   }
 
-  const dims = exportDims(profile, shot.aspect)
+  const dims = exportDims(profile, shot.aspect, resolution)
   const overCap = profile.maxDuration !== undefined && shot.duration > profile.maxDuration
   const pct =
     progress.totalFrames > 0 ? Math.round((progress.frame / progress.totalFrames) * 100) : 0
 
   const run = async (): Promise<void> => {
-    const res = await exportShot({ profileId, passes, labels })
+    const res = await exportShot({ profileId, passes, labels, resolution })
     if (res.ok && res.packagePath) {
       toast('Export complete.', 'success')
       void window.blockout.showFolder(res.packagePath)
@@ -108,6 +116,33 @@ export function DeliverPanel(): JSX.Element {
       </div>
 
       <div className="field">
+        <label>Resolution</label>
+        <div className="seg">
+          <button
+            className={resolution === 'auto' ? 'active' : ''}
+            onClick={() => setResolution('auto')}
+            title={`The profile's native size`}
+          >
+            Auto
+          </button>
+          <button
+            className={resolution === '720p' ? 'active' : ''}
+            onClick={() => setResolution('720p')}
+            title="720p — what Seedance accepts for reference files. Applies to videos, stills, and animatics."
+          >
+            720p
+          </button>
+          <button
+            className={resolution === '1080p' ? 'active' : ''}
+            onClick={() => setResolution('1080p')}
+            title="1080p"
+          >
+            1080p
+          </button>
+        </div>
+      </div>
+
+      <div className="field">
         <label>Labels</label>
         <div className="seg">
           <button className={labels === 'on' ? 'active' : ''} onClick={() => setLabels('on')}>
@@ -149,6 +184,23 @@ export function DeliverPanel(): JSX.Element {
         </button>
       )}
 
+      <button
+        className="btn"
+        style={{ width: '100%', marginBottom: 10 }}
+        disabled={progress.running}
+        onClick={() =>
+          void exportStillAtPlayhead(profileId, resolution, labels !== 'off').then((r) => {
+            if (r.ok && r.packagePath) {
+              toast('Frame exported.', 'success')
+              void window.blockout.showFolder(r.packagePath)
+            } else if (r.error) toast(`Frame export failed: ${r.error}`, 'error')
+          })
+        }
+        title="Export ONLY the frame at the playhead as a full-quality PNG — scrub to the exact moment you want first"
+      >
+        📸 Export this frame (at playhead)
+      </button>
+
       {progress.lastPackagePath && !progress.running && (
         <button
           className="btn small"
@@ -180,7 +232,7 @@ export function DeliverPanel(): JSX.Element {
           className="btn"
           disabled={progress.running}
           onClick={() =>
-            void exportAnimatic(profileId).then((r) => {
+            void exportAnimatic(profileId, resolution).then((r) => {
               if (r.ok && r.packagePath) {
                 toast('Animatic exported.', 'success')
                 void window.blockout.showFolder(r.packagePath)

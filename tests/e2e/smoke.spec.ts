@@ -30,7 +30,8 @@ test.afterAll(async () => {
 })
 
 test('app boots to the welcome screen', async () => {
-  await expect(page.locator('.welcome h1')).toHaveText('Blockout')
+  // v2.3: the logo replaced the H1 wordmark.
+  await expect(page.locator('.welcome img[alt="Blockout"]')).toBeVisible()
 })
 
 test('creates a project and stages a scene through real UI actions', async () => {

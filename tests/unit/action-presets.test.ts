@@ -220,4 +220,60 @@ describe('action presets — targeted behavior', () => {
     const last = marks[marks.length - 1]!.position
     expect(Math.hypot(last.x - first.x, last.z - first.z)).toBeLessThan(4)
   })
+
+  it('walk-up-stairs ends y in [1.2, 1.6] with non-decreasing y until the top hold', () => {
+    const marks = byId('walk-up-stairs').generate(groundCtx())
+    const last = marks[marks.length - 1]!
+    expect(last.position.y).toBeGreaterThanOrEqual(1.2)
+    expect(last.position.y).toBeLessThanOrEqual(1.6)
+    expect(last.gait).toBe('stand')
+    // y is monotonically non-decreasing over the whole climb-then-hold.
+    for (let i = 1; i < marks.length; i++) {
+      expect(marks[i]!.position.y).toBeGreaterThanOrEqual(marks[i - 1]!.position.y - 1e-9)
+    }
+  })
+
+  it('run-forward covers ≥30m over 8s at run gait', () => {
+    const marks = byId('run-forward').generate(groundCtx())
+    const last = marks[marks.length - 1]!
+    expect(forwardOf(last)).toBeGreaterThanOrEqual(30)
+    for (const m of marks) expect(m.gait).toBe('run')
+  })
+
+  it('walk-forward advances forward at a walk (~1.4 m/s)', () => {
+    const marks = byId('walk-forward').generate(groundCtx())
+    const last = marks[marks.length - 1]!
+    // ~1.4 m/s × 8s ≈ 11.2m.
+    expect(forwardOf(last)).toBeGreaterThan(9)
+    expect(forwardOf(last)).toBeLessThan(13)
+    for (const m of marks) expect(m.gait).toBe('walk')
+  })
+
+  it('jump-forward arcs up repeatedly and lands stopped', () => {
+    const marks = byId('jump-forward').generate(groundCtx())
+    const peak = Math.max(...marks.map((m) => m.position.y))
+    expect(peak).toBeGreaterThan(0.3)
+    const last = marks[marks.length - 1]!
+    expect(last.position.y).toBeCloseTo(0, 6)
+    expect(last.gait).toBe('stand')
+    expect(forwardOf(last)).toBeGreaterThan(3)
+  })
+})
+
+describe('action presets — person category', () => {
+  it("registers the 'person' category and its four presets", () => {
+    const cats = new Set(ACTION_PRESETS.map((p) => p.category))
+    expect(cats.has('person' as never)).toBe(true)
+    for (const id of ['walk-forward', 'run-forward', 'walk-up-stairs', 'jump-forward']) {
+      expect(ACTION_PRESETS.some((p) => p.id === id)).toBe(true)
+    }
+  })
+
+  it('person presets suggest person assets', () => {
+    for (const id of ['walk-forward', 'run-forward', 'walk-up-stairs', 'jump-forward']) {
+      const p = byId(id)
+      expect(p.suggestedAssets).toContain('person.man')
+      expect(p.suggestedAssets).toContain('person.woman')
+    }
+  })
 })

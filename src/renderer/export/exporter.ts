@@ -15,10 +15,14 @@ import { useStore } from '../store'
 import { getSceneManager, type SceneManager } from './scene-access'
 import { buildComfyWorkflow } from './comfy'
 
+/** 'auto' = the profile's native size; 720p/1080p pin the SHORT edge. */
+export type ExportResolution = 'auto' | '720p' | '1080p'
+
 export interface ExportOptions {
   profileId: string
   passes: { clean: boolean; depth: boolean; normal: boolean }
   labels: 'on' | 'stillsOnly' | 'off'
+  resolution?: ExportResolution
 }
 
 export interface ExportResult {
@@ -34,11 +38,22 @@ function evenDim(n: number): number {
   return r % 2 === 0 ? r : r + 1
 }
 
-export function exportDims(profile: GeneratorProfile, aspect: keyof typeof ASPECT_RATIOS): {
+export function exportDims(
+  profile: GeneratorProfile,
+  aspect: keyof typeof ASPECT_RATIOS,
+  resolution: ExportResolution = 'auto'
+): {
   width: number
   height: number
 } {
   const ratio = ASPECT_RATIOS[aspect]
+  if (resolution !== 'auto') {
+    // Pin the short edge (720p → 1280×720 at 16:9, 720×1280 at 9:16) —
+    // Seedance only accepts 720p reference files.
+    const short = resolution === '720p' ? 720 : 1080
+    if (ratio >= 1) return { width: evenDim(short * ratio), height: short }
+    return { width: short, height: evenDim(short / ratio) }
+  }
   if (ratio >= 1) {
     const width = evenDim(profile.exportWidth)
     return { width, height: evenDim(width / ratio) }
@@ -240,7 +255,7 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
     return { ok: false, error: 'An export is already running.' }
   }
   const profile = getProfile(opts.profileId)
-  const { width, height } = exportDims(profile, shot.aspect)
+  const { width, height } = exportDims(profile, shot.aspect, opts.resolution ?? 'auto')
 
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
   const pkg = `${folder}/exports/${sanitize(scene.name)}/Shot-${sanitize(shot.name)}/export-${stamp}`
@@ -361,8 +376,50 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
   }
 }
 
+/**
+ * Export ONE frame — the playhead — as a full-quality still PNG. For pulling
+ * specific reference frames (a key pose, the moment of impact) without
+ * rendering the whole shot.
+ */
+export async function exportStillAtPlayhead(
+  profileId: string,
+  resolution: ExportResolution = 'auto',
+  showLabels = true
+): Promise<ExportResult> {
+  const s = useStore.getState()
+  const scene = s.scene()
+  const shot = s.shot()
+  const folder = s.projectFolder
+  const manager = getSceneManager()
+  if (!scene || !shot || !folder || !manager) {
+    return { ok: false, error: 'Open a project and select a shot first.' }
+  }
+  const t = s.time
+  const { width, height } = exportDims(getProfile(profileId), shot.aspect, resolution)
+  const { canvas, renderer } = getExportRenderer()
+  canvas.width = width
+  canvas.height = height
+  manager.suspendLive = true
+  try {
+    manager.renderFrameAt(renderer, t, width, height, 'clean', { showLabels })
+    const png = await canvasPng(canvas)
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    const out = `${folder}/exports/${sanitize(scene.name)}/Shot-${sanitize(shot.name)}/frames/${sanitize(shot.name)}_${t.toFixed(2)}s_${stamp}.png`
+    await window.blockout.exportWriteFile(out, png)
+    s.setExportProgress({ lastPackagePath: out })
+    return { ok: true, packagePath: out }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  } finally {
+    manager.suspendLive = false
+  }
+}
+
 /** Export every shot in the scene in order and stitch an animatic. */
-export async function exportAnimatic(profileId: string): Promise<ExportResult> {
+export async function exportAnimatic(
+  profileId: string,
+  resolution: ExportResolution = 'auto'
+): Promise<ExportResult> {
   const s = useStore.getState()
   const scene = s.scene()
   const folder = s.projectFolder
@@ -386,7 +443,8 @@ export async function exportAnimatic(profileId: string): Promise<ExportResult> {
     const res = await exportShot({
       profileId,
       passes: { clean: true, depth: false, normal: false },
-      labels: 'off'
+      labels: 'off',
+      resolution
     })
     if (!res.ok || !res.packagePath) {
       if (originalShot) s.selectShot(originalShot)

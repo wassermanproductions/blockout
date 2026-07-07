@@ -327,6 +327,7 @@ const REFERENCE: { section: string; items: [string, string][] }[] = [
       ['Rigs', 'Sticks, dolly, steadicam, handheld (intensity), crane, drone, car-mount (parent to a vehicle).'],
       ['Auto-frame', 'WS/FS/MS/MCU/CU position the camera for that shot size on your subject at the current lens.'],
       ['Framings', '2-SHOT / OTS / REV / TOP / LOW / DUTCH — classic setups in one click, on the selected characters.'],
+      ['🎥 Camera tab', 'Top of the right panel: pin the camera controls so lens, position & aim (numeric X/Y/Z, pan/tilt/roll), rig, moves, and tracking are ALWAYS reachable, whatever is selected.'],
       ['Camera moves', '27 classic moves in the camera inspector — orbits, cranes, drone follows, whip pan, vertigo dolly-zoom. One click lays down editable marks built around your subject, riding along if it moves.'],
       ['Track subject', 'Aim lock in the camera inspector: the camera stays pointed at a subject no matter how its position moves — drone tracking a plane. Focus follows too.'],
       ['Record control', '🎯 Precise / ✋ Normal / ⚡ Fast — how tightly recordings chase your mouse (smoothing + speed cap).'],
@@ -347,6 +348,8 @@ const REFERENCE: { section: string; items: [string, string][] }[] = [
     items: [
       ['Profiles', 'Per-generator export settings and prompt phrasing — Seedance, Veo, Kling, LTX, Wan, and image models.'],
       ['Passes', 'Clean reference MP4 (always chrome-free), depth pass, normal pass.'],
+      ['Resolution', 'Auto (profile native), 720p (what Seedance accepts for reference files), or 1080p — applies to videos, stills, and animatics.'],
+      ['📸 Export this frame', 'Scrub to the exact moment, click — just that frame as a full-quality PNG.'],
       ['Stills', 'Frame at every camera mark + first/last + top-down blocking diagram.'],
       ['Prompt', 'Generated from your actual lenses, moves, labels, and timings — copy-paste ready.'],
       ['Animatic / Contact sheet', 'Whole-scene stitched video / storyboard grid.'],
