@@ -82,16 +82,17 @@ describe('prompt generation', () => {
     return { scene, shot }
   }
 
-  it('includes lens, label, timing, and adherence clause', () => {
+  it('v5: short prompt with lens, label, and the motion-reference directive', () => {
     const { scene, shot } = promptFixture()
     const profile = getProfile('seedance-2')
     const prompt = generatePrompt(scene, shot, profile)
     expect(prompt).toContain('35mm')
     expect(prompt).toContain('THIEF')
-    expect(prompt).toContain('3s')
-    expect(prompt).toContain('run')
-    expect(prompt).toContain(profile.adherenceClause)
-    expect(prompt.toLowerCase()).toContain('zooms in')
+    expect(prompt).toContain('strictly as a motion reference')
+    // No choreography dump — the reference video carries the detail.
+    expect(prompt).not.toContain('3s')
+    expect(prompt.toLowerCase()).not.toContain('zooms in')
+    expect(prompt.length).toBeLessThan(600)
   })
 
   it('every builtin profile produces a non-empty prompt', () => {
