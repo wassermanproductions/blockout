@@ -21,30 +21,46 @@ describe('audit fix: 9:16 optics cannot exceed the physical gate (finding 4)', (
   })
 })
 
-describe('audit fix: prompt pan direction and seam wrapping (findings 2, 14)', () => {
-  function fixtureWithPan(fromPan: number, toPan: number) {
+describe('v5 prompt: simple motion-reference directive, no choreography dump', () => {
+  function fixture() {
     const doc = createProject('P')
     const scene = doc.scenes[0]!
     const shot = scene.shots[0]!
+    const man = createEntity('person.man', 'Man', { x: 0, y: 0, z: 0 })
+    man.label = { text: 'HERO', color: '#e5484d' }
+    scene.entities.push(man)
+    scene.blocking[0]!.tracks.push({
+      entityId: man.id,
+      marks: [
+        createActorMark({ x: 0, y: 0, z: 0 }, 0, 'walk'),
+        createActorMark({ x: 0, y: 0, z: -6 }, 4, 'run')
+      ]
+    })
     shot.camera.marks.push(
-      createCameraMark({ x: 0, y: 1.6, z: 5 }, 0, fromPan, 0, 35),
-      createCameraMark({ x: 0, y: 1.6, z: 5 }, 4, toPan, 0, 35)
+      createCameraMark({ x: 0, y: 1.6, z: 5 }, 0, 0, 0, 35),
+      createCameraMark({ x: 2, y: 1.6, z: 2 }, 4, 0.6, 0, 50)
     )
     return { scene, shot }
   }
 
-  it('increasing pan is described as panning LEFT (rotation.y = pan)', () => {
-    const { scene, shot } = fixtureWithPan(0, 0.6)
+  it('video-reference profiles get the plain motion-reference instruction', () => {
+    const { scene, shot } = fixture()
     const prompt = generatePrompt(scene, shot, getProfile('seedance-2'))
-    expect(prompt).toContain('pans left')
-    expect(prompt).not.toContain('pans right')
+    expect(prompt).toContain('strictly as a motion reference')
+    expect(prompt).toContain('character blocking and movement')
+    expect(prompt).toContain('camera blocking, movement, and tracking')
+    expect(prompt).toContain('HERO')
+    expect(prompt).toContain('35mm')
   })
 
-  it('a small move across the ±π seam is not narrated as a 350° pan', () => {
-    const { scene, shot } = fixtureWithPan(Math.PI - 0.05, -Math.PI + 0.05)
+  it('never narrates marks, timings, or per-leg camera moves', () => {
+    const { scene, shot } = fixture()
     const prompt = generatePrompt(scene, shot, getProfile('seedance-2'))
-    // 0.1 rad wrapped delta is below the 0.12 mention threshold.
-    expect(prompt).not.toContain('pans')
+    for (const banned of ['mark 1', 'mark 2', 'arriving at', 'pans left', 'pans right', 'pushes in', '0s to', 'total 5']) {
+      expect(prompt, `prompt must not contain "${banned}"`).not.toContain(banned)
+    }
+    // Short enough to paste and extend — a few sentences, not an essay.
+    expect(prompt.length).toBeLessThan(600)
   })
 })
 
