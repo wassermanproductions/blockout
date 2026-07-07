@@ -19,7 +19,8 @@ import {
 } from '@engine/schema'
 import { assetSpec } from '@engine/assets'
 import { newId } from '@engine/ids'
-import { generateSequence } from '@engine/sequences'
+import { generateSequence, choreographMotion } from '@engine/sequences'
+import { ACTION_PRESETS } from '@engine/action-presets'
 
 export type Mode = 'stage' | 'shoot' | 'deliver'
 
@@ -63,6 +64,8 @@ interface BlockoutState {
   selection: Selection
   /** Asset id armed for click-to-place from the library. */
   placingAssetId: string | null
+  /** Armed sequence: next floor click stages the crowd THERE. */
+  placingSequence: { type: import('@engine/sequences').SequenceType; count: number; style: string } | null
   /** When true, clicking the floor drops a mark for the selection. */
   droppingMarks: boolean
   lookThrough: boolean
@@ -93,6 +96,7 @@ interface BlockoutState {
   selectShot(shotId: string): void
   setSelection(sel: Selection): void
   setPlacingAsset(assetId: string | null): void
+  setPlacingSequence(seq: { type: import('@engine/sequences').SequenceType; count: number; style: string } | null): void
   setDroppingMarks(on: boolean): void
   setLookThrough(on: boolean): void
   setPipSize(size: 'off' | 'small' | 'medium' | 'large'): void
@@ -151,6 +155,13 @@ interface BlockoutState {
     style: string
     origin?: { x: number; z: number; heading: number }
   }): void
+  /**
+   * Restyle performers in place: replace each selected PERSON's choreography
+   * with a motion preset (swap the dance, change the strike) at their spots.
+   */
+  applyMotionToEntities(entityIds: string[], presetId: string): void
+  /** Replace each selected entity's path with an action preset from its pose. */
+  applyActionToEntities(entityIds: string[], presetId: string): void
   /** Save the current scene's staging as a reusable, globally persistent preset. */
   saveStagePreset(name: string): Promise<void>
   /** Stage a preset into a brand-new scene (originals stay untouched). */
@@ -188,6 +199,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
   shotId: null,
   selection: null,
   placingAssetId: null,
+  placingSequence: null,
   droppingMarks: false,
   lookThrough: false,
   pipSize: 'medium',
@@ -255,6 +267,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
     set({
       mode,
       placingAssetId: null,
+      placingSequence: null,
       droppingMarks: false,
       lookThrough: false,
       recording: false,
@@ -274,7 +287,8 @@ export const useStore = create<BlockoutState>((set, get) => ({
     set({ shotId, time: 0, playing: false })
   },
   setSelection: (selection) => set({ selection, droppingMarks: false }),
-  setPlacingAsset: (placingAssetId) => set({ placingAssetId }),
+  setPlacingAsset: (placingAssetId) => set({ placingAssetId, placingSequence: null }),
+  setPlacingSequence: (placingSequence) => set({ placingSequence, placingAssetId: null }),
   setDroppingMarks: (droppingMarks) => set({ droppingMarks }),
   setLookThrough: (lookThrough) => set({ lookThrough }),
   setPipSize: (pipSize) => set({ pipSize }),
@@ -802,6 +816,90 @@ export const useStore = create<BlockoutState>((set, get) => ({
         'success'
       )
     }
+  },
+
+  applyMotionToEntities(entityIds, presetId) {
+    const { sceneId, shotId } = get()
+    const duration = get().shot()?.duration ?? 8
+    let applied = 0
+    get().mutate('restyle: motion', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      const shot = scene?.shots.find((s) => s.id === shotId)
+      const take = scene?.blocking.find((b) => b.id === shot?.blockingTakeId)
+      if (!scene || !take) return
+      for (const id of entityIds) {
+        const entity = scene.entities.find((e) => e.id === id)
+        if (!entity || !entity.assetId.startsWith('person.')) continue
+        const specs = choreographMotion(
+          presetId,
+          { ...entity.transform.position },
+          entity.transform.rotationY,
+          duration
+        )
+        if (!specs || specs.length === 0) continue
+        let track = take.tracks.find((t) => t.entityId === id)
+        if (!track) {
+          track = { entityId: id, marks: [] }
+          take.tracks.push(track)
+        }
+        track.marks = specs.map((m) => ({
+          id: newId('mark'),
+          time: m.time,
+          hold: m.hold,
+          easeIn: m.easeIn,
+          easeOut: m.easeOut,
+          position: { ...m.position },
+          gait: m.gait,
+          joints: m.joints ? { ...m.joints } : undefined
+        }))
+        applied++
+      }
+    })
+    if (applied > 0) get().toast(`Restyled ${applied} performer${applied > 1 ? 's' : ''} — ▶ to watch.`, 'success')
+    else get().toast('That style applies to people — select characters.', 'info')
+  },
+
+  applyActionToEntities(entityIds, presetId) {
+    const { sceneId, shotId } = get()
+    const duration = get().shot()?.duration ?? 8
+    const preset = ACTION_PRESETS.find((p) => p.id === presetId)
+    if (!preset) return
+    let applied = 0
+    get().mutate('restyle: action', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      const shot = scene?.shots.find((s) => s.id === shotId)
+      const take = scene?.blocking.find((b) => b.id === shot?.blockingTakeId)
+      if (!scene || !take) return
+      for (const id of entityIds) {
+        const entity = scene.entities.find((e) => e.id === id)
+        if (!entity) continue
+        const specs = preset.generate({
+          start: {
+            x: entity.transform.position.x,
+            y: entity.transform.position.y,
+            z: entity.transform.position.z,
+            heading: entity.transform.rotationY
+          },
+          duration
+        })
+        let track = take.tracks.find((t) => t.entityId === id)
+        if (!track) {
+          track = { entityId: id, marks: [] }
+          take.tracks.push(track)
+        }
+        track.marks = specs.map((m) => ({
+          id: newId('mark'),
+          time: m.time,
+          hold: m.hold,
+          easeIn: m.easeIn,
+          easeOut: m.easeOut,
+          position: { ...m.position },
+          gait: m.gait
+        }))
+        applied++
+      }
+    })
+    if (applied > 0) get().toast(`Applied ${preset.name} to ${applied} performer${applied > 1 ? 's' : ''}.`, 'success')
   },
 
   async saveStagePreset(name) {

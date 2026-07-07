@@ -334,17 +334,34 @@ input[type='color'] {
 /* ------------------------------ timeline ------------------------------- */
 
 .timeline {
-  height: 190px;
+  height: 240px;
+  min-height: 110px;
+  max-height: 60vh;
   background: var(--bg-panel);
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  position: relative;
 }
+
+/* Drag the top edge to resize — 20 dancer lanes need room. */
+.timeline-resizer {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  height: 7px;
+  cursor: ns-resize;
+  z-index: 6;
+}
+.timeline-resizer:hover { background: var(--accent); opacity: 0.35; }
 
 .timeline-toolbar {
   display: flex; align-items: center; gap: 10px;
   padding: 6px 12px; border-bottom: 1px solid var(--border);
+  flex-wrap: wrap; row-gap: 4px;
+  max-height: 84px; overflow-y: auto; flex-shrink: 0;
 }
 
 .timeline-time {
@@ -594,3 +611,75 @@ input[type='color'] {
   font-weight: 700; cursor: pointer; font-size: 13px;
 }
 .titlebar .help-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* --------------------------- v4 help redesign --------------------------- */
+
+.help-v4 { width: min(920px, 94vw); height: min(720px, 90vh); }
+.help-v4 .help-tabs { width: 340px; }
+.help-v4-body { padding: 0; }
+.help-v4-inner { max-width: 860px; margin: 0 auto; padding: 22px 24px 32px; }
+
+.help-v4 .help-intro { font-size: 13px; margin-bottom: 20px; }
+
+/* Quick start cards */
+.help-cards {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+.help-card {
+  background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 16px 14px;
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color 0.12s ease;
+}
+.help-card:hover { border-color: var(--border-strong); }
+.help-card-emoji { font-size: 30px; line-height: 1; margin-bottom: 4px; }
+.help-card-title { font-weight: 700; font-size: 14px; color: var(--text); }
+.help-card-body { color: var(--text-dim); font-size: 12.5px; line-height: 1.55; }
+.help-card-then {
+  margin-top: auto; padding-top: 8px;
+  color: var(--text-faint); font-size: 11.5px; font-style: italic; line-height: 1.5;
+}
+
+/* How do I…? search + task list */
+.help-search {
+  width: 100%; box-sizing: border-box; margin-bottom: 20px;
+  padding: 10px 14px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--border-strong);
+  color: var(--text); font-size: 13px; font-family: inherit;
+}
+.help-search::placeholder { color: var(--text-faint); }
+.help-search:focus { outline: none; border-color: var(--accent); }
+
+.help-empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 30px 0; }
+
+.help-task-group { margin-bottom: 22px; }
+.help-task-area {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-faint); margin-bottom: 10px; padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+}
+.help-task {
+  padding: 9px 0; border-bottom: 1px solid var(--border);
+}
+.help-task:last-child { border-bottom: none; }
+.help-task-q { font-weight: 700; font-size: 13px; color: var(--text); margin-bottom: 3px; }
+.help-task-a { color: var(--text-dim); font-size: 12.5px; line-height: 1.6; }
+.help-task-a b { color: var(--text); }
+
+/* Shortcuts kbd grid */
+.help-kbd-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 28px;
+}
+.help-kbd-row {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.help-kbd-keys { flex-shrink: 0; min-width: 96px; text-align: right; }
+.help-kbd-sep { color: var(--text-faint); font-size: 11px; }
+.help-kbd-desc { color: var(--text-dim); font-size: 12.5px; line-height: 1.45; }
+
+@media (max-width: 620px) {
+  .help-kbd-grid { grid-template-columns: 1fr; }
+}

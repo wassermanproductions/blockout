@@ -50,7 +50,24 @@ export function Timeline(): JSX.Element {
   const mutate = useStore((s) => s.mutate)
 
   const [drag, setDrag] = useState<DragState | null>(null)
+  const [panelHeight, setPanelHeight] = useState(240)
   const bodyRef = useRef<HTMLDivElement | null>(null)
+
+  // Drag the top edge to resize the whole timeline — big casts need lanes.
+  const onResizeStart = (e: ReactPointerEvent): void => {
+    e.preventDefault()
+    const startY = e.clientY
+    const startH = panelHeight
+    const move = (ev: PointerEvent): void => {
+      setPanelHeight(Math.min(window.innerHeight * 0.6, Math.max(110, startH + (startY - ev.clientY))))
+    }
+    const up = (): void => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
 
   const evaluator = useMemo(
     () => (scene && shot ? new ShotEvaluator(scene, shot) : null),
@@ -234,7 +251,12 @@ export function Timeline(): JSX.Element {
   const playheadLeft = `${(clamp(time, 0, duration) / duration) * 100}%`
 
   return (
-    <div className="timeline">
+    <div className="timeline" style={{ height: panelHeight }}>
+      <div
+        className="timeline-resizer"
+        onPointerDown={onResizeStart}
+        title="Drag to resize the timeline"
+      />
       <div className="timeline-toolbar">
         <button className="btn small" onClick={() => setPlaying(!playing)}>
           {playing ? '⏸' : '▶'}

@@ -592,6 +592,20 @@ export class SceneManager {
       return
     }
 
+    // 1b) Sequence placement: the crowd stages exactly where you click,
+    // facing the camera.
+    if (s.placingSequence) {
+      const point = this.groundHit()
+      if (point) {
+        const toCam = this.freeCam.position.clone().sub(point)
+        const heading = headingOf({ x: toCam.x, y: 0, z: toCam.z })
+        const seq = s.placingSequence
+        s.setPlacingSequence(null)
+        s.spawnSequence({ ...seq, origin: { x: point.x, z: point.z, heading } })
+      }
+      return
+    }
+
     // 2) Mark dropping
     if (s.droppingMarks && s.selection) {
       const point = this.groundHit()
@@ -880,6 +894,29 @@ export class SceneManager {
             entity.transform.position = { x: next.pos.x, y: Math.max(0, next.pos.y), z: next.pos.z }
             entity.transform.rotationY = next.rotY
             if (id === anchorId) entity.transform.scale = scale
+          }
+          // Choreography rides along: a performer's MARKS define where it
+          // is, so moving the body without its path would just snap back.
+          // Apply the same rigid motion (translate + rotate about the drag
+          // anchor) to every mark the entity owns.
+          const startPose = dragStart?.get(id)
+          if (startPose && anchorStart) {
+            for (const take of scene.blocking) {
+              const track = take.tracks.find((t) => t.entityId === id)
+              if (!track) continue
+              for (const m of track.marks) {
+                const mapped = this.groupTransformed(
+                  { pos: new THREE.Vector3(m.position.x, m.position.y, m.position.z), rotY: 0 },
+                  anchorStart,
+                  anchorNow
+                )
+                m.position = {
+                  x: mapped.pos.x,
+                  y: Math.max(0, mapped.pos.y),
+                  z: mapped.pos.z
+                }
+              }
+            }
           }
         }
       }

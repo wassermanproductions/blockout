@@ -379,6 +379,25 @@ export function sequenceStyles(type: SequenceType): { id: string; name: string }
   }
 }
 
+/**
+ * Choreograph ONE performer with a motion preset at a fixed spot — used to
+ * restyle already-staged performers (swap the dance, change the strike)
+ * without restaging the crowd. Returns null for unknown preset ids.
+ */
+export function choreographMotion(
+  presetId: string,
+  pos: { x: number; y: number; z: number },
+  heading: number,
+  duration: number,
+  startT = 0
+): SequenceMarkSpec[] | null {
+  const preset = MOTION_PRESETS.find((p) => p.id === presetId)
+  if (!preset) return null
+  const marks: SequenceMarkSpec[] = []
+  appendMotion(marks, preset, pos, startT, duration, heading)
+  return marks
+}
+
 export function generateSequence(opts: SequenceOptions): SequenceEntitySpec[] {
   switch (opts.type) {
     case 'dance':

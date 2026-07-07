@@ -1,277 +1,438 @@
 /**
- * Help & Tutorial overlay: a step-by-step walkthrough of the full workflow
- * (Tutorial tab) and a complete feature/shortcut reference (Reference tab).
- * Opened from the titlebar ?, the welcome screen, or the ? key.
+ * Help overlay, redesigned for a filmmaker skimming (not reading):
+ *   • Quick start — six visual cards, the whole app at a glance.
+ *   • How do I…? — a live-searchable task list distilled from the reference.
+ *   • Shortcuts — the keyboard reference as a tidy kbd grid.
+ * Opened from the titlebar ?, the welcome screen, or the ? key. Esc closes
+ * (wired outside via the helpOpen store flag).
  */
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useStore } from '../store'
 
 function Kbd({ children }: { children: string }): JSX.Element {
   return <kbd className="help-kbd">{children}</kbd>
 }
 
-interface Step {
+/* ---------------------------- Quick start cards --------------------------- */
+
+interface Card {
+  emoji: string
   title: string
-  body: JSX.Element
+  body: string
+  then: string
 }
 
-const TUTORIAL: { section: string; steps: Step[] }[] = [
+const CARDS: Card[] = [
   {
-    section: '1 · Stage your scene',
-    steps: [
+    emoji: '🏗',
+    title: 'Stage your set',
+    body: 'Drop an environment and people from the Library, then click the floor to place them.',
+    then: 'then: label your leads and set the light.'
+  },
+  {
+    emoji: '🎬',
+    title: 'One-click sequences',
+    body: 'Whole dance numbers, fights, and chases, already choreographed. Click the floor to place the cast.',
+    then: 'then: every performer stays editable on their own.'
+  },
+  {
+    emoji: '🚶',
+    title: 'Make them move',
+    body: 'Select someone, press M and click marks. Or hit ● Record to puppeteer them with your cursor.',
+    then: 'then: retime the pills on the timeline.'
+  },
+  {
+    emoji: '✨',
+    title: 'Animate tab',
+    body: 'Fights, dances, and sit / drink / jump moves for any character. One click lays them down.',
+    then: 'then: tweak the pose marks like any other.'
+  },
+  {
+    emoji: '🎥',
+    title: 'Frame & move the camera',
+    body: 'Pick a framing, choose from 27 camera moves, or Track a subject so the aim locks on.',
+    then: 'then: ▶ Play shot to see the exact export frame.'
+  },
+  {
+    emoji: '📦',
+    title: 'Deliver',
+    body: 'Pick your generator and export the package: video, depth pass, stills, and a written prompt.',
+    then: 'then: paste the prompt straight into the generator.'
+  }
+]
+
+/* ------------------------------- How do I…? ------------------------------- */
+
+interface Task {
+  q: string
+  a: JSX.Element
+}
+
+const TASKS: { area: string; items: Task[] }[] = [
+  {
+    area: 'Stage',
+    items: [
       {
-        title: 'Place things',
-        body: (
+        q: 'How do I put a set and people in the scene?',
+        a: (
           <>
-            In <b>STAGE</b> mode, click a library item on the left (a person, car, table, or a whole
-            environment kit like City Street), then click the floor to place it. Hold <Kbd>⌥</Kbd>{' '}
-            while clicking to place several. <Kbd>Esc</Kbd> cancels.
+            In <b>STAGE</b> mode, click a Library item (a person, prop, or a whole environment kit),
+            then click the floor. Hold <Kbd>⌥</Kbd> to place several; <Kbd>Esc</Kbd> cancels.
           </>
         )
       },
       {
-        title: 'Move, rotate, duplicate',
-        body: (
+        q: 'How do I move, rotate, or duplicate something?',
+        a: (
           <>
-            Click anything to select it — drag the colored arrows to move. Switch to{' '}
-            <b>⟳ Rotate</b> (top-right, or press <Kbd>R</Kbd>) to spin it any amount, a full 360° if
-            you like. <Kbd>G</Kbd> returns to move. <Kbd>⌘D</Kbd> duplicates, <Kbd>⌫</Kbd> deletes,{' '}
-            <Kbd>⌘Z</Kbd> undoes anything.
+            Click to select, then drag the arrows to move. Press <Kbd>R</Kbd> to rotate,{' '}
+            <Kbd>G</Kbd> back to move, <Kbd>⌘D</Kbd> to duplicate, <Kbd>⌫</Kbd> to delete.
           </>
         )
       },
       {
-        title: 'Label your subjects',
-        body: (
+        q: 'How do I name a character for the AI generator?',
+        a: (
           <>
-            With a person selected, type a label like <b>HERO</b> in the inspector and pick a color.
-            The label floats above them, tints the model, and tells the AI generator who is who.
+            Select the person and type a label like <b>HERO</b> in the inspector, then pick a color.
+            It floats above them, tints the model, and tells the generator who is who.
           </>
         )
       },
       {
-        title: 'Pose people',
-        body: (
+        q: 'How do I pose someone without animating?',
+        a: (
           <>
-            The inspector&apos;s <b>Pose</b> section makes a person Sit, Crouch, Lie, Talk, or lie
-            Fallen — no animation needed. Open <b>Pose limbs</b> for 14 sliders (arms, elbows, legs,
-            knees, torso, head) to build stances for fights or dances.
+            Use the inspector&apos;s <b>Pose</b> section — Stand, Sit, Crouch, Lie, Talk, Fallen.
+            Open <b>Pose limbs</b> for 14 sliders to build fight or dance stances.
           </>
         )
       },
       {
-        title: 'Marry things together',
-        body: (
+        q: 'How do I put a rider on a bike so they move together?',
+        a: (
           <>
-            Sit a person, place them on a bike, then in their inspector choose <b>Marry to… →
-            the bike</b>. Now they move as one — drag the bike and the rider comes along; drive the
-            bike&apos;s marks and the rider rides. Or <Kbd>⇧</Kbd>-click several things and marry
-            them all to the last one you clicked. <b>Unmarry</b> separates them cleanly.
+            Place the person, then choose <b>Marry to…</b> the bike in their inspector. Drag the
+            bike and the rider comes along; <b>Unmarry</b> separates them.
           </>
         )
       },
       {
-        title: 'Set the light',
-        body: (
+        q: 'How do I move a whole crowd I placed?',
+        a: (
           <>
-            With nothing selected, the inspector shows the scene: pick a lighting preset (Day,
-            Golden hour, Night, Club…), drag the sun sliders, add fog. Generators read light
-            direction from your reference, so set it the way the final shot should feel.
+            Marry every performer to one lead, then move that lead — the group follows. Or{' '}
+            <Kbd>⇧</Kbd>-click them all and drag, since a multi-selection moves as one.
           </>
         )
       },
       {
-        title: '✨ Or let AI stage it from a photo',
-        body: (
+        q: 'How do I set the lighting?',
+        a: (
           <>
-            <b>Populate from reference…</b> (bottom of the library) takes a photo or video frame and
-            stages the scene to match — people, furniture, poses, labels, lighting, and a camera to
-            match the framing. Needs your Claude API key set up (it will tell you how). One{' '}
-            <Kbd>⌘Z</Kbd> undoes the whole thing.
+            With nothing selected, the inspector shows the scene: pick a preset (Day, Golden hour,
+            Night, Club…), drag the sun, add fog. Generators read light direction from your reference.
+          </>
+        )
+      },
+      {
+        q: 'How do I stage a scene from a photo?',
+        a: (
+          <>
+            <b>Populate from reference…</b> at the bottom of the Library stages people, poses,
+            lighting, and a matching camera from an image. Needs a Claude API key; one <Kbd>⌘Z</Kbd> undoes it all.
+          </>
+        )
+      },
+      {
+        q: 'How do I bring in my own 3D model?',
+        a: (
+          <>
+            <b>Import 3D Model…</b> in the Library loads a GLB/glTF and copies it into the project.
+          </>
+        )
+      },
+      {
+        q: 'How do I keep something out of the render but visible while I work?',
+        a: (
+          <>
+            Select it and tick <b>Hide in exports</b> in the inspector. It stays in the editor but
+            drops out of every rendered pass.
           </>
         )
       }
     ]
   },
   {
-    section: '2 · Choreograph the motion',
-    steps: [
+    area: 'Shoot',
+    items: [
       {
-        title: 'Marks: how everything moves',
-        body: (
+        q: 'How do I make someone walk a path?',
+        a: (
           <>
-            Switch to <b>SHOOT</b>. Blocking works like a real set: things hit <b>marks</b>. Select
-            an actor, press <Kbd>M</Kbd>, and click the floor to drop Mark 1, Mark 2, Mark 3… They
-            walk the path between marks, timed on the timeline below. Drag a timeline pill to
-            retime; drag its right edge to make them hold at the mark; double-click a pill to delete
-            it. Select a mark to set its gait (walk/jog/run/sit…) and even a limb pose that blends
-            from the previous mark — that&apos;s how you keyframe a punch or a dance move.
+            In <b>SHOOT</b>, select them, press <Kbd>M</Kbd>, and click the floor to drop marks.
+            They walk between marks on the timeline; select a mark to set its gait or hold.
           </>
         )
       },
       {
-        title: 'Record a performance instead',
-        body: (
+        q: 'How do I puppeteer someone with my mouse instead?',
+        a: (
           <>
-            Faster than placing marks: select a character or car and press <b>● Record performer</b>.
-            Move your cursor over the floor — they chase it, and your steering becomes marks with
-            walking/jogging/running matched to your speed. <b>■ Stop</b> saves it. Re-record any
-            time; the new take replaces the old. While recording, the <b>scroll wheel is
-            altitude</b> — fly a plate across the room, land a plane, drop debris from a collapsing
-            building. A mark&apos;s exact height is editable later (<b>Altitude</b> on the mark).
-            If it feels twitchy, click the <b>🎯/✋/⚡ Control</b> button: Precise adds heavy
-            smoothing and a speed cap (slow, exact moves), Fast is raw — it tames both performer
-            puppeteering and camera flying.
+            Select a character or vehicle and press <b>● Record performer</b> — steer with the
+            cursor and the gait matches your speed. <b>■ Stop</b> saves; re-record to replace it.
           </>
         )
       },
       {
-        title: 'Board a bus, land a plane, get off',
-        body: (
+        q: 'How do I make two people fight?',
+        a: (
           <>
-            Action sequences chain with <b>Board on arrival</b>: select an actor&apos;s last mark and
-            set &quot;After reaching this mark, ride… the Bus&quot; — they walk on and move with it
-            from then on. The reverse (alighting) also works: <b>marry</b> a passenger to a parked
-            plane, then give the passenger marks that start after it lands — they ride until their
-            own marks begin, then step off and walk away.
+            Select a person, open the <b>Animate</b> tab, and Apply a fight move — it lays down
+            editable pose marks at the playhead. Do the same on their opponent to trade blows.
           </>
         )
       },
       {
-        title: 'Fights, dances, stunts',
-        body: (
+        q: 'How do I make a character dance?',
+        a: (
           <>
-            Select a person and open <b>Motion presets</b> in the inspector — 44 moves across
-            fight (roundhouse, spinning backfist, takedown), dance (hip-hop, salsa, moonwalk,
-            breakdance, macarena, twist…), reactions (hit reactions, stumble-and-fall, dodge
-            roll), and gestures. <b>Apply</b> lays the move down as pose marks at the playhead —
-            then edit any of them like normal marks.
+            Select them and Apply a dance from the <b>Animate</b> tab (hip-hop, salsa, moonwalk,
+            breakdance…). Or in Stage, drop a whole <b>Dance number</b> sequence at once.
           </>
         )
       },
       {
-        title: 'Planes, cars, and falling buildings',
-        body: (
+        q: 'How do I fly a plate across the room?',
+        a: (
           <>
-            Select ANY entity and open <b>Action presets</b>: plane takeoff / landing / flyby /
-            banked circle, helicopter lift-off / orbit / hover, bird swoops, car chase weave /
-            drift turn / screech stop, falling debris, building topple, thrown objects. One click
-            lays the full flight or drive path — with altitude — from wherever the entity is at
-            the playhead. Aim the entity first (rotate it); paths travel the way it faces.
+            Select any entity and Apply a flight from <b>Action presets</b>, or <b>● Record</b> it
+            and use the <b>scroll wheel for altitude</b>. Set a mark&apos;s <b>Altitude</b> by hand later.
           </>
         )
       },
       {
-        title: 'Whole crowds in one click',
-        body: (
+        q: 'How do I land a plane or topple a building?',
+        a: (
           <>
-            In Stage mode, the <b>Sequences</b> box at the top of the Library stages a complete
-            choreographed group: pick <b>Dance number / Fight / Foot chase / Car chase</b>, set
-            how many performers (2–60), pick a style — 15 dance styles, paired brawl or mob fight,
-            straight or weaving pursuits — and it drops the whole cast where you&apos;re looking,
-            already choreographed together. One undo step; every performer stays an ordinary
-            entity you can move, re-style, or delete individually.
+            Aim the entity first, then Apply from <b>Action presets</b> — plane takeoff / landing /
+            flyby, heli orbit, car chase moves, falling debris, building topple. The path starts
+            from where it stands.
           </>
         )
       },
       {
-        title: 'Frame the camera',
-        body: (
+        q: 'How do I have someone board a bus or get off a plane?',
+        a: (
           <>
-            Select the camera (the white body in the viewport) and drag it, or press{' '}
-            <Kbd>C</Kbd> to <b>look through</b> it and orbit the view to compose. Pick a lens
-            (12–135mm), or click a shot size (<b>WS/MS/CU</b>) to auto-frame your subject. For
-            coverage, the one-click framings do the classic setups: <b>2-SHOT</b> (select 3–4
-            people for a group shot), <b>OTS</b> over-the-shoulder, <b>REV</b> reverse angle,{' '}
-            <b>TOP</b> overhead, <b>LOW</b> hero angle, <b>DUTCH</b> tilted horizon. Then{' '}
-            <b>+ Cam mark</b> drops camera Mark 1. Move, reframe, drop Mark 2 — the camera travels
-            between them. Choose a <b>rig</b> for the motion feel: dolly, steadicam, handheld,
-            crane, drone, or car-mount (parents the camera to a moving vehicle). If a move cuts
-            across your two leads&apos; eyeline, a <b>🎬 180° line</b> chip warns you on the
-            timeline.
+            Select an actor&apos;s last mark and set <b>Board on arrival → the Bus</b>. To alight,
+            marry them to a parked plane, then give them marks that start after it lands.
           </>
         )
       },
       {
-        title: 'Record the camera like an operator',
-        body: (
+        q: 'How do I retime or delete a move on the timeline?',
+        a: (
           <>
-            With the camera selected, <b>● Record camera</b> replays your blocking while you fly the
-            viewport — orbit, pan, zoom — and your flight becomes the camera move, perfectly synced
-            to the performance. It auto-stops at the end of the shot. Don&apos;t like it? <b>Clear
-            camera move</b> in the inspector and record again.
+            Drag a pill to retime it, drag its right edge to add a hold, and double-click to delete.
+            <Kbd>⇧</Kbd>-click to multi-select pills.
           </>
         )
       },
       {
-        title: 'More cameras, more versions',
-        body: (
+        q: 'How do I make a whole choreographed group at once?',
+        a: (
+          <>
+            In Stage, the <b>Sequences</b> box stages a full cast: Dance number, Fight, Foot chase,
+            or Car chase. Set the count and style, and it drops them already choreographed.
+          </>
+        )
+      }
+    ]
+  },
+  {
+    area: 'Camera',
+    items: [
+      {
+        q: 'How do I frame a shot?',
+        a: (
+          <>
+            Select the camera and press <Kbd>C</Kbd> to look through it, then pick a shot size
+            (WS/MS/CU) to auto-frame, or a framing (<b>2-SHOT / OTS / REV / TOP / LOW / DUTCH</b>).
+          </>
+        )
+      },
+      {
+        q: 'How do I move the camera during a shot?',
+        a: (
+          <>
+            Frame it, drop <b>+ Cam mark</b>, move and reframe, drop another — it travels between
+            marks. Pick a <b>rig</b> (dolly, steadicam, handheld, crane, drone) for the motion feel.
+          </>
+        )
+      },
+      {
+        q: 'How do I use one of the ready-made camera moves?',
+        a: (
+          <>
+            The camera inspector has <b>27 moves</b> — orbits, cranes, drone follows, whip pan,
+            vertigo dolly-zoom. One click lays down editable marks around your subject.
+          </>
+        )
+      },
+      {
+        q: 'How do I track a plane with the camera?',
+        a: (
+          <>
+            Turn on <b>Track subject</b> in the camera inspector and pick the subject — the aim
+            locks on no matter how it moves, and focus follows too.
+          </>
+        )
+      },
+      {
+        q: 'How do I fly the camera like an operator?',
+        a: (
+          <>
+            Select the camera and press <b>● Record camera</b> — your blocking replays while you
+            orbit, pan, and zoom the view, and your flight becomes the move, synced to the action.
+          </>
+        )
+      },
+      {
+        q: 'How do I add a second camera?',
+        a: (
           <>
             <b>Cameras (A/B/C)</b> at the top of the camera inspector: <b>+</b> adds Camera B with
-            its own marks and rig — switch with the chips, exactly like multiple cameras on set.
-            And before trying something risky, hover the shot in the left rail and click{' '}
-            <b>+ Draft</b>: it snapshots the shot as &quot;1A v1&quot;. Drafts play and export like
-            shots; <b>▲</b> promotes one back to being the real shot.
+            its own marks and rig. The chips switch between them; the export uses the active one.
           </>
         )
       },
       {
-        title: 'Watch the shot',
-        body: (
+        q: 'How do I watch exactly what will export?',
+        a: (
           <>
-            <b>▶ Play shot</b> (top-right) plays the shot from the top <i>through the shot
-            camera</i> — the exact frame that will export. After a camera recording this happens
-            automatically. The <b>SHOT PREVIEW</b> box (bottom-right) shows the same view live
-            while you work in the free view. <Kbd>Space</Kbd> plays/pauses, <Kbd>C</Kbd> toggles
-            the camera view, <Kbd>1–9</Kbd> jump to camera marks. Amber warnings appear if you
-            asked a human to walk at car speed.
+            <b>▶ Play shot</b> plays through the shot camera — the exact export frame. The{' '}
+            <b>SHOT PREVIEW</b> box shows it live; <Kbd>Space</Kbd> plays, <Kbd>1–9</Kbd> jump to camera marks.
           </>
         )
       },
       {
-        title: 'Match an existing shot',
-        body: (
+        q: 'How do I match an existing shot?',
+        a: (
           <>
-            <b>🎞 Ref</b> overlays any video (even a depth-map video) ghosted on the viewport,
-            synced to your timeline — recreate its blocking by eye, adjust opacity and time offset.
+            <b>🎞 Ref</b> ghosts any video (even a depth-map video) over the viewport, synced to
+            your timeline — recreate its blocking by eye and adjust opacity and offset.
+          </>
+        )
+      },
+      {
+        q: 'How do I try a risky version without losing my shot?',
+        a: (
+          <>
+            Hover the shot in the left rail and click <b>+ Draft</b> — it snapshots as &quot;1A v1&quot;.
+            Drafts play and export like shots; <b>▲</b> promotes one back to the real shot.
           </>
         )
       }
     ]
   },
   {
-    section: '3 · Deliver to your generator',
-    steps: [
+    area: 'Deliver',
+    items: [
       {
-        title: 'Export the package',
-        body: (
+        q: 'How do I export the package for my generator?',
+        a: (
           <>
-            Switch to <b>DELIVER</b>, pick your target (Seedance 2.0, Veo 3.1, Kling, LTX 2.3, Wan
-            2.2…), and hit <b>Export shot package</b>. You get the reference MP4 (always clean — no
-            marks or lines), a depth pass for ComfyUI control, stills at every camera mark, a
-            top-down blocking diagram, and a <b>prompt written from your actual blocking</b> —
-            copy it straight into the generator. Anything you don&apos;t want in the render: tick{' '}
-            <b>Hide in exports</b> on that entity.
+            In <b>DELIVER</b>, pick your target (Seedance, Veo, Kling, LTX, Wan…) and hit{' '}
+            <b>Export shot package</b> — clean MP4, depth pass, stills, top-down diagram, and a
+            written prompt.
           </>
         )
       },
       {
-        title: 'Labels in or out',
-        body: (
+        q: 'How do I get a 720p file for Seedance?',
+        a: (
           <>
-            Choose whether labels burn into the video, appear only in stills (default — generators
-            often read them best there), or stay out entirely.
+            Set <b>Resolution</b> to 720p in Deliver — that&apos;s what Seedance accepts for
+            reference files. It applies to videos, stills, and animatics.
           </>
         )
       },
       {
-        title: 'Scene tools',
-        body: (
+        q: 'How do I export just one frame?',
+        a: (
           <>
-            <b>Animatic</b> stitches every shot in the scene into one video. <b>Contact sheet</b>{' '}
-            makes a storyboard grid. <b>Export to Blender</b> writes a .glb with the animated
-            camera and blocking plus a one-click import script for further refinement.
+            Scrub to the exact moment and click <b>📸 Export this frame</b> — it saves that single
+            frame as a full-quality PNG.
+          </>
+        )
+      },
+      {
+        q: 'How do I control whether labels show in the export?',
+        a: (
+          <>
+            Choose whether labels burn into the video, appear only in stills (the default), or stay
+            out entirely — right in the Deliver panel.
+          </>
+        )
+      },
+      {
+        q: 'How do I stitch all my shots into one video?',
+        a: (
+          <>
+            <b>Animatic</b> stitches every shot in the scene into one video; <b>Contact sheet</b>{' '}
+            makes a storyboard grid.
+          </>
+        )
+      },
+      {
+        q: 'How do I take the blocking into Blender?',
+        a: (
+          <>
+            <b>Export to Blender</b> writes a .glb with the animated camera and blocking, plus a
+            one-click import script.
+          </>
+        )
+      }
+    ]
+  },
+  {
+    area: 'Projects',
+    items: [
+      {
+        q: 'How do I save a set to reuse in another project?',
+        a: (
+          <>
+            <b>Stage Presets</b> save the current staging (set + characters + blocking) globally.
+            Stage it as a fresh scene in any project; the original never changes.
+          </>
+        )
+      },
+      {
+        q: 'How do I shoot the same action from another angle?',
+        a: (
+          <>
+            The scene owns the blocking and each shot owns its own camera, so make a{' '}
+            <b>new shot</b> and just reframe — no need to redo the moves.
+          </>
+        )
+      },
+      {
+        q: 'How do I recover work after a crash?',
+        a: (
+          <>
+            A backup autosaves every minute; after a crash, <b>Open Project</b> restores the
+            unsaved work. A project is just a folder of readable JSON, safe to back up or git.
+          </>
+        )
+      },
+      {
+        q: 'How do I let an AI agent drive the app?',
+        a: (
+          <>
+            Register <b>mcp/blockout-mcp.mjs</b> with Claude Code, Codex, or Hermes — the agent can
+            stage scenes, frame shots, and screenshot the viewport. See AGENTS.md.
           </>
         )
       }
@@ -279,113 +440,70 @@ const TUTORIAL: { section: string; steps: Step[] }[] = [
   }
 ]
 
-const REFERENCE: { section: string; items: [string, string][] }[] = [
-  {
-    section: 'Keyboard shortcuts',
-    items: [
-      ['Space', 'Play / pause the shot'],
-      ['M', 'Drop marks for the selection (click the floor)'],
-      ['C', 'Look through the shot camera'],
-      ['G / R', 'Gizmo: move / rotate'],
-      ['⇧-click', 'Multi-select entities in the viewport, or marks on the timeline'],
-      ['⌘A / ⇧⌘A', 'Select all marks in the shot / in the current lane (Shoot mode)'],
-      ['⌘D', 'Duplicate selection'],
-      ['⌫', 'Delete selection (all of a multi-selection)'],
-      ['⌘Z / ⇧⌘Z', 'Undo / redo — every action is undoable'],
-      ['⌘S', 'Save project'],
-      ['1–9', 'Jump to camera mark N'],
-      ['Esc', 'Cancel placement / mark-dropping / selection'],
-      ['?', 'Open this help']
-    ]
-  },
-  {
-    section: 'Stage mode',
-    items: [
-      ['Library', 'Click an item, click the floor to place. ⌥-click places multiples. Search at the top, filter by category, collapse sections by clicking their headers, or pick from the "Place from list…" dropdown.'],
-      ['Sequences', 'One-click choreographed crowds: N dancers (pick a style or mix), paired brawls / mob fights, foot chases, car chases — staged where you look, facing the camera.'],
-      ['Stage Presets', 'Save the current staging (set + characters + blocking) globally — "Dinner scene", "Driving scene" — and Stage it as a fresh scene in any project. The original never changes.'],
-      ['Environments', '50+ one-click sets: interiors (train car, boat cabin, diner, coffee shop, supermarket, post office, movie theater, mall, hotel, casino, church, police station, school, airport, restaurant, hospital…) and exteriors (residential street, downtown, strip/outdoor mall, backyard w/ pool, playground, park, gas station, train station, stadium, construction site, cemetery, beach, forest, sky for aerials…). Search the Library.'],
-      ['⬇ Ground', 'Rest the selection on whatever is beneath it — floor, tabletop, truck bed.'],
-      ['Import 3D Model…', 'Bring in your own GLB/glTF; it is copied into the project.'],
-      ['✨ Populate from reference…', 'AI stages the scene from a photo/video frame (needs Claude API key).'],
-      ['Labels', 'Name + color a subject; tints the model and guides the AI generator.'],
-      ['Pose', 'Stand/Sit/Crouch/Lie/Talk/Fallen without animation; 14 limb sliders for stances.'],
-      ['Marriage', 'Marry to… makes an entity ride another (rider on bike, prop on cart). Unmarry separates.'],
-      ['Hide in exports', 'Keep something visible in the editor but out of every rendered pass.'],
-      ['Lighting', 'Six presets + sun direction + fog, all visible in exports.']
-    ]
-  },
-  {
-    section: 'Shoot mode',
-    items: [
-      ['Marks', 'Arrival time, hold, easing per mark; gait and a limb pose per actor mark; lens + focus per camera mark.'],
-      ['Timeline', 'Drag pills to retime, right edge to hold, double-click deletes, ⇧-click multi-selects.'],
-      ['Record performer', 'Select a character/vehicle, ● Record — steer with the cursor; gaits match your speed.'],
-      ['Record camera', '● Record with the camera selected — blocking replays while you fly; auto-stops at shot end.'],
-      ['Clear camera move', 'Deletes all camera marks so you can re-record.'],
-      ['Cameras A/B/C', '+ adds a camera with its own marks/rig/lens; chips switch; export uses the active one.'],
-      ['Rigs', 'Sticks, dolly, steadicam, handheld (intensity), crane, drone, car-mount (parent to a vehicle).'],
-      ['Auto-frame', 'WS/FS/MS/MCU/CU position the camera for that shot size on your subject at the current lens.'],
-      ['Framings', '2-SHOT / OTS / REV / TOP / LOW / DUTCH — classic setups in one click, on the selected characters.'],
-      ['🎥 Camera tab', 'Top of the right panel: pin the camera controls so lens, position & aim (numeric X/Y/Z, pan/tilt/roll), rig, moves, and tracking are ALWAYS reachable, whatever is selected.'],
-      ['Camera moves', '27 classic moves in the camera inspector — orbits, cranes, drone follows, whip pan, vertigo dolly-zoom. One click lays down editable marks built around your subject, riding along if it moves.'],
-      ['Track subject', 'Aim lock in the camera inspector: the camera stays pointed at a subject no matter how its position moves — drone tracking a plane. Focus follows too.'],
-      ['Record control', '🎯 Precise / ✋ Normal / ⚡ Fast — how tightly recordings chase your mouse (smoothing + speed cap).'],
-      ['Select marks', 'Click a lane label = select all its marks. ⌘A = every mark in the shot (⇧⌘A just the current lane). ⌫ deletes the whole selection; shift times together in the inspector.'],
-      ['Motion presets', '44 fight/dance/gesture/stunt moves applied as editable pose marks at the playhead.'],
-      ['Action presets', 'Flight & drive paths for anything: plane takeoff/landing, heli orbit, bird swoop, car chase moves, debris fall, building topple — from the entity’s pose at the playhead.'],
-      ['Board on arrival', 'On an actor mark: after reaching it, ride a vehicle/prop. Marry + later marks = get off.'],
-      ['Flying objects', 'While recording a performer, scroll = altitude; or set a mark’s Altitude by hand.'],
-      ['180° line', 'A 🎬 chip warns when the camera crosses your two leads’ axis between marks.'],
-      ['Shot preview', 'Always-live picture-in-picture of the shot camera; S/M/L sizes.'],
-      ['Drafts', '+ Draft on the shot row snapshots a version (1A v1); ▲ promotes it back; ✕ deletes.'],
-      ['🎞 Ref', 'Ghost a reference video over the viewport, timeline-synced, to match its blocking.'],
-      ['Speed warnings', 'Amber chips when timing implies impossible speeds; click to jump to the mark.']
-    ]
-  },
-  {
-    section: 'Deliver mode',
-    items: [
-      ['Profiles', 'Per-generator export settings and prompt phrasing — Seedance, Veo, Kling, LTX, Wan, and image models.'],
-      ['Passes', 'Clean reference MP4 (always chrome-free), depth pass, normal pass.'],
-      ['Resolution', 'Auto (profile native), 720p (what Seedance accepts for reference files), or 1080p — applies to videos, stills, and animatics.'],
-      ['📸 Export this frame', 'Scrub to the exact moment, click — just that frame as a full-quality PNG.'],
-      ['Stills', 'Frame at every camera mark + first/last + top-down blocking diagram.'],
-      ['Prompt', 'Generated from your actual lenses, moves, labels, and timings — copy-paste ready.'],
-      ['Animatic / Contact sheet', 'Whole-scene stitched video / storyboard grid.'],
-      ['Blender', '.glb with animated camera + blocking, plus an import script.'],
-      ['ComfyUI', 'Depth-workflow JSON included for Wan/LTX profiles.']
-    ]
-  },
-  {
-    section: 'Projects & saving',
-    items: [
-      ['Projects', 'A project is a folder of readable JSON — safe to back up, sync, or put in git.'],
-      ['Autosave', 'A backup writes every minute; after a crash, Open Project restores unsaved work.'],
-      ['Coverage', 'The scene owns the blocking; each shot owns a camera — shoot the same action from any angle without redoing moves.'],
-      ['AI setup', 'Populate-from-reference needs a Claude API key: `ant auth login`, or save it to ~/.config/blockout/anthropic-api-key.'],
-      ['Agent control (MCP)', 'Other AI agents can drive Blockout: register mcp/blockout-mcp.mjs with Claude Code, Codex, or Hermes and they can stage scenes, frame shots, and screenshot the viewport. See AGENTS.md.']
-    ]
-  }
+/* ------------------------------- Shortcuts -------------------------------- */
+
+const SHORTCUTS: [string, string][] = [
+  ['Space', 'Play / pause the shot'],
+  ['M', 'Drop marks for the selection (click the floor)'],
+  ['C', 'Look through the shot camera'],
+  ['G / R', 'Gizmo: move / rotate'],
+  ['⇧-click', 'Multi-select entities, or marks on the timeline'],
+  ['⌘A / ⇧⌘A', 'Select all marks in the shot / in the current lane'],
+  ['⌘D', 'Duplicate selection'],
+  ['⌫', 'Delete selection (all of a multi-selection)'],
+  ['⌘Z / ⇧⌘Z', 'Undo / redo — every action is undoable'],
+  ['⌘S', 'Save project'],
+  ['1–9', 'Jump to camera mark N'],
+  ['⌥-click', 'Place multiple copies while staging'],
+  ['Esc', 'Cancel placement / mark-dropping / selection'],
+  ['?', 'Open this help']
 ]
+
+/* -------------------------------- overlay -------------------------------- */
+
+type Tab = 'quickstart' | 'tasks' | 'shortcuts'
 
 export function HelpOverlay(): JSX.Element | null {
   const helpOpen = useStore((s) => s.helpOpen)
   const setHelpOpen = useStore((s) => s.setHelpOpen)
-  const [tab, setTab] = useState<'tutorial' | 'reference'>('tutorial')
+  const [tab, setTab] = useState<Tab>('quickstart')
+  const [query, setQuery] = useState('')
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return TASKS
+    const matches = (t: Task): boolean => {
+      if (t.q.toLowerCase().includes(q)) return true
+      // Answer text lives in JSX children; join their string leaves to search.
+      const text = JSON.stringify(t.a).toLowerCase()
+      return text.includes(q)
+    }
+    return TASKS.map((g) => ({ area: g.area, items: g.items.filter(matches) })).filter(
+      (g) => g.items.length > 0
+    )
+  }, [query])
 
   if (!helpOpen) return null
 
   return (
     <div className="help-backdrop" onClick={() => setHelpOpen(false)}>
-      <div className="help-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="help-modal help-v4" onClick={(e) => e.stopPropagation()}>
         <div className="help-header">
-          <div className="seg" style={{ width: 280 }}>
-            <button className={tab === 'tutorial' ? 'active' : ''} onClick={() => setTab('tutorial')}>
-              Tutorial
+          <div className="seg help-tabs">
+            <button
+              className={tab === 'quickstart' ? 'active' : ''}
+              onClick={() => setTab('quickstart')}
+            >
+              Quick start
             </button>
-            <button className={tab === 'reference' ? 'active' : ''} onClick={() => setTab('reference')}>
-              Reference
+            <button className={tab === 'tasks' ? 'active' : ''} onClick={() => setTab('tasks')}>
+              How do I…?
+            </button>
+            <button
+              className={tab === 'shortcuts' ? 'active' : ''}
+              onClick={() => setTab('shortcuts')}
+            >
+              Shortcuts
             </button>
           </div>
           <span style={{ flex: 1 }} />
@@ -394,45 +512,74 @@ export function HelpOverlay(): JSX.Element | null {
           </button>
         </div>
 
-        <div className="help-body">
-          {tab === 'tutorial' ? (
-            <>
+        <div className="help-body help-v4-body">
+          {tab === 'quickstart' && (
+            <div className="help-v4-inner">
               <p className="help-intro">
                 The whole app is three verbs: <b>STAGE</b> the scene, <b>SHOOT</b> the motion,{' '}
-                <b>DELIVER</b> the reference package to your AI generator. Work through these steps
-                once and you&apos;ll know everything.
+                <b>DELIVER</b> the reference package to your AI generator. Here&apos;s the whole
+                thing at a glance.
               </p>
-              {TUTORIAL.map((group) => (
-                <div key={group.section} className="help-group">
-                  <div className="help-section-title">{group.section}</div>
-                  {group.steps.map((step, i) => (
-                    <div key={step.title} className="help-step">
-                      <div className="help-step-num">{i + 1}</div>
-                      <div>
-                        <div className="help-step-title">{step.title}</div>
-                        <div className="help-step-body">{step.body}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </>
-          ) : (
-            REFERENCE.map((group) => (
-              <div key={group.section} className="help-group">
-                <div className="help-section-title">{group.section}</div>
-                <table className="help-table">
-                  <tbody>
-                    {group.items.map(([term, desc]) => (
-                      <tr key={term}>
-                        <td className="help-term">{term}</td>
-                        <td>{desc}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="help-cards">
+                {CARDS.map((c) => (
+                  <div key={c.title} className="help-card">
+                    <div className="help-card-emoji">{c.emoji}</div>
+                    <div className="help-card-title">{c.title}</div>
+                    <div className="help-card-body">{c.body}</div>
+                    <div className="help-card-then">{c.then}</div>
+                  </div>
+                ))}
               </div>
-            ))
+            </div>
+          )}
+
+          {tab === 'tasks' && (
+            <div className="help-v4-inner">
+              <input
+                className="help-search"
+                type="text"
+                placeholder="Search tasks — e.g. “fight”, “track a plane”, “720p”…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                autoFocus
+              />
+              {filtered.length === 0 ? (
+                <p className="help-empty">No tasks match “{query}”.</p>
+              ) : (
+                filtered.map((group) => (
+                  <div key={group.area} className="help-task-group">
+                    <div className="help-task-area">{group.area}</div>
+                    {group.items.map((t) => (
+                      <div key={t.q} className="help-task">
+                        <div className="help-task-q">{t.q}</div>
+                        <div className="help-task-a">{t.a}</div>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {tab === 'shortcuts' && (
+            <div className="help-v4-inner">
+              <p className="help-intro">Keyboard shortcuts — every action is undoable.</p>
+              <div className="help-kbd-grid">
+                {SHORTCUTS.map(([key, desc]) => (
+                  <div key={key} className="help-kbd-row">
+                    <div className="help-kbd-keys">
+                      {key.split(' / ').map((k, i, arr) => (
+                        <span key={k}>
+                          <Kbd>{k}</Kbd>
+                          {i < arr.length - 1 ? <span className="help-kbd-sep"> / </span> : null}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="help-kbd-desc">{desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>

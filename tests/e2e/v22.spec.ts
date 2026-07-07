@@ -28,10 +28,14 @@ test.afterAll(async () => {
 })
 
 test('sequences UI stages a choreographed dance crowd in one click', async () => {
-  // Drive the actual Library UI: type stays Dance, set 10 performers, stage.
+  // Drive the actual Library UI: set 10 performers, arm placement, click the
+  // floor (v4: sequences stage exactly where you click).
   const seqBox = page.locator('.panel-section', { hasText: 'Sequences' }).first()
   await seqBox.locator('input[type="number"]').fill('10')
   await page.getByRole('button', { name: /Stage 10 performers/ }).click()
+  const canvas = page.locator('.viewport-wrap canvas')
+  const box = (await canvas.boundingBox())!
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.62)
   await page.waitForTimeout(300)
   const result = await page.evaluate(() => {
     const s = (window as any).__blockout.store.getState()

@@ -62,15 +62,17 @@ export function Inspector(): JSX.Element {
   const selection = useStore((s) => s.selection)
   const scene = useStore((s) => s.scene())
   const shot = useStore((s) => s.shot())
-  // Pinned camera tab: every camera control — lens, position, aim, rig,
-  // moves, tracking — reachable at ANY time, whatever is selected.
-  const [tab, setTab] = useState<'auto' | 'camera'>('auto')
+  // Pinned tabs: camera controls and character animation reachable at ANY
+  // time, whatever is selected.
+  const [tab, setTab] = useState<'auto' | 'camera' | 'animate'>('auto')
 
   if (!scene || !shot) return <div />
 
   let body: JSX.Element
   if (tab === 'camera') {
     body = <CameraInspector scene={scene} shot={shot} />
+  } else if (tab === 'animate') {
+    body = <AnimateTab scene={scene} shot={shot} />
   } else if (selection === null) {
     body = <SceneInspector scene={scene} shot={shot} />
   } else if (selection.kind === 'entity') {
@@ -117,9 +119,140 @@ export function Inspector(): JSX.Element {
           >
             🎥 Camera
           </button>
+          <button
+            className={tab === 'animate' ? 'active' : ''}
+            onClick={() => setTab('animate')}
+            title="Make the selection perform: fights, dances, sit/drink/jump, flights and drives — or restyle a whole selected group at once"
+          >
+            ✨ Animate
+          </button>
         </div>
       </div>
       {body}
+    </div>
+  )
+}
+
+/* --------------------------- ✨ Animate tab ---------------------------- */
+
+/**
+ * One obvious place to make things PERFORM. Single character → the full
+ * motion + action libraries. A shift-click group → restyle everyone at
+ * once (swap the dance, change the chase). Nothing selected → how-to.
+ */
+function AnimateTab({ scene, shot }: { scene: Scene; shot: Shot }): JSX.Element {
+  const selection = useStore((s) => s.selection)
+
+  if (selection?.kind === 'entity') {
+    const entity = scene.entities.find((e) => e.id === selection.entityId)
+    if (!entity) return <div className="panel-section">Entity not found.</div>
+    return (
+      <div>
+        <div className="panel-section">
+          <div className="panel-title">Animating: {entity.label?.text || entity.name}</div>
+          <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4 }}>
+            Presets drop editable marks at the playhead — apply, press ▶, then tweak any mark.
+          </p>
+        </div>
+        {entity.assetId.startsWith('person.') && (
+          <MotionPresetsSection scene={scene} shot={shot} entity={entity} />
+        )}
+        <ActionPresetsSection scene={scene} shot={shot} entity={entity} />
+      </div>
+    )
+  }
+
+  if (selection?.kind === 'entities') {
+    return <GroupAnimateSection entityIds={selection.entityIds} />
+  }
+
+  return (
+    <div className="panel-section">
+      <div className="panel-title">✨ Animate</div>
+      <p style={{ color: 'var(--text-dim)', fontSize: 12, lineHeight: 1.6 }}>
+        Select a <b>character</b> to give them a fight move, a dance, a sit-down, a drink — or a{' '}
+        <b>vehicle/prop</b> for takeoffs, chases, and falls.
+        <br />
+        <br />
+        ⇧-click <b>several performers</b> (or stage a Sequence from the Library) and this tab
+        restyles the whole group at once — swap the dance style, change everyone&apos;s move.
+      </p>
+    </div>
+  )
+}
+
+/** Restyle a whole selected group in one click. */
+function GroupAnimateSection({ entityIds }: { entityIds: string[] }): JSX.Element {
+  const scene = useStore((s) => s.scene())
+  const applyMotionToEntities = useStore((s) => s.applyMotionToEntities)
+  const applyActionToEntities = useStore((s) => s.applyActionToEntities)
+  const [motionId, setMotionId] = useState(MOTION_PRESETS[0]!.id)
+  const [actionId, setActionId] = useState(ACTION_PRESETS[0]!.id)
+
+  const people = entityIds.filter((id) =>
+    scene?.entities.find((e) => e.id === id)?.assetId.startsWith('person.')
+  )
+  const motionCats = [...new Set(MOTION_PRESETS.map((p) => p.category))]
+  const actionCats = [...new Set(ACTION_PRESETS.map((p) => p.category))]
+
+  return (
+    <div>
+      <div className="panel-section">
+        <div className="panel-title">Animate {entityIds.length} together</div>
+        <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4 }}>
+          Replaces each performer&apos;s choreography in place — a staged sequence is just a
+          starting point. One undo step.
+        </p>
+      </div>
+      {people.length > 0 && (
+        <div className="panel-section">
+          <div className="panel-title">Everyone performs ({people.length} people)</div>
+          <div className="field">
+            <select value={motionId} onChange={(e) => setMotionId(e.target.value)}>
+              {motionCats.map((cat) => (
+                <optgroup key={cat} label={cat.toUpperCase()}>
+                  {MOTION_PRESETS.filter((p) => p.category === cat).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+          <button
+            className="btn primary"
+            style={{ width: '100%' }}
+            onClick={() => applyMotionToEntities(people, motionId)}
+          >
+            Apply to all {people.length}
+          </button>
+        </div>
+      )}
+      <div className="panel-section">
+        <div className="panel-title">Everyone travels ({entityIds.length})</div>
+        <div className="field">
+          <select value={actionId} onChange={(e) => setActionId(e.target.value)}>
+            {actionCats.map((cat) => (
+              <optgroup key={cat} label={cat.toUpperCase()}>
+                {ACTION_PRESETS.filter((p) => p.category === cat).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+        <button
+          className="btn"
+          style={{ width: '100%' }}
+          onClick={() => applyActionToEntities(entityIds, actionId)}
+          title="Every selected performer gets this path from its own spot and facing — a convoy of takeoffs, a synchronized chase"
+        >
+          Apply path to all
+        </button>
+      </div>
     </div>
   )
 }

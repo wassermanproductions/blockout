@@ -172,6 +172,7 @@ export function Viewport(): JSX.Element {
   const recording = useStore((s) => s.recording)
   const setRecording = useStore((s) => s.setRecording)
   const placingAssetId = useStore((s) => s.placingAssetId)
+  const placingSequence = useStore((s) => s.placingSequence)
   const droppingMarks = useStore((s) => s.droppingMarks)
   const selection = useStore((s) => s.selection)
   const doc = useStore((s) => s.doc)
@@ -207,7 +208,9 @@ export function Viewport(): JSX.Element {
   const singleEntitySelected = selection?.kind === 'entity'
 
   let hint: string | null = null
-  if (placingAssetId) hint = 'Click the floor to place · ⌥-click to place multiple · Esc to cancel'
+  if (placingSequence)
+    hint = `Click the floor to stage ${placingSequence.count} performers there (facing you) · Esc to cancel`
+  else if (placingAssetId) hint = 'Click the floor to place · ⌥-click to place multiple · Esc to cancel'
   else if (droppingMarks && selection?.kind === 'entity')
     hint = 'Click the floor to drop marks in order · Esc when done'
   else if (droppingMarks && selection?.kind === 'camera')

@@ -10,7 +10,6 @@ import type { EntityCategory } from '@engine/types'
 import { sequenceStyles, type SequenceType } from '@engine/sequences'
 import { useStore } from '../store'
 import { populateFromReference } from '../ai/populate'
-import { getSceneManager as getSceneManagerSafe } from '../export/scene-access'
 
 interface PresetInfo {
   id: string
@@ -130,7 +129,8 @@ function Sequences(): JSX.Element {
   const [type, setType] = useState<SequenceType>('dance')
   const [count, setCount] = useState(12)
   const [style, setStyle] = useState('mixed')
-  const spawnSequence = useStore((s) => s.spawnSequence)
+  const placingSequence = useStore((s) => s.placingSequence)
+  const setPlacingSequence = useStore((s) => s.setPlacingSequence)
 
   const styles = sequenceStyles(type)
   const activeStyle = styles.some((s) => s.id === style) ? style : styles[0]!.id
@@ -181,15 +181,14 @@ function Sequences(): JSX.Element {
         </div>
       </div>
       <button
-        className="btn primary"
+        className={`btn primary${placingSequence ? ' active' : ''}`}
         style={{ width: '100%' }}
-        onClick={() => {
-          const origin = getSceneManagerSafe()?.viewCenterOnGround()
-          spawnSequence({ type, count, style: activeStyle, origin })
-        }}
-        title="Drops the whole choreographed group where the viewport is looking, facing the camera. One undo step; every performer stays individually editable."
+        onClick={() =>
+          setPlacingSequence(placingSequence ? null : { type, count, style: activeStyle })
+        }
+        title="Arms placement — then click the floor exactly where you want the group. It stages there, facing the camera. Esc cancels. One undo step; every performer stays individually editable."
       >
-        🎬 Stage {count} performers
+        {placingSequence ? '⟳ Click the floor to place… (Esc cancels)' : `🎬 Stage ${count} performers`}
       </button>
     </div>
   )

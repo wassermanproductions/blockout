@@ -178,6 +178,7 @@ function useKeyboard(): void {
           return
         }
         s.setPlacingAsset(null)
+        s.setPlacingSequence(null)
         s.setDroppingMarks(false)
         s.setSelection(null)
       } else if (e.key >= '1' && e.key <= '9') {
@@ -248,11 +249,11 @@ export function App(): JSX.Element {
           Save
         </button>
         <button
-          className="help-btn"
-          title="Help & tutorial (?)"
+          className="btn small"
+          title="Help: quick start, how-do-I answers, shortcuts (?)"
           onClick={() => useStore.getState().setHelpOpen(true)}
         >
-          ?
+          ? Help
         </button>
       </div>
 

@@ -17,7 +17,8 @@ It is deliberately **not** a 3D art tool. Grey-box mannequins and vehicles at re
 - 🎬 **Real camera optics** — Super 16 / 35 / Full Frame / 65mm sensors, real focal lengths, keyframable zoom, rack focus, aspect masks.
 - 🚶 **Marks-based choreography** — one mental model for camera and actors; editable paths, per-mark easing, gaits, and speed sanity warnings.
 - 🎥 **Coverage model** — a scene owns the blocking; shots own cameras. Shoot the same action from five angles without re-blocking.
-- 👥 **One-click crowds** — dance numbers, brawls, foot and car chases, staged and choreographed in a single action.
+- 👥 **One-click crowds** — dance numbers, brawls, foot and car chases: pick a size and style, click the floor, and the whole choreographed cast stages exactly there. Restyle the entire group later in one click.
+- ✨ **An Animate tab** — 64 character motions (fights, dances, sit/drink/jump, playing cards, squirt-gun) and 25 action paths (plane landings, helicopter orbits, car chases, collapsing debris) always one click away.
 - 🎛️ **27 classic camera moves** — orbits, cranes, drone follows, vertigo dolly-zoom — built around your subject and riding along if it moves.
 - 📦 **Deterministic exports** — the same project renders byte-identical frames on every run. Playback performance never touches the output.
 - 🤖 **Agent-drivable** — a bundled MCP server lets Claude Code, Codex, or any MCP client stage and shoot the scene for you.
@@ -79,7 +80,7 @@ Data-driven **generator profiles** define durations, resolutions, reference mode
 
 ### Sequences & presets
 
-Stage a whole choreographed crowd in one action — a dance number, a paired or mob **fight**, a **foot chase**, or a **car chase** — performers *and* their choreography, all editable afterward and removable with a single undo. Non-character performers get motion-path presets too: plane takeoff / landing / flyby, helicopter orbit, bird swoop, falling debris, thrown objects. For the camera, apply one of **27 classic moves** — orbits, cranes, drone follows, whip pans, the vertigo dolly-zoom — each built around your subject and riding along if it moves.
+Stage a whole choreographed crowd in one action — pick **Dance number / Fight / Foot chase / Car chase**, set the head-count (2–60) and style, then **click the floor exactly where you want them**: performers *and* their choreography appear there, facing the camera. A staged sequence is a *starting point*: shift-click the group (their choreography moves with them when you drag) and the **✨ Animate tab** swaps everyone's dance style or path in one click. Non-character performers get motion-path presets too: plane takeoff / landing / flyby, helicopter orbit, bird swoop, falling debris, thrown objects. For the camera, apply one of **27 classic moves** — orbits, cranes, drone follows, whip pans, the vertigo dolly-zoom — each built around your subject and riding along if it moves.
 
 ### Agent control
 
