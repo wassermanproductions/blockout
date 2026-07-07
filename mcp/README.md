@@ -98,6 +98,7 @@ No `env`, no headers, no URL — the bridge discovers the running app on its own
 | `list_presets` | — | Saved global stage presets, as `{ id, name, savedAt, entityCount }`. |
 | `save_preset` | `name` | Save the current staging as a named global preset. |
 | `apply_preset` | `id` | Load a saved stage preset into the current scene. |
+| `set_reference` | `videoPath, mode?, opacity?` | Attach a reference clip (copied into `refs/`) as a ghost/PIP underlay on the active shot (Motion Previs handoff). |
 
 ---
 

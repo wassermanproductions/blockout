@@ -18,6 +18,7 @@ export interface BlockoutAPI {
     folder: string
   }>
   importAsset(folder: string, sourcePath: string): Promise<{ relativePath: string; name: string }>
+  importReference(folder: string, sourcePath: string): Promise<{ relativePath: string; name: string }>
   readProjectFile(folder: string, relativePath: string): Promise<ArrayBuffer>
   showFolder(path: string): Promise<void>
   openExternal(url: string): Promise<boolean>
@@ -75,6 +76,7 @@ const api: BlockoutAPI = {
   saveBackup: (folder, json) => ipcRenderer.invoke('project:saveBackup', folder, json),
   loadProject: (folder) => ipcRenderer.invoke('project:load', folder),
   importAsset: (folder, sourcePath) => ipcRenderer.invoke('project:importAsset', folder, sourcePath),
+  importReference: (folder, sourcePath) => ipcRenderer.invoke('project:importReference', folder, sourcePath),
   readProjectFile: (folder, rel) => ipcRenderer.invoke('file:readAbsolute', folder, rel),
   showFolder: (path) => ipcRenderer.invoke('shell:showFolder', path),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),

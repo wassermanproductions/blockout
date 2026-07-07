@@ -108,6 +108,7 @@ claude mcp add blockout -- node /Users/eklpse1/Desktop/blockout/mcp/blockout-mcp
 | `set_time` / `play` / `stop` | `t` / — / — | Scrub, play, stop |
 | `screenshot` | — | Current viewport as a PNG (image result) |
 | `list_presets` / `save_preset` / `apply_preset` | — / `name` / `id` | Global stage presets |
+| `set_reference` | `videoPath, mode?, opacity?` | Attach a reference clip (copied into `refs/`) as a ghost/PIP underlay (Motion Previs handoff) |
 
 **Example (Claude Code):**
 

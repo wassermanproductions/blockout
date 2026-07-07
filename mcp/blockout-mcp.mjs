@@ -313,6 +313,21 @@ const TOOLS = [
       required: ['id'],
       additionalProperties: false
     }
+  },
+  {
+    name: 'set_reference',
+    description:
+      'Attach a reference video to the active shot (the Motion Previs Studio handoff). The clip is copied into the project’s refs/ folder and shown as a ghost underlay (or picture-in-picture) so you can match blocking against it by eye. videoPath is an absolute path to the source clip.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        videoPath: { type: 'string', description: 'Absolute path to the reference video file.' },
+        mode: { type: 'string', enum: ['ghost', 'pip'], description: 'Underlay style: ghost overlay (default) or picture-in-picture.' },
+        opacity: { type: 'number', description: 'Underlay opacity 0..1 (default 0.5).' }
+      },
+      required: ['videoPath'],
+      additionalProperties: false
+    }
   }
 ]
 

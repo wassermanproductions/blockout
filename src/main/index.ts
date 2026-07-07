@@ -178,6 +178,18 @@ ipcMain.handle('project:importAsset', async (_e, folder: string, sourcePath: str
   return { relativePath: join('assets', name), name: basename(sourcePath, extname(sourcePath)) }
 })
 
+// Copy an external reference clip into the open project's refs/ folder. Used by
+// the set_reference control action (Motion Previs Studio handoff) so a solved
+// reference video lives alongside the project and can be served relative-path.
+ipcMain.handle('project:importReference', async (_e, folder: string, sourcePath: string) => {
+  const refsDir = join(folder, 'refs')
+  await mkdir(refsDir, { recursive: true })
+  const name = `${Date.now().toString(36)}-${basename(sourcePath)}`
+  const dest = join(refsDir, name)
+  await copyFile(sourcePath, dest)
+  return { relativePath: join('refs', name), name: basename(sourcePath, extname(sourcePath)) }
+})
+
 ipcMain.handle('file:readAbsolute', async (_e, folder: string, relativePath: string) => {
   // Only serve files inside the project folder (resolve + separator check
   // so "/a/b" can't leak "/a/bad" and "../" can't escape).

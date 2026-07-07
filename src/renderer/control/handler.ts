@@ -447,6 +447,30 @@ async function execute(action: string, params: Params): Promise<unknown> {
       return { imageBase64: btoa(binary) }
     }
 
+    case 'set_reference': {
+      requireDoc()
+      const videoPath = str(params, 'videoPath') ?? str(params, 'path') ?? ''
+      if (!videoPath) throw new Error('videoPath is required.')
+      const folder = useStore.getState().projectFolder
+      if (!folder) throw new Error('No project folder — save the project first.')
+      const mode = str(params, 'mode') === 'pip' ? 'pip' : 'ghost'
+      const rawOpacity = flt(params, 'opacity')
+      const opacity = rawOpacity === undefined ? 0.5 : Math.min(1, Math.max(0, rawOpacity))
+      // Copy the external clip into the project's refs/ folder so it travels
+      // with the project and can be served by relative path.
+      const imported = await window.blockout.importReference(folder, videoPath)
+      let attached = false
+      s.mutate('agent: set reference', (doc) => {
+        const scene = doc.scenes.find((sc) => sc.id === useStore.getState().sceneId)
+        const shot = scene?.shots.find((sh) => sh.id === useStore.getState().shotId)
+        if (!shot) return
+        shot.referenceVideo = { path: imported.relativePath, opacity, mode, timeOffset: 0 }
+        attached = true
+      })
+      if (!attached) throw new Error('No active shot to attach the reference to.')
+      return { attached: true, path: imported.relativePath, mode, opacity }
+    }
+
     case 'list_presets':
       return await window.blockout.presetsList()
 
