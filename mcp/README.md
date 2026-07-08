@@ -48,7 +48,20 @@ command = "node"
 args = ["/Users/eklpse1/Desktop/blockout/mcp/blockout-mcp.mjs"]
 ```
 
-### Hermes / OpenClaw / any generic MCP client
+### Hermes
+
+The bridge is also published standalone at [wassermanproductions/blockout-mcp](https://github.com/wassermanproductions/blockout-mcp) for Hermes's git-install flow (a catalog entry is proposed in [hermes-agent#60706](https://github.com/NousResearch/hermes-agent/pull/60706) — once merged, `hermes mcp install official/blockout` is all you need). Manual config in `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  blockout:
+    command: "node"
+    args: ["/absolute/path/to/blockout/mcp/blockout-mcp.mjs"]
+```
+
+Launch the Blockout app, then start a new Hermes session to load the tools.
+
+### OpenClaw / any generic MCP client
 
 Any client that takes the standard stdio server list accepts this JSON block:
 
