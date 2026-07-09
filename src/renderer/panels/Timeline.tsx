@@ -21,7 +21,7 @@ function suggestionLabel(suggestion: string): string {
   return g ? g.name.toLowerCase() : suggestion
 }
 
-interface Lane {
+interface TimelineLane {
   key: string
   entityId: string | 'camera'
   label: JSX.Element
@@ -89,7 +89,7 @@ export function Timeline(): JSX.Element {
     title: 'Click: select ALL marks in this lane (⌫ deletes them together)'
   })
 
-  const lanes: Lane[] = []
+  const lanes: TimelineLane[] = []
   lanes.push({
     key: 'camera',
     entityId: 'camera',
@@ -365,7 +365,7 @@ export function Timeline(): JSX.Element {
 }
 
 interface LaneProps {
-  lane: Lane
+  lane: TimelineLane
   duration: number
   drag: DragState | null
   selection: ReturnType<typeof useStore.getState>['selection']
