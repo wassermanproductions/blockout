@@ -153,7 +153,6 @@ test.afterAll(async () => {
 
 function verify(name: string) {
   const size = statSync(join(OUT, name)).size
-  // eslint-disable-next-line no-console
   console.log(`  ${name}: ${(size / 1024).toFixed(0)} KB`)
   if (size < 100_000) throw new Error(`${name} is only ${size} bytes — capture looks empty`)
 }
