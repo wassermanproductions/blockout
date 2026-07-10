@@ -8,6 +8,7 @@ import { resolveSpdxRootId } from './sbom-utils.mjs'
 const root = resolve(import.meta.dirname, '..')
 const output = resolve(root, process.argv[2] || 'release')
 const manifest = JSON.parse(await readFile(resolve(root, 'ASSET_MANIFEST.json'), 'utf8'))
+const lock = JSON.parse(await readFile(resolve(root, 'package-lock.json'), 'utf8'))
 await mkdir(output, { recursive: true })
 
 const npmCli = process.env.npm_execpath
@@ -64,6 +65,53 @@ async function packagedRuntime() {
 
 const runtime = await packagedRuntime()
 const rootSpdxId = resolveSpdxRootId(spdx, 'blockout')
+// Electron-builder and Vite consume these development-time packages to create
+// binaries/bundles that are shipped at runtime. npm's --omit dev graph cannot
+// infer that, so record them explicitly in both release SBOM formats.
+const bundledRuntimePackages = ['electron', 'react', 'react-dom'].map((name) => {
+  const metadata = lock.packages?.[`node_modules/${name}`]
+  if (!metadata?.version) throw new Error(`Missing bundled runtime package ${name} in package-lock.json`)
+  return { name, version: metadata.version, license: metadata.license || 'NOASSERTION' }
+})
+const bundledRuntimeCdxRefs = []
+for (const component of bundledRuntimePackages) {
+  const safeName = component.name.replace(/[^A-Za-z0-9.-]/g, '-')
+  const spdxId = `SPDXRef-Package-Blockout-Bundled-${safeName}`
+  const purl = `pkg:npm/${component.name}@${component.version}`
+  spdx.packages.push({
+    name: component.name,
+    SPDXID: spdxId,
+    versionInfo: component.version,
+    downloadLocation: `https://registry.npmjs.org/${component.name}/-/${component.name}-${component.version}.tgz`,
+    filesAnalyzed: false,
+    licenseConcluded: component.license,
+    licenseDeclared: component.license,
+    externalRefs: [{
+      referenceCategory: 'PACKAGE-MANAGER',
+      referenceType: 'purl',
+      referenceLocator: purl
+    }]
+  })
+  spdx.relationships.push({
+    spdxElementId: rootSpdxId,
+    relationshipType: 'CONTAINS',
+    relatedSpdxElement: spdxId
+  })
+
+  const cdxRef = `blockout-bundled:${component.name}:${component.version}`
+  bundledRuntimeCdxRefs.push(cdxRef)
+  cyclone.components.push({
+    type: component.name === 'electron' ? 'application' : 'library',
+    name: component.name,
+    version: component.version,
+    'bom-ref': cdxRef,
+    purl,
+    licenses: [{ license: { id: component.license } }],
+    scope: 'required',
+    properties: [{ name: 'blockout:delivery', value: 'bundled-runtime' }]
+  })
+  cyclone.dependencies.push({ ref: cdxRef })
+}
 const ids = {
   ffmpeg: 'SPDXRef-Package-Blockout-FFmpeg',
   ffprobe: 'SPDXRef-Package-Blockout-FFprobe',
@@ -151,7 +199,12 @@ for (const source of sourceRecords) {
 }
 const rootDependency = cyclone.dependencies.find((entry) => entry.ref === cyclone.metadata.component['bom-ref'])
 if (!rootDependency) throw new Error('CycloneDX root dependency was not generated')
-rootDependency.dependsOn = [...new Set([...rootDependency.dependsOn, cdxRefs.ffmpeg, cdxRefs.ffprobe])]
+rootDependency.dependsOn = [...new Set([
+  ...rootDependency.dependsOn,
+  ...bundledRuntimeCdxRefs,
+  cdxRefs.ffmpeg,
+  cdxRefs.ffprobe
+])]
 
 await writeFile(resolve(output, 'blockout.spdx.json'), JSON.stringify(spdx, null, 2) + '\n')
 await writeFile(cyclonePath, JSON.stringify(cyclone, null, 2) + '\n')

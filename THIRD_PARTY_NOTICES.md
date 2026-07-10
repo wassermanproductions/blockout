@@ -7,7 +7,8 @@ their respective licenses.
 ## Runtime components
 
 - Electron (MIT) and its Chromium/Node.js components; see Electron's bundled license files.
-- Three.js (MIT), Zustand (MIT), and Anthropic TypeScript SDK (MIT).
+- React and React DOM (MIT), Three.js (MIT), Zustand (MIT), and Anthropic
+  TypeScript SDK (MIT).
 - Windows x64 packages include the pinned BtbN GPL FFmpeg/FFprobe build
   documented in `resources/ffmpeg/PROVENANCE.md`. The executable pair and
   license remain GPL-3.0-or-later components, not Apache-2.0 components.
