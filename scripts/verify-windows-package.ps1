@@ -41,10 +41,9 @@ function Test-AppLaunch([string]$executable, [string]$label, [string]$resources)
   Remove-Item Env:BLOCKOUT_CONFIG_NAMESPACE -ErrorAction SilentlyContinue
   $env:BLOCKOUT_SMOKE_DIR = Join-Path $env:RUNNER_TEMP "OneDrive - Studio\Director's Cut\José\Packaged Smoke"
   $env:APPDATA = Join-Path $env:RUNNER_TEMP ("blockout-default-appdata-" + [guid]::NewGuid().ToString('N'))
-  $communityBridge = Join-Path $resources 'mcp\blockout-mcp-community.mjs'
-  $genericBridge = Join-Path $resources 'mcp\blockout-mcp.mjs'
-  $bridge = if (Test-Path $communityBridge) { $communityBridge } else { $genericBridge }
-  $namespace = if (Test-Path $communityBridge) { 'GumbiiDigital\BlockoutCommunity' } else { 'blockout' }
+  $bridgeName = if ($env:BLOCKOUT_EXPECTED_MCP_ENTRY) { $env:BLOCKOUT_EXPECTED_MCP_ENTRY } else { 'blockout-mcp.mjs' }
+  $bridge = Join-Path $resources (Join-Path 'mcp' $bridgeName)
+  $namespace = if ($env:BLOCKOUT_EXPECTED_CONFIG_NAMESPACE) { $env:BLOCKOUT_EXPECTED_CONFIG_NAMESPACE } else { 'blockout' }
   $descriptorPath = Join-Path (Join-Path $env:APPDATA $namespace) 'control.json'
   New-Item -ItemType Directory -Force -Path $env:BLOCKOUT_SMOKE_DIR | Out-Null
   try {

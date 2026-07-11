@@ -53,7 +53,7 @@ jobs:
           )
           $distributed | Sort-Object FullName | ForEach-Object {
             $hash = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower()
-            $relative = [System.IO.Path]::GetRelativePath((Resolve-Path release), $_.FullName).Replace('\\', '/')
+            $relative = [System.IO.Path]::GetRelativePath((Resolve-Path release), $_.FullName).Replace('\', '/')
             "$hash *$relative"
           } | Set-Content -Encoding ascii release/SHA256SUMS
       - name: Attest Windows installer provenance
