@@ -16,8 +16,17 @@
     "test:watch": "vitest",
     "smoke": "npm run build && playwright test tests/e2e/smoke.spec.ts",
     "e2e": "npm run build && playwright test",
-    "package": "npm run build && electron-builder --mac --config electron-builder.yml",
-    "package:all": "npm run build && electron-builder -mwl --config electron-builder.yml"
+    "icons:win": "node scripts/generate-win-icon.mjs",
+    "verify:assets": "node scripts/verify-assets.mjs",
+    "verify:builder-config": "node scripts/validate-builder-config.mjs",
+    "verify:release-assets": "node scripts/audit-ffmpeg-redistribution.mjs",
+    "prepare:ffmpeg:win": "node scripts/prepare-windows-ffmpeg.mjs",
+    "prepare:ffmpeg:mac": "node scripts/prepare-macos-ffmpeg.mjs",
+    "sbom": "node scripts/generate-sboms.mjs",
+    "fetch:ffmpeg-source": "node scripts/fetch-ffmpeg-source.mjs",
+    "package": "npm run package:mac",
+    "package:mac": "node scripts/package-macos.mjs",
+    "package:win": "npm run prepare:ffmpeg:win && npm run verify:release-assets && npm run build && electron-builder --win nsis --x64 --config electron-builder.yml --publish never"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -32,18 +41,18 @@
     "@types/three": "^0.170.0",
     "@typescript-eslint/eslint-plugin": "^8.16.0",
     "@typescript-eslint/parser": "^8.16.0",
+    "@cyclonedx/cyclonedx-npm": "6.0.0",
     "@vitejs/plugin-react": "^6.0.3",
     "electron": "^43.1.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0-beta.1",
     "eslint": "^9.39.2",
+    "extract-zip": "2.0.1",
+    "png-to-ico": "3.0.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.7.2",
     "vite": "^8.1.4",
     "vitest": "^4.1.10"
-  },
-  "optionalDependencies": {
-    "ffmpeg-static": "^5.2.0"
   }
 }

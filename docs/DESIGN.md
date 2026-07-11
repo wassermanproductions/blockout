@@ -1,3 +1,5 @@
+<!-- Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md. -->
+
 # Blockout — Design Document
 
 *A desktop previs tool for AI-native filmmaking. Stage a scene in minutes, choreograph camera and character blocking against marks, and export motion-reference packages (video + stills + prompts) for generators like Seedance 2.0, Veo 3.1, Kling, LTX 2.3, and Wan 2.2.*
@@ -162,7 +164,7 @@ Phased honestly, because full motion reconstruction is research-grade:
 - **Viewport:** free orbit camera by default; `C` toggles "look through shot camera" with the aspect mask. Small always-on top-down minimap (toggleable) showing paths and marks.
 - **Inspector shows only what's selected** — an actor shows gait/label/height; the camera shows lens/rig/focus; nothing shows a wall of tabs.
 - **Empty states teach:** a new project's viewport says "Drag a character or environment onto the stage." A staged scene with no marks says "Select the camera and press M to drop your first mark."
-- **Keyboard:** `space` play/pause · `M` drop mark · `C` look through camera · `1–9` jump to camera marks · `⌘D` duplicate · `⌘E` export · `⌘Z` deep undo (every action undoable).
+- **Keyboard:** `space` play/pause · `M` drop mark · `C` look through camera · `1–9` jump to camera marks · `Cmd/Ctrl+D` duplicate · `Cmd/Ctrl+E` export · `Cmd/Ctrl+Z` deep undo (every action undoable).
 - **No modal dialogs** in the core loop. Export progress is a slim bar in Deliver mode, cancellable.
 
 ### Visual language
@@ -181,7 +183,7 @@ Dark, quiet UI (near-black chrome, one accent color) so the viewport is the star
 | UI | **React + TypeScript (strict)** | Ubiquitous, agent-friendly, component model fits the Inspector/Library patterns |
 | 3D | **Three.js (plain, imperative)** managed by a single SceneManager; React stays UI-only | The scene is driven by the deterministic `state(t)` evaluator, which fits imperative three better than r3f's declarative graph; one owner for all GL state |
 | State | **Zustand**, single store, snapshot-based undo through `store.mutate` | Deep undo/redo for free; serializes cleanly to project files |
-| Video encode | **ffmpeg** (bundled via ffmpeg-static, system fallback) fed **raw RGBA frames** from the offscreen framebuffer | Byte-deterministic fixed-fps output (no per-frame PNG encode); also depth/normal passes and animatic stitching |
+| Video encode | **FFmpeg** (audited packaged platform asset, explicit override/system fallback for source runs) fed **raw RGBA frames** from the offscreen framebuffer | Byte-deterministic fixed-fps output (no per-frame PNG encode); also depth/normal passes and animatic stitching |
 | Assets | **Procedurally generated grey-box models in code** (articulated capsule mannequins, parametric vehicles/furniture/environment kits) | Zero asset licensing, zero binary blobs in git, deterministic, consistent look; a walk cycle is math, not mocap |
 | Tests | Vitest (unit) + Playwright e2e smoke (real export, ffprobe-verified) + byte-determinism render test | See docs/ROADMAP.md QA plan |
 

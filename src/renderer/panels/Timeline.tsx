@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Shoot-mode bottom timeline: transport, a scrubbable second-ruler, and one
  * lane per moving entity (camera first) with draggable mark pills. Reads and
@@ -288,7 +289,7 @@ export function Timeline(): JSX.Element {
           className="btn small"
           disabled={!anyMarks}
           onClick={() => useStore.getState().selectAllMarks()}
-          title="Select every mark on every lane (⌘A) — then ⌫ deletes them all, or shift times together in the inspector"
+          title={`Select every mark on every lane (${window.blockout.platform.primaryModifier}A) — then ⌫ deletes them all, or shift times together in the inspector`}
         >
           Select all
         </button>

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Blockout MCP server — zero-dependency Node >=18 stdio bridge.
  *
  * Speaks the MCP stdio transport: newline-delimited JSON-RPC 2.0 on
  * stdin/stdout (NOT Content-Length framed). Each tools/call is forwarded to
  * the running app's HTTP control server, discovered via
- * ~/.config/blockout/control.json (random localhost port + bearer token).
+ * Blockout's platform config directory (random localhost port + bearer token).
  *
  * Uses only node built-ins + global fetch — run directly with `node`.
  */
@@ -14,7 +15,26 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 
-const DISCOVERY_FILE = join(homedir(), '.config', 'blockout', 'control.json')
+function configDir() {
+  if (process.env.BLOCKOUT_CONFIG_DIR?.trim()) return process.env.BLOCKOUT_CONFIG_DIR.trim()
+  if (process.platform === 'win32') {
+    const namespace = process.env.BLOCKOUT_CONFIG_NAMESPACE || 'blockout'
+    const segments = namespace.split(/[\\/]+/).filter((part) => part && part !== '.' && part !== '..')
+    return join(
+      process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'),
+      ...(segments.length > 0 ? segments : ['blockout'])
+    )
+  }
+  return join(homedir(), '.config', 'blockout')
+}
+
+const DISCOVERY_FILES = process.env.BLOCKOUT_CONFIG_DIR?.trim()
+  ? [join(configDir(), 'control.json')]
+  : [...new Set([
+      join(configDir(), 'control.json'),
+      // Legacy descriptor location; descriptors without protocolVersion remain valid.
+      join(homedir(), '.config', 'blockout', 'control.json')
+    ])]
 const PROTOCOL_VERSION = '2024-11-05'
 
 /* --------------------------------- tools -------------------------------- */
@@ -317,10 +337,15 @@ const TOOLS = [
   {
     name: 'set_reference',
     description:
-      'Attach a reference video to the active shot (the Motion Previs Studio handoff). The clip is copied into the project’s refs/ folder and shown as a ghost underlay (or picture-in-picture) so you can match blocking against it by eye. videoPath is an absolute path to the source clip.',
+      'Attach a reference video to the active shot (the Motion Previs Studio handoff v1). The clip is copied into the project’s refs/ folder and shown as a ghost underlay (or picture-in-picture) so you can match blocking against it by eye. videoPath is an absolute path to the source clip.',
     inputSchema: {
       type: 'object',
       properties: {
+        handoffVersion: {
+          type: 'number',
+          enum: [1],
+          description: 'Motion Previs handoff protocol version. Omit only for legacy clients.'
+        },
         videoPath: { type: 'string', description: 'Absolute path to the reference video file.' },
         mode: { type: 'string', enum: ['ghost', 'pip'], description: 'Underlay style: ghost overlay (default) or picture-in-picture.' },
         opacity: { type: 'number', description: 'Underlay opacity 0..1 (default 0.5).' }
@@ -339,9 +364,19 @@ const NOT_RUNNING = "Blockout isn't running — launch the app first."
 
 async function callControl(action, params) {
   let config
-  try {
-    config = JSON.parse(await readFile(DISCOVERY_FILE, 'utf-8'))
-  } catch {
+  for (const file of DISCOVERY_FILES) {
+    try {
+      const candidate = JSON.parse(await readFile(file, 'utf-8'))
+      if (Number.isInteger(candidate?.port) && typeof candidate?.token === 'string') {
+        config = candidate
+        break
+      }
+    } catch {
+      // Try the next current/legacy discovery location.
+    }
+  }
+  if (!config || (config.protocolVersion !== undefined && config.protocolVersion !== 1) ||
+    (config.app !== undefined && config.app !== 'blockout')) {
     return { error: NOT_RUNNING }
   }
   try {

@@ -13,5 +13,5 @@
     "resolveJsonModule": true,
     "noEmit": true
   },
-  "include": ["src/main", "electron.vite.config.ts", "tests/e2e"]
+  "include": ["src/main", "src/shared", "electron.vite.config.ts", "tests/e2e"]
 }

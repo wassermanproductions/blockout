@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Reference video underlay: play any imported video (including depth-map
  * videos) ghosted over the viewport or as picture-in-picture, timeline-
@@ -105,7 +106,7 @@ export function ReferenceControls(): JSX.Element | null {
       { name: 'Videos', extensions: ['mp4', 'mov', 'webm', 'm4v'] }
     ])
     if (!file) return
-    const imported = await window.blockout.importAsset(folder, file)
+    const imported = await window.blockout.importReference(folder, file)
     mutate('attach reference', (doc) => {
       for (const sc of doc.scenes) {
         const sh = sc.shots.find((x) => x.id === shot.id)

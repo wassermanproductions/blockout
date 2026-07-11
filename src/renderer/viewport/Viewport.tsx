@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Viewport — React shell around SceneManager: canvas lifecycle, the shot
  * HUD, look-through framing overlays (thirds grid), placement/mark hints,
@@ -210,7 +211,7 @@ export function Viewport(): JSX.Element {
   let hint: string | null = null
   if (placingSequence)
     hint = `Click the floor to stage ${placingSequence.count} performers there (facing you) · Esc to cancel`
-  else if (placingAssetId) hint = 'Click the floor to place · ⌥-click to place multiple · Esc to cancel'
+  else if (placingAssetId) hint = `Click the floor to place · ${window.blockout.platform.alternateModifier}-click to place multiple · Esc to cancel`
   else if (droppingMarks && selection?.kind === 'entity')
     hint = 'Click the floor to drop marks in order · Esc when done'
   else if (droppingMarks && selection?.kind === 'camera')

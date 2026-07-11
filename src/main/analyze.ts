@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Reference analysis: send a reference image (or a frame extracted from a
  * reference video) to Claude with vision + structured outputs, and get back
@@ -10,9 +11,11 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { spawn } from 'child_process'
-import { readFile, access, mkdir, rm } from 'fs/promises'
+import { readFile, mkdir, rm } from 'fs/promises'
 import { join, extname } from 'path'
 import { ASSET_CATALOG } from '../engine/assets'
+import { resolveConfigPath } from '../shared/config-paths'
+import { friendlyFfmpegError, resolveFfmpeg } from './ffmpeg'
 
 const VIDEO_EXTS = new Set(['.mp4', '.mov', '.webm', '.m4v', '.avi'])
 const MEDIA_TYPES: Record<string, string> = {
@@ -117,43 +120,33 @@ async function extractFrame(videoPath: string): Promise<string> {
   const dir = join(app.getPath('temp'), 'blockout-frames')
   await mkdir(dir, { recursive: true })
   const out = join(dir, `frame-${Date.now()}.jpg`)
-  const ffmpegPath = await resolveFfmpegForAnalyze()
+  const ffmpegPath = await resolveFfmpeg()
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(ffmpegPath, ['-y', '-ss', '1', '-i', videoPath, '-frames:v', '1', '-q:v', '3', out])
-    let err = ''
-    child.stderr?.on('data', (d: Buffer) => (err = (err + d.toString()).slice(-2000)))
-    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`frame extraction failed: ${err.slice(-300)}`))))
-    child.on('error', reject)
+    const child = spawn(ffmpegPath, ['-y', '-ss', '1', '-i', videoPath, '-frames:v', '1', '-q:v', '3', out], {
+      windowsHide: true
+    })
+    child.stderr?.resume()
+    child.once('close', (code) => {
+      if (code === 0) resolve()
+      else reject(new Error('FFmpeg could not extract a frame from the reference video. Check that the file is readable and uses a supported codec.'))
+    })
+    child.once('error', (error) => {
+      reject(new Error(`Could not analyze the reference video: ${friendlyFfmpegError(error)}`))
+    })
   })
   return out
 }
 
-async function resolveFfmpegForAnalyze(): Promise<string> {
-  if (process.env.BLOCKOUT_FFMPEG) return process.env.BLOCKOUT_FFMPEG
-  try {
-    const mod = await import('ffmpeg-static')
-    const p = (mod.default ?? mod) as unknown as string
-    if (p) {
-      const real = p.replace('app.asar', 'app.asar.unpacked')
-      await access(real)
-      return real
-    }
-  } catch {}
-  return 'ffmpeg'
-}
-
 /**
- * GUI apps launched from Finder don't inherit shell env vars, so ANTHROPIC_
- * API_KEY from .zshrc never reaches a double-clicked Blockout. Fallback:
- * a key file at ~/.config/blockout/anthropic-api-key. Returning undefined
+ * GUI apps do not necessarily inherit shell environment variables. Fallback:
+ * a key file in Blockout's platform config directory. Returning undefined
  * lets the SDK try its own chain (env var when launched from a terminal,
  * or an `ant auth login` profile, which IS file-based and works from Finder).
  */
 async function resolveApiKey(): Promise<string | undefined> {
   if (process.env.ANTHROPIC_API_KEY) return undefined // SDK reads it itself
   try {
-    const { homedir } = await import('os')
-    const key = (await readFile(join(homedir(), '.config', 'blockout', 'anthropic-api-key'), 'utf-8')).trim()
+    const key = (await readFile(resolveConfigPath('anthropic-api-key'), 'utf-8')).trim()
     return key || undefined
   } catch {
     return undefined
@@ -162,7 +155,7 @@ async function resolveApiKey(): Promise<string | undefined> {
 
 const AUTH_HELP =
   'Claude API authentication failed. Either: (1) run `ant auth login` in a terminal, ' +
-  '(2) save your key to ~/.config/blockout/anthropic-api-key, or ' +
+  `(2) save your key to ${resolveConfigPath('anthropic-api-key')}, or ` +
   '(3) launch Blockout from a terminal with ANTHROPIC_API_KEY set.'
 
 export async function analyzeReference(filePath: string): Promise<AnalyzeResult> {

@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Help overlay, redesigned for a filmmaker skimming (not reading):
  *   • Quick start — six visual cards, the whole app at a glance.
@@ -9,6 +10,9 @@
 
 import { useMemo, useState } from 'react'
 import { useStore } from '../store'
+
+const MOD = window.blockout.platform.primaryModifier
+const ALT = window.blockout.platform.alternateModifier
 
 function Kbd({ children }: { children: string }): JSX.Element {
   return <kbd className="help-kbd">{children}</kbd>
@@ -78,7 +82,7 @@ const TASKS: { area: string; items: Task[] }[] = [
         a: (
           <>
             In <b>STAGE</b> mode, click a Library item (a person, prop, or a whole environment kit),
-            then click the floor. Hold <Kbd>⌥</Kbd> to place several; <Kbd>Esc</Kbd> cancels.
+            then click the floor. Hold <Kbd>{ALT}</Kbd> to place several; <Kbd>Esc</Kbd> cancels.
           </>
         )
       },
@@ -87,7 +91,7 @@ const TASKS: { area: string; items: Task[] }[] = [
         a: (
           <>
             Click to select, then drag the arrows to move. Press <Kbd>R</Kbd> to rotate,{' '}
-            <Kbd>G</Kbd> back to move, <Kbd>⌘D</Kbd> to duplicate, <Kbd>⌫</Kbd> to delete.
+            <Kbd>G</Kbd> back to move, <Kbd>{`${MOD}D`}</Kbd> to duplicate, <Kbd>⌫</Kbd> to delete.
           </>
         )
       },
@@ -141,7 +145,7 @@ const TASKS: { area: string; items: Task[] }[] = [
         a: (
           <>
             <b>Populate from reference…</b> at the bottom of the Library stages people, poses,
-            lighting, and a matching camera from an image. Needs a Claude API key; one <Kbd>⌘Z</Kbd> undoes it all.
+            lighting, and a matching camera from an image. Needs a Claude API key; one <Kbd>{`${MOD}Z`}</Kbd> undoes it all.
           </>
         )
       },
@@ -448,13 +452,13 @@ const SHORTCUTS: [string, string][] = [
   ['C', 'Look through the shot camera'],
   ['G / R', 'Gizmo: move / rotate'],
   ['⇧-click', 'Multi-select entities, or marks on the timeline'],
-  ['⌘A / ⇧⌘A', 'Select all marks in the shot / in the current lane'],
-  ['⌘D', 'Duplicate selection'],
+  [`${MOD}A / ⇧${MOD}A`, 'Select all marks in the shot / in the current lane'],
+  [`${MOD}D`, 'Duplicate selection'],
   ['⌫', 'Delete selection (all of a multi-selection)'],
-  ['⌘Z / ⇧⌘Z', 'Undo / redo — every action is undoable'],
-  ['⌘S', 'Save project'],
+  [`${MOD}Z / ⇧${MOD}Z`, 'Undo / redo — every action is undoable'],
+  [`${MOD}S`, 'Save project'],
   ['1–9', 'Jump to camera mark N'],
-  ['⌥-click', 'Place multiple copies while staging'],
+  [`${ALT}-click`, 'Place multiple copies while staging'],
   ['Esc', 'Cancel placement / mark-dropping / selection'],
   ['?', 'Open this help']
 ]

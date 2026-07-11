@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Round-4 features: one-click framings, ground snap, stage presets, motion
  * presets, boarding, flying-object marks, the stuck-after-recording fix, the
@@ -6,17 +7,19 @@
 
 import { _electron as electron, test, expect, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdtempSync, readFileSync, existsSync } from 'fs'
-import { tmpdir, homedir } from 'os'
+import { tmpdir } from 'os'
 import { join } from 'path'
 
 let app: ElectronApplication
 let page: Page
+let configDir: string
 
 test.beforeAll(async () => {
   const dir = mkdtempSync(join(tmpdir(), 'blockout-r4-'))
+  configDir = join(dir, 'config')
   app = await electron.launch({
     args: ['out/main/index.js'],
-    env: { ...process.env, BLOCKOUT_SMOKE_DIR: dir }
+    env: { ...process.env, BLOCKOUT_SMOKE_DIR: dir, BLOCKOUT_CONFIG_DIR: configDir }
   })
   page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
@@ -216,7 +219,7 @@ test('stage preset: save, list, apply as a NEW scene with remapped ids', async (
 })
 
 test('agent control server: HTTP rpc drives the app (the MCP path)', async () => {
-  const controlPath = join(homedir(), '.config', 'blockout', 'control.json')
+  const controlPath = join(configDir, 'control.json')
   expect(existsSync(controlPath)).toBe(true)
   const { port, token } = JSON.parse(readFileSync(controlPath, 'utf8'))
 

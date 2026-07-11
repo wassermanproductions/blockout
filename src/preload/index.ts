@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Typed IPC bridge. The renderer sees exactly this surface as
  * window.blockout — nothing else from Node.
@@ -5,8 +6,17 @@
 
 import { contextBridge, ipcRenderer } from 'electron'
 
+export interface PlatformInfo {
+  platform: 'macos' | 'windows' | 'linux'
+  isMac: boolean
+  primaryModifier: '⌘' | 'Ctrl'
+  alternateModifier: '⌥' | 'Alt'
+  showInFolderLabel: 'Reveal in Finder' | 'Show in Folder'
+}
+
 export interface BlockoutAPI {
-  newProjectDialog(): Promise<string | null>
+  readonly platform: PlatformInfo
+  newProjectDialog(): Promise<{ folder: string; name: string } | null>
   openProjectDialog(): Promise<string | null>
   pickFile(filters: { name: string; extensions: string[] }[]): Promise<string | null>
   saveProject(folder: string, json: string): Promise<boolean>
@@ -33,8 +43,14 @@ export interface BlockoutAPI {
   exportWriteFile(path: string, data: ArrayBuffer | string): Promise<boolean>
   exportConcat(outPath: string, inputPaths: string[]): Promise<{ ok: boolean; error?: string }>
   onExportClosed(cb: (jobId: string, code: number, log: string) => void): () => void
-  versions(): Promise<{ app: string; electron: string; node: string }>
-  /** Stage presets: reusable staging setups saved globally (~/.config/blockout/presets). */
+  versions(): Promise<{
+    app: string
+    electron: string
+    node: string
+    platform: NodeJS.Platform
+    productName: string
+  }>
+  /** Stage presets: reusable staging setups saved in Blockout's platform config directory. */
   presetsList(): Promise<{ id: string; name: string; savedAt: string; entityCount: number }[]>
   presetSave(name: string, json: string): Promise<{ ok: boolean; id?: string; error?: string }>
   presetLoad(id: string): Promise<string | null>
@@ -68,7 +84,16 @@ export interface BlockoutAPI {
   >
 }
 
+const platform: PlatformInfo = {
+  platform: process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux',
+  isMac: process.platform === 'darwin',
+  primaryModifier: process.platform === 'darwin' ? '⌘' : 'Ctrl',
+  alternateModifier: process.platform === 'darwin' ? '⌥' : 'Alt',
+  showInFolderLabel: process.platform === 'darwin' ? 'Reveal in Finder' : 'Show in Folder'
+}
+
 const api: BlockoutAPI = {
+  platform,
   newProjectDialog: () => ipcRenderer.invoke('dialog:newProject'),
   openProjectDialog: () => ipcRenderer.invoke('dialog:openProject'),
   pickFile: (filters) => ipcRenderer.invoke('dialog:pickFile', filters),

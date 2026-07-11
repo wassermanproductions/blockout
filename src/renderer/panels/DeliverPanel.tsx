@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Deliver mode: pick a generator profile, choose passes, export the
  * package, copy the generated prompt, and hand off to Blender/ComfyUI.
@@ -207,7 +208,7 @@ export function DeliverPanel(): JSX.Element {
           style={{ width: '100%', marginBottom: 14 }}
           onClick={() => void window.blockout.showFolder(progress.lastPackagePath!)}
         >
-          Reveal last export in Finder
+          {window.blockout.platform.isMac ? 'Reveal last export in Finder' : 'Show last export in Folder'}
         </button>
       )}
 

@@ -1,3 +1,5 @@
+<!-- Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md. -->
+
 # QA Checklist — run before every release
 
 Automated gates first (all must be green):
@@ -9,7 +11,7 @@ npm run typecheck && npm run lint && npm test && npm run smoke
 Then the manual script, in order. Check each box.
 
 ## Fresh install & first run
-- [ ] Delete any dev build; `npm run package`; install the DMG on a clean account (or `npm start`).
+- [ ] Delete any dev build; run `npm ci && npm run package:win` natively on Windows or `npm ci && npm run package:mac` natively on the target Mac architecture; install on a clean account (or `npm start`).
 - [ ] App opens to the welcome screen; New Project creates a `.blockout` folder with `project.json`.
 - [ ] Reopen the project via Open Project — identical state.
 
@@ -20,7 +22,7 @@ Then the manual script, in order. Check each box.
 - [ ] Label an entity; text + color appear above it and tint the model; label survives reopen.
 - [ ] All six lighting presets read distinctly; sun sliders move shadows; fog slider works.
 - [ ] Import a custom GLB; it appears and persists (copied into project assets/).
-- [ ] 50 mixed undo operations (⌘Z) walk state back correctly; redo replays them.
+- [ ] 50 mixed undo operations (Cmd/Ctrl+Z) walk state back correctly; redo replays them.
 
 ## Round 3 (marriage, cameras, drafts, recording v2, multi-select, rotation)
 - [ ] Marry: sit a person, shift-click person then bike, "Marry to…" — dragging the bike moves both; dragging the person adjusts its riding offset; Unmarry bakes the world pose and they separate cleanly.
@@ -33,7 +35,7 @@ Then the manual script, in order. Check each box.
 - [ ] Rotate: ⟳ Rotate button (or R) rotates people/cars/props a full 360° around Y; the camera rotates on all axes; ⇄ Move (or G) returns to arrows.
 - [ ] "Hide in exports" on an entity: visible in the editor, absent from every export pass.
 - [ ] No overlapping UI at any window width ≥ 1100px: HUD top-left, tool rows top-right stack, hint bottom-left, PiP bottom-right.
-- [ ] Export works from the packaged DMG on a machine with NO Homebrew ffmpeg (bundled binary ships).
+- [ ] After `verify:release-assets` passes, export works from the packaged NSIS/DMG install with system FFmpeg removed from PATH.
 
 ## AI & choreography (added after user feedback round 2)
 - [ ] Pose per mark: set different joint poses on two marks — limbs blend between them during travel; export shows the move.
@@ -66,7 +68,9 @@ Then the manual script, in order. Check each box.
 - [ ] Labels "In video" burns labels into the MP4; "Stills only" keeps video clean; "Off" removes both.
 - [ ] Depth pass: near objects brighter, no labels/marks/grid anywhere in any pass.
 - [ ] Duration-over-cap warning shows when shot exceeds the profile max.
-- [ ] Cancel mid-export: no zombie ffmpeg (check Activity Monitor), partial files cleaned or overwritable, UI recovers.
+- [ ] Cancel mid-export: no zombie ffmpeg (check Activity Monitor/Task Manager), partial files cleaned or overwritable, UI recovers.
+- [ ] Windows: install per-user without elevation, choose an install directory, verify Start Menu/desktop shortcuts, 100%/150% scale, File Explorer reveal, SmartScreen instructions, and clean uninstall.
+- [ ] **Manual Windows 11 prerelease gate:** on a clean Win11 VM, exercise native controls and the primary create/import/export/handoff flow at 100% and 150% scaling, confirm the expected unsigned SmartScreen experience, and inspect Defender results. Actions Server 2022 launch/install checks do not replace this gate.
 - [ ] Prompt mentions: lens, rig, every labeled subject, mark timings; Copy prompt works.
 - [ ] Animatic: all shots stitched in order, plays end to end.
 - [ ] Contact sheet PNG: one cell per shot with name/lens/duration captions.

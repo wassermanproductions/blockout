@@ -1,18 +1,38 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Name sanitization for file paths and glTF node names. Unicode-aware —
  * a shot named "追跡" keeps its characters — and never returns an empty
  * string (which would collide export paths and animation targets).
  */
 
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i
+const MAX_COMPONENT_LENGTH = 120
+
+function deterministicHash(value: string): string {
+  let hash = 2166136261
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36)
+}
+
+/**
+ * Produce a portable filename/path component. In addition to the punctuation
+ * cleanup used by glTF names, this handles Windows device names, trailing
+ * dots/spaces, and overlong components while retaining readable Unicode.
+ */
 export function sanitizeName(name: string): string {
-  const cleaned = name
+  let cleaned = name
     .replace(/[^\p{L}\p{N}._-]+/gu, '-')
-    .replace(/^[-.]+|[-.]+$/g, '')
-  if (cleaned.length > 0) return cleaned
-  // Deterministic fallback derived from the original bytes.
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0
-  return `untitled-${hash.toString(36)}`
+    .replace(/^[-.]+|[. -]+$/g, '')
+  const hash = deterministicHash(name)
+  if (!cleaned) cleaned = `untitled-${hash}`
+  if (WINDOWS_RESERVED.test(cleaned)) cleaned = `_${cleaned}`
+  if (cleaned.length > MAX_COMPONENT_LENGTH) {
+    cleaned = `${cleaned.slice(0, MAX_COMPONENT_LENGTH - hash.length - 1)}-${hash}`
+  }
+  return cleaned
 }
 
 /** Make a name unique within a set (appends -2, -3, …), updating the set. */

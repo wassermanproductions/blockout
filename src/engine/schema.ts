@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Document creation, validation, and git-friendly serialization.
  * Projects are folders; this module owns the JSON shape. Serialization is
@@ -16,6 +17,7 @@ import type {
   Shot,
   V3
 } from './types'
+import { normalizeProjectRelativePath } from '../shared/portable-paths'
 
 export const SCHEMA_VERSION = 1 as const
 
@@ -124,6 +126,16 @@ export function validateProject(doc: unknown): ValidationIssue[] {
     const scene = s as Record<string, unknown>
     if (typeof scene.id !== 'string') err(`scenes[${i}].id`, 'missing id')
     if (!Array.isArray(scene.entities)) err(`scenes[${i}].entities`, 'missing entities')
+    else {
+      ;(scene.entities as unknown[]).forEach((entity: unknown, j: number) => {
+        if (typeof entity !== 'object' || entity === null) return
+        const sourceFile = (entity as Record<string, unknown>).sourceFile
+        if (sourceFile !== undefined &&
+          (typeof sourceFile !== 'string' || normalizeProjectRelativePath(sourceFile) === null)) {
+          err(`scenes[${i}].entities[${j}].sourceFile`, 'must be a relative path inside the project')
+        }
+      })
+    }
     if (!Array.isArray(scene.blocking) || (scene.blocking as unknown[]).length === 0)
       err(`scenes[${i}].blocking`, 'scene needs at least one blocking take')
     if (!Array.isArray(scene.shots)) err(`scenes[${i}].shots`, 'missing shots')
@@ -142,10 +154,55 @@ export function validateProject(doc: unknown): ValidationIssue[] {
           err(`scenes[${i}].shots[${j}].blockingTakeId`, 'references a missing blocking take')
         const camera = shot.camera as Record<string, unknown> | undefined
         if (!camera || !Array.isArray(camera.marks)) err(`scenes[${i}].shots[${j}].camera`, 'missing camera')
+        const reference = shot.referenceVideo as Record<string, unknown> | undefined
+        if (reference &&
+          (typeof reference.path !== 'string' || normalizeProjectRelativePath(reference.path) === null)) {
+          err(`scenes[${i}].shots[${j}].referenceVideo.path`, 'must be a relative path inside the project')
+        }
+      })
+    }
+    if (Array.isArray(scene.drafts)) {
+      ;(scene.drafts as unknown[]).forEach((draft: unknown, j: number) => {
+        if (typeof draft !== 'object' || draft === null) return
+        const reference = (draft as Record<string, unknown>).referenceVideo as
+          | Record<string, unknown>
+          | undefined
+        if (reference &&
+          (typeof reference.path !== 'string' || normalizeProjectRelativePath(reference.path) === null)) {
+          err(`scenes[${i}].drafts[${j}].referenceVideo.path`, 'must be a relative path inside the project')
+        }
       })
     }
   })
   return issues
+}
+
+function requirePortableProjectPath(value: string, location: string): string {
+  const normalized = normalizeProjectRelativePath(value)
+  if (!normalized) throw new Error(`${location}: must be a relative path inside the project`)
+  return normalized
+}
+
+function normalizeProjectPaths(doc: ProjectDoc): ProjectDoc {
+  for (const [sceneIndex, scene] of doc.scenes.entries()) {
+    for (const [entityIndex, entity] of scene.entities.entries()) {
+      if (entity.sourceFile !== undefined) {
+        entity.sourceFile = requirePortableProjectPath(
+          entity.sourceFile,
+          `scenes[${sceneIndex}].entities[${entityIndex}].sourceFile`
+        )
+      }
+    }
+    for (const [shotIndex, shot] of [...scene.shots, ...(scene.drafts ?? [])].entries()) {
+      if (shot.referenceVideo) {
+        shot.referenceVideo.path = requirePortableProjectPath(
+          shot.referenceVideo.path,
+          `scenes[${sceneIndex}].shotsOrDrafts[${shotIndex}].referenceVideo.path`
+        )
+      }
+    }
+  }
+  return doc
 }
 
 /* ---------------------------- serialization ----------------------------- */
@@ -165,7 +222,8 @@ function stable(value: unknown): unknown {
 }
 
 export function serializeProject(doc: ProjectDoc): string {
-  return JSON.stringify(stable(doc), null, 2) + '\n'
+  const copy = JSON.parse(JSON.stringify(doc)) as ProjectDoc
+  return JSON.stringify(stable(normalizeProjectPaths(copy)), null, 2) + '\n'
 }
 
 export function parseProject(json: string): { doc: ProjectDoc | null; issues: ValidationIssue[] } {
@@ -177,5 +235,5 @@ export function parseProject(json: string): { doc: ProjectDoc | null; issues: Va
   }
   const issues = validateProject(raw)
   if (issues.length > 0) return { doc: null, issues }
-  return { doc: raw as ProjectDoc, issues: [] }
+  return { doc: normalizeProjectPaths(raw as ProjectDoc), issues: [] }
 }

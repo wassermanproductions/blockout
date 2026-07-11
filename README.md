@@ -1,3 +1,5 @@
+<!-- Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md. -->
+
 <div align="center">
 
 <img src="docs/images/logo.png" alt="Blockout logo" width="340" />
@@ -90,7 +92,9 @@ Blockout ships an **MCP server** so an AI agent can drive the running app — st
 
 ## Install
 
-**Download** a release DMG (macOS) from GitHub Releases, or build from source:
+**Download** an existing macOS DMG from GitHub Releases, or build from source.
+The Windows 11 x64 NSIS target uses an audited, pinned BtbN GPL FFmpeg/FFprobe
+pair and is ready for native Windows prerelease validation:
 
 ```bash
 git clone <this repo>
@@ -101,9 +105,17 @@ npm run dev                    # development, hot reload
 npm run build && npm start     # production build
 ```
 
-Requirements: **Node 22+**, and **ffmpeg** for exports (bundled via `ffmpeg-static` when packaged; falls back to system `ffmpeg` — `brew install ffmpeg`).
+Requirements for source builds: **Node 22+**. Development builds resolve a
+checksum-pinned FFmpeg executable and also support the `BLOCKOUT_FFMPEG`
+override. Windows packaging downloads, verifies, and audits the exact BtbN GPL
+pair before building. The rejected nonfree static package is not a dependency.
+macOS packaging builds the same pinned FFmpeg commit from verified sources and
+an audited patch, natively per architecture.
 
-The packaged DMG is unsigned. For your own machines, right-click → Open bypasses Gatekeeper. For wider distribution, set a Developer ID `identity` and notarization in [electron-builder.yml](electron-builder.yml).
+Current release artifacts are unsigned. On macOS, right-click → Open bypasses
+Gatekeeper. When a Windows prerelease is legally cleared and published, use
+**More info → Run anyway** only after verifying its SHA-256 checksum. Code
+signing/notarization is required for a trusted stable distribution.
 
 ---
 
@@ -112,10 +124,19 @@ The packaged DMG is unsigned. For your own machines, right-click → Open bypass
 Point **Claude Code, Codex, Hermes, or any MCP client** at the bundled MCP server and it can stage the scene, choreograph marks, reframe the camera, scrub the timeline, and pull a viewport screenshot. Register it with Claude Code in one line:
 
 ```bash
-claude mcp add blockout -- node /Users/eklpse1/Desktop/blockout/mcp/blockout-mcp.mjs
+claude mcp add blockout -- node /ABSOLUTE/PATH/TO/blockout/mcp/blockout-mcp.mjs
 ```
 
-Discovery and auth are automatic — the app writes a localhost-only port + bearer token to `~/.config/blockout/control.json` on launch, and the zero-dependency bridge reads it. There are **26 tools** (from `get_state` and `add_entity` through `spawn_sequence`, `apply_camera_move`, and `screenshot`).
+Packaged bridge locations are
+`/Applications/Blockout.app/Contents/Resources/mcp/blockout-mcp.mjs` on macOS
+and `%LOCALAPPDATA%\Programs\Blockout\resources\mcp\blockout-mcp.mjs` for the
+default per-user Windows install.
+
+Discovery and auth are automatic — the app writes a versioned localhost-only
+control descriptor to `~/.config/blockout/control.json` on macOS/Linux or
+`%APPDATA%\blockout\control.json` on Windows. The zero-dependency bridge reads
+both versioned and legacy descriptors. There are **26 tools** (from `get_state`
+and `add_entity` through `spawn_sequence`, `apply_camera_move`, and `screenshot`).
 
 👉 **Full setup, the complete tool table, and a worked session: [mcp/README.md](mcp/README.md).**
 
@@ -129,7 +150,9 @@ Discovery and auth are automatic — the app writes a localhost-only port + bear
 | `npm run typecheck` / `npm run lint` | Strict TS + ESLint |
 | `npm test` | Engine unit tests (Vitest) |
 | `npm run smoke` | Build + full end-to-end smoke: boots the app, stages a scene, exports a real package, verifies it with ffprobe, checks byte-determinism |
-| `npm run package` | Build a macOS DMG (`release/`) |
+| `npm run package:mac` | Build and audit a native macOS FFmpeg pair, then the current-architecture DMG |
+| `npm run package:win` | Build a Windows 11 x64 per-user NSIS installer (`release/`; run on Windows) |
+| `npm run verify:assets` / `npm run sbom` | Verify pinned runtime assets / generate SPDX and CycloneDX SBOMs |
 
 ## Project structure
 
@@ -141,6 +164,14 @@ See [docs/DESIGN.md](docs/DESIGN.md) (product + architecture), [docs/ROADMAP.md]
 
 **Attribution required:** per the [NOTICE](NOTICE) file (Apache 2.0 §4(d)), any use, fork, or redistribution must retain the NOTICE file and credit **Sam Wasserman ([wassermanproductions.com](https://wassermanproductions.com))** in its documentation and about/credits surface.
 
-All 3D assets are procedurally generated in code — no external asset licenses involved.
+All 3D assets are procedurally generated in code — no external asset licenses
+are involved. The Windows FFmpeg/FFprobe pair remains a separate
+GPL-3.0-or-later component; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
+and [its exact source/build provenance](third_party/ffmpeg/PROVENANCE.md).
+
+The Windows/macOS ports are prerelease engineering outputs. Stable or
+commercial distribution additionally requires upstream/trademark permission,
+platform signing/notarization, final FFmpeg/H.264 review, and the normal full
+third-party compliance review.
 
 Created by **Sam Wasserman** — [wassermanproductions.com](https://wassermanproductions.com) · [wasserman.ai](https://wasserman.ai).

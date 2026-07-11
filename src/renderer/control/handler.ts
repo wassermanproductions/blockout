@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Renderer side of the agent control server (see src/main/control.ts and
  * mcp/blockout-mcp.mjs). External agents — Claude Code, Codex, Hermes, any
@@ -449,6 +450,10 @@ async function execute(action: string, params: Params): Promise<unknown> {
 
     case 'set_reference': {
       requireDoc()
+      const handoffVersion = flt(params, 'handoffVersion')
+      if (handoffVersion !== undefined && handoffVersion !== 1) {
+        throw new Error(`Unsupported Motion Previs handoffVersion ${handoffVersion}; Blockout supports version 1.`)
+      }
       const videoPath = str(params, 'videoPath') ?? str(params, 'path') ?? ''
       if (!videoPath) throw new Error('videoPath is required.')
       const folder = useStore.getState().projectFolder
@@ -468,7 +473,7 @@ async function execute(action: string, params: Params): Promise<unknown> {
         attached = true
       })
       if (!attached) throw new Error('No active shot to attach the reference to.')
-      return { attached: true, path: imported.relativePath, mode, opacity }
+      return { attached: true, handoffVersion: 1, path: imported.relativePath, mode, opacity }
     }
 
     case 'list_presets':

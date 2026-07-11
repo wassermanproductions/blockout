@@ -1,14 +1,13 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Global stage-preset storage. Presets are reusable staging setups saved
- * outside any project, at ~/.config/blockout/presets/<id>.json (same
- * ~/.config/blockout convention as the anthropic-api-key file in analyze.ts,
- * hence os.homedir() rather than app.getPath).
+ * outside any project in Blockout's platform config directory.
  */
 
 import { ipcMain } from 'electron'
 import { mkdir, readFile, writeFile, readdir, rm } from 'fs/promises'
 import { join } from 'path'
-import { homedir } from 'os'
+import { resolveConfigPath } from '../shared/config-paths'
 
 interface PresetFile {
   id: string
@@ -20,7 +19,7 @@ interface PresetFile {
 
 type PresetMeta = Pick<PresetFile, 'id' | 'name' | 'savedAt' | 'entityCount'>
 
-const PRESETS_DIR = join(homedir(), '.config', 'blockout', 'presets')
+const PRESETS_DIR = resolveConfigPath('presets')
 
 /** Strip anything not [a-z0-9-] so a preset id can't traverse out of the dir. */
 function sanitizeId(id: string): string {

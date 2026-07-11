@@ -22,5 +22,5 @@
       "@renderer/*": ["src/renderer/*"]
     }
   },
-  "include": ["src/renderer", "src/engine", "src/preload", "tests/unit"]
+  "include": ["src/renderer", "src/engine", "src/preload", "src/shared", "tests/unit"]
 }

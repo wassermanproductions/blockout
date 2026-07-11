@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * v2.1: camera-move presets, subject tracking, mark multi-select/delete,
  * and the recording-control setting — plus the MCP surface for them.
@@ -5,17 +6,19 @@
 
 import { _electron as electron, test, expect, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdtempSync, readFileSync } from 'fs'
-import { tmpdir, homedir } from 'os'
+import { tmpdir } from 'os'
 import { join } from 'path'
 
 let app: ElectronApplication
 let page: Page
+let configDir: string
 
 test.beforeAll(async () => {
   const dir = mkdtempSync(join(tmpdir(), 'blockout-v21-'))
+  configDir = join(dir, 'config')
   app = await electron.launch({
     args: ['out/main/index.js'],
-    env: { ...process.env, BLOCKOUT_SMOKE_DIR: dir }
+    env: { ...process.env, BLOCKOUT_SMOKE_DIR: dir, BLOCKOUT_CONFIG_DIR: configDir }
   })
   page = await app.firstWindow()
   await page.waitForLoadState('domcontentloaded')
@@ -152,7 +155,7 @@ test('record control setting cycles and persists in the store', async () => {
 
 test('MCP surface: list_camera_moves, apply_camera_move, set_track_subject', async () => {
   const { port, token } = JSON.parse(
-    readFileSync(join(homedir(), '.config', 'blockout', 'control.json'), 'utf8')
+    readFileSync(join(configDir, 'control.json'), 'utf8')
   )
   const rpc = async (action: string, params: Record<string, unknown> = {}) => {
     const res = await fetch(`http://127.0.0.1:${port}/rpc`, {

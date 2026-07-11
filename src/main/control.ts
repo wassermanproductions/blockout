@@ -1,10 +1,11 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Localhost-only HTTP control server. External agents (MCP clients, Codex,
  * Hermes, …) drive a running Blockout by POSTing actions here; each action
  * is forwarded to the renderer over IPC and its reply is returned as JSON.
  *
- * Discovery + auth are file-based: on startup we write ~/.config/blockout/
- * control.json { port, token, pid } (mode 0600) and delete it on quit. A
+ * Discovery + auth are file-based: on startup we write a versioned descriptor
+ * in Blockout's platform config directory (mode 0600) and delete it on quit. A
  * client reads that file to learn the random port and bearer token.
  */
 
@@ -12,17 +13,19 @@ import { app, ipcMain, type BrowserWindow } from 'electron'
 import http from 'http'
 import crypto from 'crypto'
 import { mkdir, writeFile, rm } from 'fs/promises'
-import { join } from 'path'
-import { homedir } from 'os'
+import { resolveConfigDir, resolveConfigPath } from '../shared/config-paths'
+import { version as APP_VERSION } from '../../package.json'
 
 interface Pending {
   resolve: (result: { ok: boolean; data?: unknown; error?: string }) => void
   timer: NodeJS.Timeout
 }
 
-const CONFIG_DIR = join(homedir(), '.config', 'blockout')
-const DISCOVERY_FILE = join(CONFIG_DIR, 'control.json')
+const CONFIG_DIR = resolveConfigDir()
+const DISCOVERY_FILE = resolveConfigPath('control.json')
 const MAX_BODY = 10 * 1024 * 1024 // 10 MB
+const CONTROL_PROTOCOL_VERSION = 1
+const CONTROL_CAPABILITIES = ['health', 'rpc', 'set_reference', 'motion-handoff-v1'] as const
 
 // Per-action timeouts: rendering/exporting legitimately take longer.
 function timeoutForAction(action: string): number {
@@ -66,7 +69,13 @@ export async function startControlServer(getWindow: () => BrowserWindow | null):
     }
 
     if (req.method === 'GET' && req.url === '/health') {
-      send(200, { ok: true, app: 'blockout' })
+      send(200, {
+        ok: true,
+        protocolVersion: CONTROL_PROTOCOL_VERSION,
+        app: 'blockout',
+        appVersion: APP_VERSION,
+        capabilities: CONTROL_CAPABILITIES
+      })
       return
     }
 
@@ -129,7 +138,16 @@ export async function startControlServer(getWindow: () => BrowserWindow | null):
   await mkdir(CONFIG_DIR, { recursive: true })
   await writeFile(
     DISCOVERY_FILE,
-    JSON.stringify({ port, token, pid: process.pid, startedAt: new Date().toISOString() }),
+    JSON.stringify({
+      protocolVersion: CONTROL_PROTOCOL_VERSION,
+      app: 'blockout',
+      appVersion: APP_VERSION,
+      port,
+      token,
+      pid: process.pid,
+      startedAt: new Date().toISOString(),
+      capabilities: CONTROL_CAPABILITIES
+    }),
     { mode: 0o600 }
   )
 

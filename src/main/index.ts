@@ -1,15 +1,20 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Electron main process: window lifecycle, project folder I/O, ffmpeg
  * export orchestration. All filesystem access lives here; the renderer
  * talks through the typed IPC surface in src/preload.
  */
 
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
-import { mkdir, readFile, writeFile, copyFile, access, stat, rm } from 'fs/promises'
+import { mkdir, readFile, writeFile, copyFile, stat, rm } from 'fs/promises'
 import { join, dirname, basename, extname, resolve, sep } from 'path'
 import { registerPresetsIpc } from './presets'
 import { startControlServer } from './control'
+import { friendlyFfmpegError, resolveFfmpeg, terminateProcessTree } from './ffmpeg'
+import { sanitizeName } from '../engine/strings'
+import { ffmpegConcatEntry, normalizeProjectRelativePath } from '../shared/portable-paths'
+import { DISTRIBUTION } from '../shared/distribution'
 // Inlined at build time — app.getVersion() reports Electron's own version
 // when launched unpackaged (e2e runs `electron out/main/index.js`).
 import { version as APP_VERSION } from '../../package.json'
@@ -26,7 +31,7 @@ function createWindow(): void {
     minHeight: 700,
     title: 'Blockout',
     backgroundColor: '#111113',
-    titleBarStyle: 'hiddenInset',
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -48,6 +53,8 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  if (process.platform !== 'darwin') Menu.setApplicationMenu(null)
+  if (process.platform === 'win32') app.setAppUserModelId(DISTRIBUTION.appId)
   createWindow()
   registerPresetsIpc()
   void startControlServer(() => mainWindow)
@@ -60,31 +67,6 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-/* ------------------------------ ffmpeg path ----------------------------- */
-
-async function resolveFfmpeg(): Promise<string> {
-  if (process.env.BLOCKOUT_FFMPEG) return process.env.BLOCKOUT_FFMPEG
-  try {
-    // Bundled binary (external to the main bundle; asar-unpacked when packaged).
-    const mod = await import('ffmpeg-static')
-    const p = (mod.default ?? mod) as unknown as string
-    if (p) {
-      const real = p.replace('app.asar', 'app.asar.unpacked')
-      await access(real)
-      return real
-    }
-  } catch {}
-  // GUI apps launched from Finder don't inherit the shell PATH, so a bare
-  // 'ffmpeg' spawn fails even when Homebrew has it — probe absolute paths.
-  for (const candidate of ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg']) {
-    try {
-      await access(candidate)
-      return candidate
-    } catch {}
-  }
-  return 'ffmpeg' // last resort: PATH (works when launched from a terminal)
-}
-
 /* --------------------------------- IPC ---------------------------------- */
 
 ipcMain.handle('dialog:newProject', async () => {
@@ -93,7 +75,7 @@ ipcMain.handle('dialog:newProject', async () => {
     const folder = join(process.env.BLOCKOUT_SMOKE_DIR, 'Smoke.blockout')
     await mkdir(join(folder, 'assets'), { recursive: true })
     await mkdir(join(folder, 'exports'), { recursive: true })
-    return folder
+    return { folder, name: 'Smoke' }
   }
   if (!mainWindow) return null
   const result = await dialog.showSaveDialog(mainWindow, {
@@ -103,11 +85,13 @@ ipcMain.handle('dialog:newProject', async () => {
     defaultPath: join(app.getPath('documents'), 'Untitled.blockout')
   })
   if (result.canceled || !result.filePath) return null
-  const folder = result.filePath.endsWith('.blockout') ? result.filePath : `${result.filePath}.blockout`
+  const withoutExtension = result.filePath.replace(/\.blockout$/i, '')
+  const name = sanitizeName(basename(withoutExtension))
+  const folder = join(dirname(withoutExtension), `${name}.blockout`)
   await mkdir(folder, { recursive: true })
   await mkdir(join(folder, 'assets'), { recursive: true })
   await mkdir(join(folder, 'exports'), { recursive: true })
-  return folder
+  return { folder, name }
 })
 
 ipcMain.handle('dialog:openProject', async () => {
@@ -172,10 +156,11 @@ ipcMain.handle('project:load', async (_e, folder: string) => {
 ipcMain.handle('project:importAsset', async (_e, folder: string, sourcePath: string) => {
   const assetsDir = join(folder, 'assets')
   await mkdir(assetsDir, { recursive: true })
-  const name = `${Date.now().toString(36)}-${basename(sourcePath)}`
+  const sourceName = sanitizeName(basename(sourcePath))
+  const name = sanitizeName(`${Date.now().toString(36)}-${sourceName}`)
   const dest = join(assetsDir, name)
   await copyFile(sourcePath, dest)
-  return { relativePath: join('assets', name), name: basename(sourcePath, extname(sourcePath)) }
+  return { relativePath: `assets/${name}`, name: sanitizeName(basename(sourcePath, extname(sourcePath))) }
 })
 
 // Copy an external reference clip into the open project's refs/ folder. Used by
@@ -184,17 +169,20 @@ ipcMain.handle('project:importAsset', async (_e, folder: string, sourcePath: str
 ipcMain.handle('project:importReference', async (_e, folder: string, sourcePath: string) => {
   const refsDir = join(folder, 'refs')
   await mkdir(refsDir, { recursive: true })
-  const name = `${Date.now().toString(36)}-${basename(sourcePath)}`
+  const sourceName = sanitizeName(basename(sourcePath))
+  const name = sanitizeName(`${Date.now().toString(36)}-${sourceName}`)
   const dest = join(refsDir, name)
   await copyFile(sourcePath, dest)
-  return { relativePath: join('refs', name), name: basename(sourcePath, extname(sourcePath)) }
+  return { relativePath: `refs/${name}`, name: sanitizeName(basename(sourcePath, extname(sourcePath))) }
 })
 
 ipcMain.handle('file:readAbsolute', async (_e, folder: string, relativePath: string) => {
   // Only serve files inside the project folder (resolve + separator check
   // so "/a/b" can't leak "/a/bad" and "../" can't escape).
+  const portablePath = normalizeProjectRelativePath(relativePath)
+  if (!portablePath) throw new Error('path must be relative to the project folder')
   const base = resolve(folder)
-  const full = resolve(base, relativePath)
+  const full = resolve(base, ...portablePath.split('/'))
   if (full !== base && !full.startsWith(base + sep)) throw new Error('path escapes project folder')
   const data = await readFile(full)
   return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
@@ -218,6 +206,9 @@ ipcMain.handle('shell:openExternal', async (_e, url: string) => {
 
 interface ExportJob {
   ffmpeg: ChildProcess
+  /** Attached immediately after spawn so cancellation can await the real close event. */
+  closed: Promise<void>
+  outPath: string
   framesExpected: number
   framesReceived: number
   /** Set when ffmpeg dies or its stdin errors — writes must stop failing loudly, not crash. */
@@ -254,13 +245,16 @@ ipcMain.handle(
       '-movflags', '+faststart',
       outPath
     ]
-    const child = spawn(ffmpegPath, args, { stdio: ['pipe', 'ignore', 'pipe'] })
+    const child = spawn(ffmpegPath, args, { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true })
+    const closed = new Promise<void>((resolve) => child.once('close', () => resolve()))
     let stderrTail = ''
     child.stderr?.on('data', (d: Buffer) => {
       stderrTail = (stderrTail + d.toString()).slice(-4000)
     })
     const job: ExportJob = {
       ffmpeg: child,
+      closed,
+      outPath,
       framesExpected: opts.framesExpected,
       framesReceived: 0,
       dead: false,
@@ -277,17 +271,12 @@ ipcMain.handle(
     child.on('close', (code) => {
       job.dead = true
       job.deadReason = job.deadReason || `ffmpeg exited ${code}`
-      mainWindow?.webContents.send('export:closed', jobId, code ?? -1, stderrTail)
+      mainWindow?.webContents.send('export:closed', jobId, code ?? -1, stderrTail || job.deadReason)
       jobs.delete(jobId)
     })
     child.on('error', (err) => {
       job.dead = true
-      const friendly = /ENOENT/.test(String(err))
-        ? 'ffmpeg not found. Reinstall Blockout from the latest DMG (it bundles ffmpeg), or `brew install ffmpeg`.'
-        : String(err)
-      job.deadReason = friendly
-      mainWindow?.webContents.send('export:closed', jobId, -1, friendly)
-      jobs.delete(jobId)
+      job.deadReason = friendlyFfmpegError(err)
     })
     return true
   }
@@ -328,8 +317,11 @@ ipcMain.handle('export:end', async (_e, jobId: string) => {
 ipcMain.handle('export:cancel', async (_e, jobId: string) => {
   const job = jobs.get(jobId)
   if (!job) return false
-  job.ffmpeg.kill('SIGKILL')
-  jobs.delete(jobId)
+  job.dead = true
+  job.deadReason = 'cancelled'
+  await terminateProcessTree(job.ffmpeg)
+  await job.closed
+  await rm(job.outPath, { force: true })
   return true
 })
 
@@ -346,16 +338,16 @@ ipcMain.handle(
     const ffmpegPath = await resolveFfmpeg()
     await mkdir(dirname(outPath), { recursive: true })
     const listPath = join(dirname(outPath), `.concat-${Date.now()}.txt`)
-    const listBody = inputPaths.map((p) => `file '${p.replace(/'/g, "'\\''")}'`).join('\n')
+    const listBody = inputPaths.map(ffmpegConcatEntry).join('\n')
     await writeFile(listPath, listBody, 'utf-8')
     const result = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
       const child = spawn(ffmpegPath, [
         '-y', '-f', 'concat', '-safe', '0', '-i', listPath, '-c', 'copy', outPath
-      ])
+      ], { windowsHide: true })
       let err = ''
       child.stderr?.on('data', (d: Buffer) => (err = (err + d.toString()).slice(-4000)))
       child.on('close', (code) => resolve(code === 0 ? { ok: true } : { ok: false, error: err }))
-      child.on('error', (e2) => resolve({ ok: false, error: String(e2) }))
+      child.on('error', (e2) => resolve({ ok: false, error: friendlyFfmpegError(e2) }))
     })
     try {
       await rm(listPath)
@@ -375,5 +367,7 @@ ipcMain.handle('ai:analyzeReference', async (_e, filePath: string) => {
 ipcMain.handle('app:versions', () => ({
   app: APP_VERSION,
   electron: process.versions.electron,
-  node: process.versions.node
+  node: process.versions.node,
+  platform: process.platform,
+  productName: app.getName()
 }))
