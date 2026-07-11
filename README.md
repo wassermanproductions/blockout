@@ -183,4 +183,4 @@ third-party compliance review.
 
 Created by **Sam Wasserman** — [wassermanproductions.com](https://wassermanproductions.com) · [wasserman.ai](https://wasserman.ai).
 
-Windows desktop port contributed by **Gumbii Digital** ([github.com/GumbiiDigital](https://github.com/GumbiiDigital)) — see [MODIFICATIONS.md](MODIFICATIONS.md).
+Windows support contributed and maintained by **Gumbii Digital** ([github.com/GumbiiDigital](https://github.com/GumbiiDigital)) — see [MODIFICATIONS.md](MODIFICATIONS.md).
