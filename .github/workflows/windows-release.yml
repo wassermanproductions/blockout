@@ -63,11 +63,16 @@ jobs:
             Get-ChildItem release/ffmpeg-corresponding-source -File -Recurse
             Get-ChildItem release/compliance -File -Recurse
           )
-          $distributed | Sort-Object FullName | ForEach-Object {
+          $lines = $distributed | Sort-Object FullName | ForEach-Object {
             $hash = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower()
             $relative = [System.IO.Path]::GetRelativePath((Resolve-Path release), $_.FullName).Replace('\', '/')
             "$hash *$relative"
-          } | Set-Content -Encoding ascii release/SHA256SUMS
+          }
+          [IO.File]::WriteAllText(
+            (Join-Path (Resolve-Path release) 'SHA256SUMS'),
+            (($lines -join "`n") + "`n"),
+            [Text.Encoding]::ASCII
+          )
       - name: Attest Windows installer provenance
         uses: actions/attest-build-provenance@v2
         with:
