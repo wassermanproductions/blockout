@@ -6,7 +6,7 @@
  */
 
 import { _electron as electron, test, expect, type ElectronApplication, type Page } from '@playwright/test'
-import { mkdtempSync, mkdirSync, existsSync, readFileSync, readdirSync, statSync } from 'fs'
+import { mkdtempSync, mkdirSync, existsSync, readFileSync, readdirSync } from 'fs'
 import { execFileSync } from 'child_process'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -14,6 +14,11 @@ import { join } from 'path'
 let app: ElectronApplication
 let page: Page
 let smokeDir: string
+
+// These tests form one end-to-end project lifecycle. When CI retries a
+// failure, replay the lifecycle from project creation instead of retrying a
+// state-dependent tail test in a fresh Electron worker.
+test.describe.configure({ mode: 'serial' })
 
 test.beforeAll(async () => {
   const root = process.env.BLOCKOUT_E2E_ROOT || tmpdir()
@@ -158,7 +163,7 @@ test('exports a real package: video + stills + prompt + metadata', async () => {
   expect(stream.width).toBe(1920)
   expect(stream.height).toBe(1080)
   expect(stream.avg_frame_rate).toBe('24/1')
-  expect(statSync(join(pkg, refMp4)).size).toBeGreaterThan(50_000)
+  expect(Number(stream.nb_frames)).toBeGreaterThanOrEqual(119)
 
   // Stills: first/last + 2 camera marks + top-down.
   const stills = readdirSync(join(pkg, 'stills'))

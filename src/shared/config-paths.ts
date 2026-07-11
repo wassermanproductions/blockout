@@ -1,5 +1,5 @@
 import { homedir } from 'os'
-import { join, win32 } from 'path'
+import { posix, win32 } from 'path'
 import { DISTRIBUTION } from './distribution'
 
 export interface ConfigPathOptions {
@@ -28,10 +28,10 @@ export function resolveConfigDir(options: ConfigPathOptions = {}): string {
     const segments = namespace.split(/[\\/]+/).filter((part) => part && part !== '.' && part !== '..')
     return win32.join(appData, ...(segments.length > 0 ? segments : ['blockout']))
   }
-  return join(home, '.config', 'blockout')
+  return posix.join(home, '.config', 'blockout')
 }
 
 export function resolveConfigPath(name: string, options: ConfigPathOptions = {}): string {
-  const pathJoin = (options.platform ?? process.platform) === 'win32' ? win32.join : join
+  const pathJoin = (options.platform ?? process.platform) === 'win32' ? win32.join : posix.join
   return pathJoin(resolveConfigDir(options), name)
 }

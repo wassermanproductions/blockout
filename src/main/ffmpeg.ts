@@ -55,23 +55,51 @@ function waitForClose(child: ChildProcess): Promise<void> {
   return new Promise((resolve) => child.once('close', () => resolve()))
 }
 
+async function closesWithin(closed: Promise<void>, timeoutMs: number): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      closed.then(() => true),
+      new Promise<boolean>((resolve) => {
+        timer = setTimeout(() => resolve(false), timeoutMs)
+      })
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 /** Terminate the complete encoder process tree and wait for file handles to close. */
 export async function terminateProcessTree(child: ChildProcess): Promise<void> {
   const closed = waitForClose(child)
   if (child.exitCode === null && child.signalCode === null && process.platform === 'win32' && child.pid) {
-    await new Promise<void>((resolve) => {
+    const taskkillCode = await new Promise<number | null>((resolve) => {
       const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
         stdio: 'ignore',
         windowsHide: true
       })
-      killer.once('close', () => resolve())
+      killer.once('close', (code) => resolve(code))
       killer.once('error', () => {
-        child.kill('SIGKILL')
-        resolve()
+        resolve(null)
       })
     })
+    if (taskkillCode !== 0 && child.exitCode === null && child.signalCode === null) {
+      try {
+        child.kill('SIGKILL')
+      } catch {
+        // The process may have exited between taskkill and the fallback.
+      }
+    }
   } else if (child.exitCode === null && child.signalCode === null) {
     child.kill('SIGKILL')
   }
-  await closed
+  if (await closesWithin(closed, 5_000)) return
+  try {
+    child.kill('SIGKILL')
+  } catch {
+    // A final close may already be queued.
+  }
+  if (!(await closesWithin(closed, 5_000))) {
+    throw new Error('FFmpeg did not close after process-tree termination.')
+  }
 }

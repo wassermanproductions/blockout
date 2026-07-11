@@ -42,6 +42,17 @@ jobs:
         run: ./scripts/verify-windows-package.ps1
       - run: npm run sbom
       - run: npm run fetch:ffmpeg-source
+      - name: Stage release compliance files
+        shell: pwsh
+        run: |
+          $compliance = New-Item -ItemType Directory -Force release/compliance
+          Copy-Item LICENSE (Join-Path $compliance 'Blockout-Apache-2.0.txt')
+          Copy-Item NOTICE (Join-Path $compliance 'NOTICE')
+          Copy-Item MODIFICATIONS.md (Join-Path $compliance 'MODIFICATIONS.md')
+          Copy-Item THIRD_PARTY_NOTICES.md (Join-Path $compliance 'THIRD_PARTY_NOTICES.md')
+          Copy-Item ASSET_MANIFEST.json (Join-Path $compliance 'ASSET_MANIFEST.json')
+          Copy-Item vendor/ffmpeg/win-x64/LICENSE.txt (Join-Path $compliance 'FFmpeg-GPL-3.0.txt')
+          Copy-Item third_party/ffmpeg/PROVENANCE.md (Join-Path $compliance 'FFmpeg-PROVENANCE.md')
       - name: Write SHA256SUMS
         shell: pwsh
         run: |
@@ -50,6 +61,7 @@ jobs:
             Get-ChildItem release -Filter '*.spdx.json' -File
             Get-ChildItem release -Filter '*.cyclonedx.json' -File
             Get-ChildItem release/ffmpeg-corresponding-source -File -Recurse
+            Get-ChildItem release/compliance -File -Recurse
           )
           $distributed | Sort-Object FullName | ForEach-Object {
             $hash = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower()
@@ -70,8 +82,4 @@ jobs:
             release/*.spdx.json
             release/*.cyclonedx.json
             release/ffmpeg-corresponding-source/*
-            LICENSE
-            NOTICE
-            MODIFICATIONS.md
-            THIRD_PARTY_NOTICES.md
-            ASSET_MANIFEST.json
+            release/compliance/*
