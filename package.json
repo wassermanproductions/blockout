@@ -26,7 +26,7 @@
     "fetch:ffmpeg-source": "node scripts/fetch-ffmpeg-source.mjs",
     "package": "npm run package:mac",
     "package:mac": "node scripts/package-macos.mjs",
-    "package:win": "npm run prepare:ffmpeg:win && npm run verify:release-assets && npm run build && electron-builder --win nsis --x64 --config electron-builder.yml"
+    "package:win": "npm run prepare:ffmpeg:win && npm run verify:release-assets && npm run build && electron-builder --win nsis --x64 --config electron-builder.yml --publish never"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
