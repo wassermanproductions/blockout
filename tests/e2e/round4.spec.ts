@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Round-4 features: one-click framings, ground snap, stage presets, motion
  * presets, boarding, flying-object marks, the stuck-after-recording fix, the

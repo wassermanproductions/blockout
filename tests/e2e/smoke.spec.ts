@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Headless smoke test: launch the real built app, script a scene through
  * the store (the same code paths the UI calls), run a real export through

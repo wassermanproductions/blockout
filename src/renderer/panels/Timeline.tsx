@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Shoot-mode bottom timeline: transport, a scrubbable second-ruler, and one
  * lane per moving entity (camera first) with draggable mark pills. Reads and

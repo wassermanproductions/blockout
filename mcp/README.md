@@ -1,3 +1,5 @@
+<!-- Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md. -->
+
 # Blockout MCP — drive the app from an AI agent
 
 Blockout ships a small [MCP](https://modelcontextprotocol.io) server so an AI agent — **Claude Code, Codex, Hermes, OpenClaw, or any MCP client** — can drive a **running** copy of the app: stage entities, choreograph camera and actor marks, apply camera moves, scrub the timeline, and pull a viewport screenshot. It's the same set of moves you'd make by hand, exposed as tools.

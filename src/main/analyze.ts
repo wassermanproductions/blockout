@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Reference analysis: send a reference image (or a frame extracted from a
  * reference video) to Claude with vision + structured outputs, and get back

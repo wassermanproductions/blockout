@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Control-server e2e for the `set_reference` action (Motion Previs Studio
  * handoff): launch the built app, create a project, generate a tiny clip,

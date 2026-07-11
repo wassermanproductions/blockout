@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Global stage-preset storage. Presets are reusable staging setups saved
  * outside any project in Blockout's platform config directory.

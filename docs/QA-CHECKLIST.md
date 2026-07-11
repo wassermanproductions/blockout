@@ -1,3 +1,5 @@
+<!-- Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md. -->
+
 # QA Checklist — run before every release
 
 Automated gates first (all must be green):

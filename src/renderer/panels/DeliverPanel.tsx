@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Deliver mode: pick a generator profile, choose passes, export the
  * package, copy the generated prompt, and hand off to Blender/ComfyUI.

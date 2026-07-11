@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Localhost-only HTTP control server. External agents (MCP clients, Codex,
  * Hermes, …) drive a running Blockout by POSTing actions here; each action

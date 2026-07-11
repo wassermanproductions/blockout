@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Help overlay, redesigned for a filmmaker skimming (not reading):
  *   • Quick start — six visual cards, the whole app at a glance.

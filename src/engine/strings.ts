@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Name sanitization for file paths and glTF node names. Unicode-aware —
  * a shot named "追跡" keeps its characters — and never returns an empty

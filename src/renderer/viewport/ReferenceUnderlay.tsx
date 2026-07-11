@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Reference video underlay: play any imported video (including depth-map
  * videos) ghosted over the viewport or as picture-in-picture, timeline-

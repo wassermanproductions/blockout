@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * v2.1: camera-move presets, subject tracking, mark multi-select/delete,
  * and the recording-control setting — plus the MCP surface for them.

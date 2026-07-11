@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Electron main process: window lifecycle, project folder I/O, ffmpeg
  * export orchestration. All filesystem access lives here; the renderer

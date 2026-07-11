@@ -1,3 +1,5 @@
+<!-- Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md. -->
+
 # Blockout — Design Document
 
 *A desktop previs tool for AI-native filmmaking. Stage a scene in minutes, choreograph camera and character blocking against marks, and export motion-reference packages (video + stills + prompts) for generators like Seedance 2.0, Veo 3.1, Kling, LTX 2.3, and Wan 2.2.*

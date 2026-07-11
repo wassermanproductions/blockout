@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * v2.2: crowd sequences (dance/fight/chases), action-path presets for
  * vehicles/objects, the expanded motion library, and their MCP surface.

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Blockout MCP server — zero-dependency Node >=18 stdio bridge.
  *

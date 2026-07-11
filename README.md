@@ -1,3 +1,5 @@
+<!-- Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md. -->
+
 <div align="center">
 
 <img src="docs/images/logo.png" alt="Blockout logo" width="340" />

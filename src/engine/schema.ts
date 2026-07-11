@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Document creation, validation, and git-friendly serialization.
  * Projects are folders; this module owns the JSON shape. Serialization is

@@ -1,3 +1,4 @@
+// Modified for cross-platform Windows support in 2026; see MODIFICATIONS.md.
 /**
  * Viewport — React shell around SceneManager: canvas lifecycle, the shot
  * HUD, look-through framing overlays (thirds grid), placement/mark hints,

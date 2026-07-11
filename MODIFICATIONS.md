@@ -17,6 +17,20 @@ Portable desktop work added in 2026:
 Downstream distributors should append their own branding and behavioral changes
 to this file rather than replacing the original attribution.
 
+Every upstream file changed by this port and capable of carrying comments has
+a prominent first-lines notice pointing back to this manifest. The following
+changed structured/generated files cannot accept comments without invalidating
+their format, so this manifest is their file-level change notice:
+
+- `package.json`
+- `package-lock.json`
+- `tsconfig.json`
+- `tsconfig.node.json`
+
+New binary and structured release artifacts are likewise identified here:
+`build/icon.ico` and `ASSET_MANIFEST.json`. Patch inputs retain their exact
+patch syntax and are documented by path under `third_party/ffmpeg/`.
+
 A stable or commercial distribution remains gated on upstream/trademark
 permission, platform code signing/notarization, a final FFmpeg/H.264
 distribution review, and the ordinary complete third-party compliance review.
