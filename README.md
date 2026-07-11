@@ -92,9 +92,15 @@ Blockout ships an **MCP server** so an AI agent can drive the running app — st
 
 ## Install
 
-**Download** an existing macOS DMG from GitHub Releases, or build from source.
-The Windows 11 x64 NSIS target uses an audited, pinned BtbN GPL FFmpeg/FFprobe
-pair and is ready for native Windows prerelease validation:
+**Download** the latest installers from [GitHub Releases](https://github.com/wassermanproductions/blockout/releases) — a macOS DMG or the Windows 11 x64 installer — or build from source.
+
+<div align="center">
+
+<img src="docs/images/blockout-windows.png" alt="Blockout for Windows 11" width="300" />
+
+**Now on Windows 11** — native controls, bundled export tooling, per-user install (no admin needed).
+
+</div>
 
 ```bash
 git clone <this repo>
@@ -114,9 +120,9 @@ automatically. To rebuild it from verified sources and the audited patch
 instead, run `npm run prepare:ffmpeg:mac -- --build-from-source`.
 
 Current release artifacts are unsigned. On macOS, right-click → Open bypasses
-Gatekeeper. When a Windows prerelease is legally cleared and published, use
-**More info → Run anyway** only after verifying its SHA-256 checksum. Code
-signing/notarization is required for a trusted stable distribution.
+Gatekeeper. On Windows, SmartScreen will warn on first run — verify the
+installer's SHA-256 checksum from the release page, then use **More info →
+Run anyway**. Code signing/notarization is planned for a stable distribution.
 
 ---
 
