@@ -44,7 +44,8 @@ test('app boots to the welcome screen', async () => {
 
 test('creates a project and stages a scene through real UI actions', async () => {
   await page.getByRole('button', { name: 'New Project' }).click()
-  await expect(page.locator('.mode-switch')).toBeVisible()
+  // First project creation initializes the full GL scene; CI's GPU-less Intel runners need well over the default 5s.
+  await expect(page.locator('.mode-switch')).toBeVisible({ timeout: 30_000 })
 
   // Stage a man + an SUV via the store (same actions the Library/Viewport call).
   await page.evaluate(() => {

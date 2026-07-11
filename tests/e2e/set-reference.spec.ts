@@ -92,7 +92,8 @@ test.afterAll(async () => {
 test('set_reference control action attaches a reference and copies the clip into refs/', async () => {
   // Create a project so there is a projectFolder + an active shot.
   await page.getByRole('button', { name: 'New Project' }).click()
-  await expect(page.locator('.mode-switch')).toBeVisible()
+  // First project creation initializes the full GL scene; CI's GPU-less Intel runners need well over the default 5s.
+  await expect(page.locator('.mode-switch')).toBeVisible({ timeout: 30_000 })
 
   // Read the control server's discovery file (written on app launch).
   const discoveryFile = join(configDir, 'control.json')
