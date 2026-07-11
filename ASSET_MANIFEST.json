@@ -8,21 +8,39 @@
     "windowsIcon": {
       "path": "build/icon.ico",
       "sha256": "b7603b593b4c512ee36bded410ab9b70707839eb88e151a67ae406234dbca346",
-      "sizes": [16, 24, 32, 48, 64, 128, 256]
+      "sizes": [
+        16,
+        24,
+        32,
+        48,
+        64,
+        128,
+        256
+      ]
     },
     "macosFfmpeg": {
       "provider": "mifi/ffmpeg-build-script with audited Blockout patch",
       "buildRepositoryCommit": "967cfb0c7d8ab000c466d00e4b6186f150ef4481",
       "ffmpegCommit": "7d0e8420048cffd0ca3883b877ead2390496d0b2",
       "license": "GPL-3.0-or-later",
-      "supportedArchitectures": ["arm64", "x64"],
+      "supportedArchitectures": [
+        "arm64",
+        "x64"
+      ],
       "buildPatch": {
         "path": "third_party/ffmpeg/macos-gpl.patch",
         "sha256": "29897af37c6fcee4cc51681df1a4ba2dfe9228549fabd6e7a16d8a537371c332"
       },
       "licenseSha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
-      "requiredConfigureFlags": ["--enable-gpl", "--enable-version3", "--enable-libx264"],
-      "forbiddenConfigureFlags": ["--enable-nonfree", "--enable-openssl"],
+      "requiredConfigureFlags": [
+        "--enable-gpl",
+        "--enable-version3",
+        "--enable-libx264"
+      ],
+      "forbiddenConfigureFlags": [
+        "--enable-nonfree",
+        "--enable-openssl"
+      ],
       "sourceArchives": [
         {
           "name": "ffmpeg-build-script-967cfb0c7d8ab000c466d00e4b6186f150ef4481.tar.gz",
@@ -64,7 +82,14 @@
           "url": "https://github.com/FFmpeg/FFmpeg/archive/7d0e8420048cffd0ca3883b877ead2390496d0b2.tar.gz",
           "sha256": "2caafb2bbfb69c0518470651640e71ac7f5fb3117d188bf6ea2d909307a02b1d"
         }
-      ]
+      ],
+      "prebuilt": {
+        "arm64": {
+          "name": "blockout-ffmpeg-macos-arm64.tar.gz",
+          "url": "https://github.com/wassermanproductions/blockout/releases/download/v5.0.0-desktop.1/blockout-ffmpeg-macos-arm64.tar.gz",
+          "sha256": "7931a1cfa8a01f2da647eb17589c7eaac6ab6ec907f4718286a91b6a8295f995"
+        }
+      }
     },
     "windowsFfmpeg": {
       "provider": "BtbN/FFmpeg-Builds",
@@ -82,8 +107,15 @@
         "ffprobe.exe": "4919faa7f0586eb05802908276f78096d3003335eaa38c378b6b1c44f1e19814",
         "LICENSE.txt": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
       },
-      "requiredConfigureFlags": ["--enable-gpl", "--enable-version3", "--enable-libx264", "--disable-libfdk-aac"],
-      "forbiddenConfigureFlags": ["--enable-nonfree"],
+      "requiredConfigureFlags": [
+        "--enable-gpl",
+        "--enable-version3",
+        "--enable-libx264",
+        "--disable-libfdk-aac"
+      ],
+      "forbiddenConfigureFlags": [
+        "--enable-nonfree"
+      ],
       "sourceArchives": [
         {
           "name": "FFmpeg-7d0e8420048cffd0ca3883b877ead2390496d0b2.tar.gz",
