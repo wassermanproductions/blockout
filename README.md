@@ -88,6 +88,11 @@ Stage a whole choreographed crowd in one action — pick **Dance number / Fight 
 
 Blockout ships an **MCP server** so an AI agent can drive the running app — stage entities, choreograph marks, reframe, scrub, and grab a viewport screenshot — the same moves you'd make by hand. See **[mcp/README.md](mcp/README.md)** for the full agent-integration guide.
 
+## Operator handbooks
+
+- [Blockout Operator Handbook](docs/handbooks/blockout-sop-handbook.md) ([PDF](docs/handbooks/blockout-sop-handbook.pdf))
+- [Three-App Windows Workflow Handbook](docs/handbooks/three-app-workflow-handbook.md) ([PDF](docs/handbooks/three-app-workflow-handbook.pdf))
+
 ---
 
 ## Install
