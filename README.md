@@ -90,6 +90,15 @@ Blockout ships an **MCP server** so an AI agent can drive the running app — st
 
 ---
 
+## Works with
+
+Blockout is one of three standalone filmmaking apps that fit together. Each works on its own, and they chain: measure a reference in Motion Previs Studio, block and export the shot here, then split the finished mix in Stem Studio once the edit is done.
+
+- **[Motion Previs Studio](https://github.com/wassermanproductions/motion-previs-studio)** — turns a reference video into pose, depth, and camera data. Send its reference into a Blockout shot to animate against.
+- **[Stem Studio](https://github.com/wassermanproductions/stem-studio)** — splits a finished mix back into dialogue, music, and SFX stems.
+
+---
+
 ## Install
 
 **Download** the latest installers from [GitHub Releases](https://github.com/wassermanproductions/blockout/releases) — a macOS DMG or the Windows 11 x64 installer — or build from source.
