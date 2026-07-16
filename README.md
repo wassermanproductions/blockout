@@ -133,6 +133,18 @@ Gatekeeper. On Windows, SmartScreen will warn on first run — verify the
 installer's SHA-256 checksum from the release page, then use **More info →
 Run anyway**. Code signing/notarization is planned for a stable distribution.
 
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Project opens with missing reference media | Reattach the approved source and allow Blockout to copy it into `refs`; save and reopen. |
+| Subject jumps or action starts from an old position | Inspect time zero, remove stale marks, and rebuild the opening state deliberately. |
+| Export has the wrong shot | Stop, refresh current state, select the intended scene and shot, and export with an exact expected base name. |
+| Export cancellation leaves a partial file | Wait for cancellation to complete, confirm the encoder has closed, then remove the partial output. |
+| Filename is rejected | Use a short descriptive name without reserved device words or trailing spaces and dots. |
+| Agent action targets a stale entity | Refresh state, confirm the current ID, and retry once with the new ID. |
+| Shoot reports invalid action or gait data | Preserve a copy, remove or rebuild the malformed mark, save, and reopen. Do not keep replaying an invalid action payload. Current builds reject it before the timeline can fail. |
+
 ---
 
 ## Agent control (MCP)
