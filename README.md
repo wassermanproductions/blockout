@@ -101,7 +101,18 @@ Blockout is one of three standalone filmmaking apps that fit together. Each work
 
 ## Install
 
-**Download** the latest installers from [GitHub Releases](https://github.com/wassermanproductions/blockout/releases) — a macOS DMG or the Windows 11 x64 installer — or build from source.
+**macOS — paste one line into Terminal** (⌘-Space, type "Terminal") and it
+downloads the latest build, installs it to Applications, and opens it — no
+security warnings:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/wassermanproductions/blockout/main/install.sh | bash
+```
+
+**Windows — download** the Windows 11 x64 installer from
+[GitHub Releases](https://github.com/wassermanproductions/blockout/releases).
+You can also grab the macOS DMG there, or build from source — see the note
+about unsigned builds below.
 
 <div align="center">
 
@@ -128,10 +139,14 @@ macOS packaging downloads and verifies the same pinned, audited FFmpeg pair
 automatically. To rebuild it from verified sources and the audited patch
 instead, run `npm run prepare:ffmpeg:mac -- --build-from-source`.
 
-Current release artifacts are unsigned. On macOS, right-click → Open bypasses
-Gatekeeper. On Windows, SmartScreen will warn on first run — verify the
-installer's SHA-256 checksum from the release page, then use **More info →
-Run anyway**. Code signing/notarization is planned for a stable distribution.
+Current release artifacts are unsigned. A macOS DMG downloaded in a browser is
+quarantined, so macOS falsely claims the app "is damaged" — either use the
+one-line installer above (terminal downloads aren't quarantined, so no warning
+appears), or after dragging Blockout to Applications run
+`xattr -cr /Applications/Blockout.app` once in Terminal. On Windows,
+SmartScreen will warn on first run — verify the installer's SHA-256 checksum
+from the release page, then use **More info → Run anyway**. Code
+signing/notarization is planned for a stable distribution.
 
 ## Troubleshooting
 
