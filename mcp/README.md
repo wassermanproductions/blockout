@@ -118,7 +118,7 @@ No `env`, no headers, no URL — the bridge discovers the running app on its own
 | `save_preset` | `name` | Save the current staging as a named global preset. |
 | `apply_preset` | `id` | Load a saved stage preset into the current scene. |
 | `import_scan` | `sourcePath` | Import a Gaussian-splat / photogrammetry scan (`.ply/.splat/.spz/.ksplat`) into `scans/` as an editor-only environment. Returns the created scan. |
-| `set_scan_transform` | `scanId, position?, rotationDeg?, scale?, visible?` | Position / rotate / scale / show-hide an imported scan. Omitted fields unchanged. |
+| `set_scan_transform` | `scanId, position?, rotationDeg?, scale?, visible?, flipped?` | Position / rotate / scale / show-hide an imported scan; `flipped` rights upside-down .splat exports. Omitted fields unchanged. |
 | `remove_scan` | `scanId` | Remove an imported scan from the current scene. |
 | `set_reference` | `videoPath, handoffVersion?, mode?, opacity?` | Attach a reference clip (copied into `refs/`) as a ghost/PIP underlay. Motion Previs sends independent handoff protocol version `1`; missing version remains accepted for legacy clients. |
 

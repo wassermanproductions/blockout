@@ -544,7 +544,9 @@ async function execute(action: string, params: Params): Promise<unknown> {
       if (rotationDeg !== undefined) patch.rotationY = toRad(rotationDeg)
       const scale = flt(params, 'scale')
       if (scale !== undefined) patch.scale = scale
-      if (patch.position || patch.rotationY !== undefined || patch.scale !== undefined) {
+      const flipped = bool(params, 'flipped')
+      if (flipped !== undefined) (patch as { flipped?: boolean }).flipped = flipped
+      if (patch.position || patch.rotationY !== undefined || patch.scale !== undefined || flipped !== undefined) {
         s.updateScanTransform(scanId, patch)
       }
       const visible = bool(params, 'visible')

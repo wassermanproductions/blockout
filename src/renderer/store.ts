@@ -206,7 +206,10 @@ interface BlockoutState {
   /** Toggle a scan's editor-viewport visibility. */
   setScanVisible(scanId: string, visible: boolean): void
   /** Patch a scan's transform (position / rotationY / scale). */
-  updateScanTransform(scanId: string, patch: Partial<{ position: V3; rotationY: number; scale: number }>): void
+  updateScanTransform(
+    scanId: string,
+    patch: Partial<{ position: V3; rotationY: number; scale: number; flipped: boolean }>
+  ): void
   /** Save the current scene's staging as a reusable, globally persistent preset. */
   saveStagePreset(name: string): Promise<void>
   /** Stage a preset into a brand-new scene (originals stay untouched). */
@@ -1116,6 +1119,10 @@ export const useStore = create<BlockoutState>((set, get) => ({
       if (patch.position) scan.position = { ...scan.position, ...patch.position }
       if (patch.rotationY !== undefined) scan.rotationY = patch.rotationY
       if (patch.scale !== undefined) scan.scale = Math.max(0.01, patch.scale)
+      if (patch.flipped !== undefined) {
+        if (patch.flipped) scan.flipped = true
+        else delete scan.flipped
+      }
     })
   },
 

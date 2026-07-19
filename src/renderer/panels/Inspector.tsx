@@ -376,9 +376,18 @@ function ScanInspector({ scene, scanId }: { scene: Scene; scanId: string }): JSX
             />
           </div>
         </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, margin: '6px 0' }}>
+          <input
+            type="checkbox"
+            checked={scan.flipped === true}
+            onChange={(e) => updateScanTransform(scanId, { flipped: e.target.checked })}
+          />
+          Upside-down scan (flip it)
+        </label>
         <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4 }}>
-          Line the scan's floor up with the grid, then stage and block inside it. Scans are editor
-          staging only and never render into exports.
+          Line the scan's floor up with the grid, then stage and block inside it. Many phone/.splat
+          exports load upside-down — tick the flip if the world hangs from the ceiling. Scans are
+          editor staging only and never render into exports.
         </p>
       </div>
     </div>

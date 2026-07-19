@@ -271,6 +271,7 @@ function migrateProject(doc: ProjectDoc): ProjectDoc {
             z: typeof pos.z === 'number' ? pos.z : 0
           },
           rotationY: typeof s.rotationY === 'number' ? s.rotationY : 0,
+          ...(s.flipped === true ? { flipped: true } : {}),
           scale: typeof s.scale === 'number' && s.scale > 0 ? s.scale : 1,
           visible: s.visible !== false,
           ...(s.holdout === true ? { holdout: true } : {})

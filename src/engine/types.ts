@@ -246,6 +246,11 @@ export interface ScanRef {
   /** Hidden in the editor viewport when false (still never exported). */
   visible: boolean
   /**
+   * Pitch the scan 180° — many .splat exports (antimatter15-format tools)
+   * are Y-down and load upside-down; this rights them without re-processing.
+   */
+  flipped?: boolean
+  /**
    * Reserved for a future holdout/matte pass — when true the scan would be
    * treated as an occluder rather than visible geometry. Parsed and preserved
    * but not yet acted on.

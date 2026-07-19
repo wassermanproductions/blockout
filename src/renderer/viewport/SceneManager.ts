@@ -435,7 +435,8 @@ export class SceneManager {
     const visual = this.scanVisuals.get(scanId)
     if (!ref || !visual) return
     visual.holder.position.set(ref.position.x, ref.position.y, ref.position.z)
-    visual.holder.rotation.set(0, ref.rotationY, 0)
+    // Pitch-π rights upside-down (Y-down) scans; yaw still applies on top.
+    visual.holder.rotation.set(ref.flipped ? Math.PI : 0, ref.rotationY, 0)
     visual.holder.scale.setScalar(ref.scale)
     visual.holder.visible = ref.visible
   }
@@ -489,25 +490,39 @@ export class SceneManager {
       gpuAcceleratedSort: false,
       freeIntermediateSplatData: true
     })
-    viewer.addSplatScene(url, { format, showLoadingUI: false, splatAlphaRemovalThreshold: 5 }).then(
-      () => {
-        URL.revokeObjectURL(url)
-        if (stale()) {
-          Promise.resolve(viewer.dispose()).catch(() => undefined)
-          return
-        }
-        const visual = this.scanVisuals.get(scanId)!
-        visual.viewer = viewer
-        visual.loading = false
-        visual.holder.add(viewer)
-        this.applyScanTransform(scanId)
-      },
-      (e: unknown) => {
-        URL.revokeObjectURL(url)
+    // The lib's loader can reject outside its returned promise (internal
+    // fetch in a detached chain) — belt-and-braces: try/catch the call AND
+    // run a timeout failsafe so `loading` can never wedge on silently.
+    let settled = false
+    const succeed = (): void => {
+      if (settled) return
+      settled = true
+      URL.revokeObjectURL(url)
+      if (stale()) {
         Promise.resolve(viewer.dispose()).catch(() => undefined)
-        fail(`Scan load failed: ${e instanceof Error ? e.message : 'unreadable splat file'}`)
+        return
       }
-    )
+      const visual = this.scanVisuals.get(scanId)!
+      visual.viewer = viewer
+      visual.loading = false
+      visual.holder.add(viewer)
+      this.applyScanTransform(scanId)
+    }
+    const reject = (e: unknown): void => {
+      if (settled) return
+      settled = true
+      URL.revokeObjectURL(url)
+      Promise.resolve(viewer.dispose()).catch(() => undefined)
+      fail(`Scan load failed: ${e instanceof Error ? e.message : 'unreadable splat file'}`)
+    }
+    try {
+      viewer.addSplatScene(url, { format, showLoadingUI: false, splatAlphaRemovalThreshold: 5 }).then(succeed, reject)
+    } catch (e) {
+      return reject(e)
+    }
+    window.setTimeout(() => {
+      if (!settled) reject(new Error('timed out after 90s'))
+    }, 90_000)
   }
 
   /** Remove a visual and free its GPU resources (long sessions must not leak). */

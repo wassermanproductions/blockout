@@ -429,7 +429,7 @@ const TOOLS = [
   {
     name: 'set_scan_transform',
     description:
-      'Position, rotate, scale, or show/hide an imported scan. Omitted fields are left unchanged; position merges onto the current position.',
+      'Position, rotate, scale, flip, or show/hide an imported scan. Omitted fields are left unchanged; position merges onto the current position. Set flipped:true to right an upside-down .splat export.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -446,7 +446,8 @@ const TOOLS = [
         },
         rotationDeg: { type: 'number', description: 'Yaw in degrees, clockwise from above.' },
         scale: { type: 'number', description: 'Uniform scale (min 0.01).' },
-        visible: { type: 'boolean', description: 'Editor-viewport visibility.' }
+        visible: { type: 'boolean', description: 'Editor-viewport visibility.' },
+        flipped: { type: 'boolean', description: 'Pitch the scan 180° to right upside-down (Y-down) .splat exports.' }
       },
       required: ['scanId'],
       additionalProperties: false
