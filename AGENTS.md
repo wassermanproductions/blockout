@@ -42,6 +42,13 @@ tests/unit/     Vitest (engine only). tests/e2e/ Playwright (smoke + screenshots
 assets/         (profiles as code in engine/profiles.ts; 3D assets are procedural)
 ```
 
+## Key subsystems (recent rounds)
+
+- **Motion library** (`src/engine/motions.ts`): 194 motion presets across `fight`/`dance`/`gesture`/`everyday`/`sport`/`stunt`. The rig joint set added `hipLZ`/`hipRZ` (leg abduction — positive swings the leg outward from the midline), `torsoZ` (lateral torso lean, positive = right), and `headZ` (head tilt, positive = right). All default to 0, so existing content renders unchanged; the joint→bone mapping lives in `animatePerson` in `src/renderer/viewport/builders.ts`, sign conventions in the `motions.ts` header. Any test enumerating legal joint names must include the four.
+- **Choreography engine** (`src/engine/choreography.ts`, PURE): `buildRoutine(spec, ctx)` turns a `RoutineSpec` (`dance`/`fight`/`chase`, performers, durationS, seed, style/options) into per-performer marks compatible with `sequences.ts`. Seeded (inline mulberry32 — the caller in the renderer randomizes the default seed, never the engine). Dances use 8-count phrases with formations/canon/mirror; fights are paired attack→reaction exchanges (reactions offset so they land mid-attack, distance re-closes after knockbacks); chases run a serpentine path with scripted near-misses. `mirrorJoints` swaps L/R pairs and flips Y/Z-symmetric channels. Store wiring: `spawnChoreography(spec, at)` (fresh cast) and `choreographSelected(spec)` (retarget selected people). UI: the Library **Choreographer** panel.
+- **3D scans** (`Scene.scans: ScanRef[]`): Gaussian-splat / photogrammetry environments imported via the `scan:import` IPC (`.ply/.splat/.spz/.ksplat` copied into the project `scans/`). Rendered by `@mkkellogg/gaussian-splats-3d` in `SceneManager` (`scansGroup`/`scanVisuals`), transformable from the Inspector Scans section. **Editor-only**: `scansGroup.visible=false` in `renderFrameAt` and `renderTopDown` — worker-based splat sorting can't guarantee byte-deterministic exports, so scans never enter any pass (they are listed in the package `metadata.json`). Schema migration defaults `scans` to `[]` and never throws.
+- **Sky & editor chrome** (`SceneManager`): the `middaySky`/`goldenHourSky`/`blueHourSky` lighting presets drive a `three/examples` `Sky` dome — a deterministic function of `sunAzimuth`/`sunElevation` with fixed turbidity/rayleigh per preset, so it renders byte-identically in the **clean** export and is hidden in the depth/normal passes. Spike-tape marks and path ribbons live in `overlay` sub-groups (`marksGroup`/`pathsGroup`, HUD eye toggles `showMarks`/`showPaths`); selection adds direction chevrons + `t=…s` labels for the picked lane only. The bottom-right `ViewHelper` gizmo and the selected-entity **emissive tint** are editor-only — the gizmo renders in its own corner viewport (never in `this.scene`), and `renderFrameAt` neutralizes the tint for the duration of every pass so selection can't affect exported pixels. The Shoot **Take bar** (Viewport) and **Set your marks** coach (Help/App) are pure compositions of existing store actions.
+
 ## Hard rules
 
 1. **Engine purity**: `src/engine/` must never import DOM/three/Electron. It runs in Vitest under Node.
@@ -108,6 +115,13 @@ claude mcp add blockout -- node /ABSOLUTE/PATH/TO/blockout/mcp/blockout-mcp.mjs
 | `set_shot` | `name?, duration?, aspect?, fps?` | Update shot settings |
 | `new_shot` | `name?` | New shot, same blocking |
 | `apply_framing` | `kind: 2S\|OTS\|REV\|TOP\|LOW\|DUTCH` | Auto-frame the camera |
+| `list_choreography_options` | — | Choreography vocabulary: kinds, styles, formations, endings |
+| `spawn_choreography` | `kind, performers, durationS?, style?, formation?, canon?, mirror?, formationChange?, ending?, bpm?, seed?, x?, z?, headingDeg?` | Stage a dance/fight/chase — fresh performers + their per-beat blocking |
+| `choreograph_entities` | `entityIds, kind, style?, …` (same routine options) | Retarget existing people into a routine (keeps assets/labels) |
+| `list_motion_presets` | `category?` | The single-performer motion library (`{id,name,category,duration}`) |
+| `import_scan` | `sourcePath` | Import a `.ply/.splat/.spz/.ksplat` scan (editor-only); returns the scan |
+| `set_scan_transform` | `scanId, position?, rotationDeg?, scale?, visible?` | Move/rotate/scale/show-hide an imported scan |
+| `remove_scan` | `scanId` | Remove an imported scan from the scene |
 | `snap_to_ground` | `entityId` | Rest an entity on the ground |
 | `set_time` / `play` / `stop` | `t` / — / — | Scrub, play, stop |
 | `screenshot` | — | Current viewport as a PNG (image result) |

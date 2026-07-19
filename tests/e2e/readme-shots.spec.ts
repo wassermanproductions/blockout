@@ -170,6 +170,15 @@ test('hero — downtown car chase, shoot mode, PiP preview', async () => {
       style: 'weaving',
       origin: { x: 0, z: 0, heading: 0 }
     })
+    // The generator marks the cars 'run', whose vehicle speed band starts at
+    // ~26 m/s — this ~15.6 m/s city chase then floods the HUD with too-slow
+    // warning chips. 'walk' on a vehicle just means "drive" (6–33 m/s band).
+    s.mutate('pace chase', (doc: any) => {
+      const scene = doc.scenes.find((sc: any) => sc.id === s.scene().id)
+      for (const take of scene.blocking)
+        for (const tr of take.tracks)
+          for (const m of tr.marks) if (m.gait !== 'stand') m.gait = 'walk'
+    })
     // Witnesses on the sidewalks (buildings sit at x=+-11).
     const a = s.addEntity('person.man', { x: -5.2, y: 0, z: 6 })
     const b = s.addEntity('person.woman', { x: 5.2, y: 0, z: 8 })
@@ -181,18 +190,24 @@ test('hero — downtown car chase, shoot mode, PiP preview', async () => {
       if (eb) eb.label = { text: 'BYSTANDER', color: '#e5c07b' }
     })
     s.setMode('shoot')
-    // A shot camera (off to the right kerb) so the PiP preview has a real
-    // frame and the frustum reads without the mark card facing the lens.
+    // Two camera marks (a short push down the near kerb) so the move reads as a
+    // real dolly, and the HUD Marks/Paths toggles stay on so spike-tape numbered
+    // floor marks + path ribbons render along the corridor.
+    s.setShowMarks(true)
+    s.setShowPaths(true)
     s.dropCameraMark({ x: 4.5, y: 2.2, z: 11 }, -0.12, -0.06, 35)
+    s.setTime(2.6)
+    s.dropCameraMark({ x: 3.2, y: 1.8, z: 2 }, -0.18, -0.04, 42)
     s.setTime(0.9)
     s.setSelection(null)
   })
   await page.waitForTimeout(300)
   await clearToasts(page)
   // Downtown's street runs down the Z axis between buildings at x=+-11 — stay
-  // low on the near kerb and look down the corridor at the oncoming chase.
-  await flyCam(page, [-3.5, 2.6, 13], [0.5, 1, -12])
-  await page.waitForTimeout(800)
+  // low and close on the near kerb so the oncoming chase reads large down the
+  // corridor with the spike-tape marks + path ribbon leading into it.
+  await flyCam(page, [-2.6, 2.0, 8.5], [1.0, 0.8, -9])
+  await page.waitForTimeout(900)
   await page.screenshot({ path: `${OUT}/hero.png` })
   verify('hero.png')
 })
@@ -206,9 +221,24 @@ test('stage-crowd — stage env, 20 dancers, pulled back', async () => {
     s.addEntity('env.stage', { x: 0, y: 0, z: 0 })
     // Perform downstage on the main floor so the raised stage + lit truss read
     // as the backdrop (the platform sits at z=3, deck at y=1, truss overhead).
-    s.spawnSequence({ type: 'dance', count: 20, style: 'mixed', origin: { x: 0, z: -4, heading: 0 } })
+    // The Choreographer stages a real routine: 20 dancers, mixed styles, a
+    // circle formation with canon + mirroring — one undoable step.
+    s.spawnChoreography(
+      {
+        kind: 'dance',
+        performers: 20,
+        durationS: 8,
+        seed: 7,
+        style: 'mixed',
+        formation: 'circle',
+        canon: true,
+        mirror: true,
+        formationChange: true
+      },
+      { x: 0, z: -5, heading: 0 }
+    )
     s.setMode('stage')
-    s.setTime(1.5)
+    s.setTime(1.6)
     s.setSelection(null)
   })
   await page.waitForTimeout(500)
@@ -259,6 +289,8 @@ test('shoot-followcam — plane flying, follow-behind, look-through', async () =
     s.setTime(1.6)
   })
   await page.waitForTimeout(900)
+  await clearToasts(page)
+  await page.waitForTimeout(200)
   await page.screenshot({ path: `${OUT}/shoot-followcam.png` })
   verify('shoot-followcam.png')
 })
@@ -270,9 +302,23 @@ test('timeline-choreo — fight sequence, timeline lanes, inspector', async () =
   await page.evaluate(() => {
     const s = (window as any).__blockout.store.getState()
     s.addEntity('env.warehouse', { x: 0, y: 0, z: 0 })
-    s.spawnSequence({ type: 'fight', count: 8, style: 'paired', origin: { x: 0, z: -3, heading: 0 } })
+    // The Choreographer's paired fight: attack -> reaction exchanges where each
+    // reaction lands mid-attack. Eight fighters = four pairs of timeline lanes.
+    s.spawnChoreography(
+      {
+        kind: 'fight',
+        performers: 8,
+        durationS: 8,
+        seed: 5,
+        style: 'martial-arts',
+        mirror: true,
+        ending: 'finish'
+      },
+      { x: 0, z: -3, heading: 0 }
+    )
     s.setMode('shoot')
-    s.setTime(1.8)
+    // Mid-exchange, so a strike and its reaction read as a clash of poses.
+    s.setTime(2.1)
   })
   await page.waitForTimeout(400)
   // Select one fighter so its lane + inspector are highlighted.
@@ -298,18 +344,26 @@ test('backyard — pool, props, golden hour', async () => {
     s.addEntity('env.backyard', { x: 0, y: 0, z: 0 })
     s.addEntity('prop.bbqGrill', { x: -4, y: 0, z: 2 })
     s.addEntity('prop.trampoline', { x: 5, y: 0, z: 3 })
-    const kid = s.addEntity('person.child', { x: 2, y: 0, z: -4 })
+    s.addEntity('person.child', { x: 2, y: 0, z: -4 })
     s.addEntity('animal.dog', { x: -1.5, y: 0, z: 1 })
-    s.mutate('goldenHour', (doc: any) => {
+    // Physical-sky preset: a real atmospheric-scattering dome lit by the sun
+    // (deterministic; renders byte-identically in the clean export). Drop the
+    // sun low so the whole dome goes warm golden-hour and the light rakes long.
+    s.mutate('goldenHourSky', (doc: any) => {
       const scene = doc.scenes.find((sc: any) => sc.id === s.scene().id)
-      scene.environment.lighting = 'goldenHour'
+      scene.environment.lighting = 'goldenHourSky'
+      scene.environment.sunElevation = 0.13
+      scene.environment.sunAzimuth = -1.15
     })
     s.setMode('stage')
-    s.setSelection({ kind: 'entity', entityId: kid })
+    s.setSelection(null)
   })
   await page.waitForTimeout(500)
   await clearToasts(page)
-  await frameEntities(page, null, { azimuthDeg: 38, elevationDeg: 30, distScale: 1.1, lift: 0.8 })
+  // Low 3/4 from the grill side across the pool so the warm sky dome fills the
+  // background behind the fence, the low sun rakes long shadows, and the
+  // trampoline/pool/dog all sit in the mid-ground (not looming in foreground).
+  await flyCam(page, [-7.5, 3.0, 10], [1.5, 0.6, -3])
   await page.waitForTimeout(900)
   await page.screenshot({ path: `${OUT}/backyard.png` })
   verify('backyard.png')

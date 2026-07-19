@@ -1,6 +1,6 @@
 {
   "name": "blockout",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "description": "Desktop previs tool for AI-native filmmaking — stage scenes, choreograph camera & character blocking with marks, export motion-reference packages for AI video generators.",
   "main": "out/main/index.js",
   "author": "Sam Wasserman",
@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
+    "@mkkellogg/gaussian-splats-3d": "^0.4.7",
     "three": "^0.170.0",
     "zustand": "^5.0.2"
   },

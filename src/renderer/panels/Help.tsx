@@ -8,7 +8,7 @@
  * (wired outside via the helpOpen store flag).
  */
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../store'
 
 const MOD = window.blockout.platform.primaryModifier
@@ -55,7 +55,7 @@ const CARDS: Card[] = [
   {
     emoji: '🎥',
     title: 'Frame & move the camera',
-    body: 'Pick a framing, choose from 27 camera moves, or Track a subject so the aim locks on.',
+    body: 'Pick a framing, choose from 39 camera moves, or Track a subject so the aim locks on.',
     then: 'then: ▶ Play shot to see the exact export frame.'
   },
   {
@@ -141,6 +141,16 @@ const TASKS: { area: string; items: Task[] }[] = [
         )
       },
       {
+        q: 'How do I get a real sky over the scene?',
+        a: (
+          <>
+            Pick a physical-sky preset — <b>Midday Sky</b>, <b>Golden Sky</b>, or <b>Blue Hour Sky</b> —
+            in the scene inspector. The sky is lit from the sun azimuth/elevation and renders into the
+            clean export (it stays out of the depth and normal passes).
+          </>
+        )
+      },
+      {
         q: 'How do I stage a scene from a photo?',
         a: (
           <>
@@ -154,6 +164,16 @@ const TASKS: { area: string; items: Task[] }[] = [
         a: (
           <>
             <b>Import 3D Model…</b> in the Library loads a GLB/glTF and copies it into the project.
+          </>
+        )
+      },
+      {
+        q: 'How do I block inside a real location I scanned?',
+        a: (
+          <>
+            Scan a place with your phone (Polycam, Luma, Scaniverse) or any video-to-3D tool, then{' '}
+            <b>Import 3D scan…</b> in the Library. Position it with the inspector&apos;s Scans fields
+            and block the action inside it. Scans are a staging aid — they stay out of every export.
           </>
         )
       },
@@ -186,6 +206,35 @@ const TASKS: { area: string; items: Task[] }[] = [
           <>
             Select a character or vehicle and press <b>● Record performer</b> — steer with the
             cursor and the gait matches your speed. <b>■ Stop</b> saves; re-record to replace it.
+          </>
+        )
+      },
+      {
+        q: 'How do I run a take — rehearse, record, review?',
+        a: (
+          <>
+            The <b>Take bar</b> in Shoot walks the whole loop: <b>🔁 Rehearse</b> plays the blocking
+            with path ribbons on; <b>⏺ Record camera</b> / <b>⏺ Record performance</b> start after a
+            3-2-1 countdown; <b>▶ Review</b> plays back through the shot camera. Click the countdown to cancel.
+          </>
+        )
+      },
+      {
+        q: 'How do I show or hide the floor marks and paths?',
+        a: (
+          <>
+            The viewport HUD has <b>MARKS</b> and <b>PATHS</b> eye toggles. Marks are the numbered
+            spike-tape T&apos;s; selecting an actor or the camera adds direction chevrons and{' '}
+            <b>t=2.4s</b> time labels along its path. Both are editor-only — they never appear in an export.
+          </>
+        )
+      },
+      {
+        q: 'How do I learn blocking step by step?',
+        a: (
+          <>
+            Open the <b>Set your marks</b> coach from the Quick start tab — a checklist that ticks
+            itself off as you select an actor, drop two marks, play, record, and open the export.
           </>
         )
       },
@@ -252,6 +301,16 @@ const TASKS: { area: string; items: Task[] }[] = [
             or Car chase. Set the count and style, and it drops them already choreographed.
           </>
         )
+      },
+      {
+        q: 'How do I choreograph a real routine — timed exchanges and formations?',
+        a: (
+          <>
+            The <b>Choreographer</b> panel builds staged dance phrases, paired fight exchanges, and
+            chases with formations, canon, and mirroring. <b>Spawn</b> a fresh cast, or select people
+            you already placed and <b>Apply to selection</b>. The dice re-rolls the seed.
+          </>
+        )
       }
     ]
   },
@@ -280,8 +339,9 @@ const TASKS: { area: string; items: Task[] }[] = [
         q: 'How do I use one of the ready-made camera moves?',
         a: (
           <>
-            The camera inspector has <b>27 moves</b> — orbits, cranes, drone follows, whip pan,
-            vertigo dolly-zoom. One click lays down editable marks around your subject.
+            The camera inspector has <b>39 moves</b> — orbits, cranes, drone follows, whip pan,
+            vertigo dolly-zoom, spiral in/out, crash-zoom, dutch roll. One click lays down editable
+            marks around your subject.
           </>
         )
       },
@@ -463,6 +523,110 @@ const SHORTCUTS: [string, string][] = [
   ['?', 'Open this help']
 ]
 
+/* --------------------------- Blocking coach ------------------------------ */
+
+interface CoachStep {
+  key: string
+  label: string
+  hint: string
+}
+
+const COACH_STEPS: CoachStep[] = [
+  { key: 'select', label: 'Select an actor or vehicle', hint: 'Click a character in the viewport.' },
+  { key: 'mark1', label: 'Press M and drop the first mark', hint: 'M, then click the floor where they start.' },
+  { key: 'mark2', label: 'Drop a second mark', hint: 'Click again further along — they walk between marks.' },
+  { key: 'play', label: 'Press Space to watch it walk', hint: 'Space plays the shot; the path ribbon shows the route.' },
+  { key: 'record', label: 'Try ⏺ Record to puppeteer', hint: 'Record camera or performance from the Take bar.' },
+  { key: 'export', label: 'Open DELIVER to export', hint: 'Switch to Deliver for the reference package.' }
+]
+
+/**
+ * "Set your marks" walkthrough. A lightweight renderer-side component that
+ * watches the store: each step ticks itself off when the app reaches the
+ * matching state. Dismissible; re-openable from Help. Mounted at the app root.
+ */
+export function BlockingCoach(): JSX.Element | null {
+  const open = useStore((s) => s.coachOpen)
+  const setOpen = useStore((s) => s.setCoachOpen)
+  const [done, setDone] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    if (!open) return
+    const check = (): void => {
+      const s = useStore.getState()
+      setDone((prev) => {
+        const next = { ...prev }
+        if (s.selection?.kind === 'entity' || s.selection?.kind === 'entities') next.select = true
+        const scene = s.scene()
+        const shot = s.shot()
+        const take = scene?.blocking.find((b) => b.id === shot?.blockingTakeId)
+        const maxMarks = take ? Math.max(0, ...take.tracks.map((t) => t.marks.length)) : 0
+        if (maxMarks >= 1) next.mark1 = true
+        if (maxMarks >= 2) next.mark2 = true
+        if (s.playing) next.play = true
+        if (s.recording) next.record = true
+        if (s.mode === 'deliver') next.export = true
+        return next
+      })
+    }
+    check()
+    const unsub = useStore.subscribe(check)
+    return unsub
+  }, [open])
+
+  if (!open) return null
+  const currentIdx = COACH_STEPS.findIndex((st) => !done[st.key])
+  const allDone = currentIdx === -1
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 16,
+        bottom: 16,
+        width: 300,
+        zIndex: 30,
+        background: 'var(--panel, #16181d)',
+        border: '1px solid var(--border-strong, #33343a)',
+        borderRadius: 10,
+        padding: '14px 16px',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.45)'
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 15 }}>🎯</span>
+        <b style={{ fontSize: 13 }}>Set your marks</b>
+        <span style={{ flex: 1 }} />
+        <button className="btn small" style={{ padding: '2px 8px' }} onClick={() => setOpen(false)} title="Dismiss (re-open from Help)">
+          ✕
+        </button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {COACH_STEPS.map((st, i) => {
+          const isDone = !!done[st.key]
+          const isCurrent = i === currentIdx
+          return (
+            <div key={st.key} style={{ display: 'flex', gap: 8, opacity: isDone ? 0.7 : isCurrent ? 1 : 0.5 }}>
+              <span style={{ fontSize: 13 }}>{isDone ? '✅' : isCurrent ? '▶' : '○'}</span>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: isCurrent ? 700 : 500, textDecoration: isDone ? 'line-through' : 'none' }}>
+                  {st.label}
+                </div>
+                {isCurrent && <div style={{ fontSize: 11, color: 'var(--text-faint, #8a8d96)', marginTop: 2 }}>{st.hint}</div>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {allDone && (
+        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--success, #46a758)' }}>
+          That&apos;s the whole loop — nice. Close this any time.
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* -------------------------------- overlay -------------------------------- */
 
 type Tab = 'quickstart' | 'tasks' | 'shortcuts'
@@ -470,6 +634,7 @@ type Tab = 'quickstart' | 'tasks' | 'shortcuts'
 export function HelpOverlay(): JSX.Element | null {
   const helpOpen = useStore((s) => s.helpOpen)
   const setHelpOpen = useStore((s) => s.setHelpOpen)
+  const setCoachOpen = useStore((s) => s.setCoachOpen)
   const [tab, setTab] = useState<Tab>('quickstart')
   const [query, setQuery] = useState('')
 
@@ -533,6 +698,21 @@ export function HelpOverlay(): JSX.Element | null {
                     <div className="help-card-then">{c.then}</div>
                   </div>
                 ))}
+              </div>
+              <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setCoachOpen(true)
+                    setHelpOpen(false)
+                  }}
+                  title="Open the Set your marks interactive walkthrough"
+                >
+                  🎯 Start the “Set your marks” coach
+                </button>
+                <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+                  A checklist that ticks itself off as you block your first move.
+                </span>
               </div>
             </div>
           )}

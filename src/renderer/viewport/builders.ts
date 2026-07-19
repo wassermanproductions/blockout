@@ -26,7 +26,9 @@ export interface AnimInput {
    * Per-joint pose offsets in radians, applied AFTER the gait pose (people
    * only). Keys: shoulderLX/RX (arm forward/up, negative raises), shoulderLZ/RZ
    * (arm out to the side), elbowL/R (bend), hipLX/RX (leg forward/back),
-   * kneeL/R (bend), torsoX (lean), torsoY (twist), headX (nod), headY (turn).
+   * hipLZ/RZ (leg abduction, positive = outward), kneeL/R (bend), torsoX (lean),
+   * torsoY (twist), torsoZ (lateral lean, positive = right), headX (nod),
+   * headY (turn), headZ (tilt, positive = right).
    */
   overrides?: Record<string, number>
 }
@@ -402,12 +404,19 @@ function animatePerson(j: PersonJoints, input: AnimInput): void {
     j.elbowR.rotation.x -= ov.elbowR ?? 0
     j.hipL.rotation.x += ov.hipLX ?? 0
     j.hipR.rotation.x += ov.hipRX ?? 0
+    // Leg abduction (out to the side); mirrored on the right like the arms so
+    // positive reads as "outward" on both legs.
+    j.hipL.rotation.z += ov.hipLZ ?? 0
+    j.hipR.rotation.z -= ov.hipRZ ?? 0
     j.kneeL.rotation.x -= ov.kneeL ?? 0
     j.kneeR.rotation.x -= ov.kneeR ?? 0
     j.torso.rotation.x += ov.torsoX ?? 0
     j.torso.rotation.y += ov.torsoY ?? 0
+    // Lateral lean/tilt (positive = right); sign matches the arm-mirror frame.
+    j.torso.rotation.z -= ov.torsoZ ?? 0
     j.head.rotation.x += ov.headX ?? 0
     j.head.rotation.y += ov.headY ?? 0
+    j.head.rotation.z -= ov.headZ ?? 0
   }
 }
 

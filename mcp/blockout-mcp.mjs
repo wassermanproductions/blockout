@@ -235,6 +235,85 @@ const TOOLS = [
     }
   },
   {
+    name: 'list_choreography_options',
+    description:
+      'Discover the choreography vocabulary before spawn_choreography / choreograph_entities: the kinds (dance/fight/chase), the styles per kind, the dance formations, and the endings per kind.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+  },
+  {
+    name: 'spawn_choreography',
+    description:
+      'Stage a full choreography routine — a dance number, a paired or one-vs-many fight, or a foot chase — spawning fresh performers AND their per-beat blocking in one call. Reads as real staged choreography: dances hit on the count and change formation, fights are paired attack→reaction exchanges that stay in range, chases run a serpentine path with near-misses. Position with x/z and headingDeg (heading 0 faces -Z). Call list_choreography_options for the vocabulary.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['dance', 'fight', 'chase'], description: 'Routine type.' },
+        performers: { type: 'number', description: 'Number of performers (dance 1-40, fight 2-8, chase 2-6; clamped per kind).' },
+        durationS: { type: 'number', description: 'Seconds to fill (defaults to the active shot duration).' },
+        style: { type: 'string', description: 'Style id from list_choreography_options (dance: hiphop/party/latin/robot/mixed; fight: brawl/martial-arts/sparring).' },
+        bpm: { type: 'number', description: 'Dance tempo in beats/min (default 116).' },
+        formation: {
+          type: 'string',
+          enum: ['line', 'twoRows', 'vShape', 'circle', 'diamond'],
+          description: 'Dance starting formation.'
+        },
+        canon: { type: 'boolean', description: 'Dance: stagger performers into a wave (canon).' },
+        mirror: { type: 'boolean', description: 'Dance: mirror odd performers (fight: mirror stances).' },
+        formationChange: { type: 'boolean', description: 'Dance: walk to a fresh formation between phrases.' },
+        ending: { type: 'string', description: 'Fight: finish | sparring. Chase: caught | escape.' },
+        seed: { type: 'number', description: 'Optional PRNG seed for repeatable results (randomized if omitted).' },
+        x: { type: 'number', description: 'Stage center X in meters (default 0).' },
+        z: { type: 'number', description: 'Stage center Z in meters (default 0).' },
+        headingDeg: { type: 'number', description: 'Facing / travel direction in degrees (default 0).' }
+      },
+      required: ['kind', 'performers'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'choreograph_entities',
+    description:
+      'Retarget existing PERSON entities into a choreography routine: keeps their assets and labels but replaces their timeline with a fresh dance/fight/chase built around the group. Same routine options as spawn_choreography, plus entityIds. The performer count comes from the list and the routine centers on the group, so there is no x/z.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entityIds: { type: 'array', items: { type: 'string' }, description: 'Person entity ids from get_state.' },
+        kind: { type: 'string', enum: ['dance', 'fight', 'chase'], description: 'Routine type.' },
+        style: { type: 'string', description: 'Style id from list_choreography_options.' },
+        durationS: { type: 'number', description: 'Seconds to fill (defaults to the active shot duration).' },
+        bpm: { type: 'number', description: 'Dance tempo in beats/min (default 116).' },
+        formation: {
+          type: 'string',
+          enum: ['line', 'twoRows', 'vShape', 'circle', 'diamond'],
+          description: 'Dance starting formation.'
+        },
+        canon: { type: 'boolean', description: 'Dance: stagger performers into a wave (canon).' },
+        mirror: { type: 'boolean', description: 'Dance: mirror odd performers (fight: mirror stances).' },
+        formationChange: { type: 'boolean', description: 'Dance: walk to a fresh formation between phrases.' },
+        ending: { type: 'string', description: 'Fight: finish | sparring. Chase: caught | escape.' },
+        seed: { type: 'number', description: 'Optional PRNG seed (randomized if omitted).' }
+      },
+      required: ['entityIds', 'kind'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'list_motion_presets',
+    description:
+      'List the single-performer motion-preset library (fight / dance / gesture / everyday / sport / stunt) as { id, name, category, duration }. These are the motions choreography routines are built from. Optionally filter by category.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        category: {
+          type: 'string',
+          enum: ['fight', 'dance', 'gesture', 'stunt', 'sport', 'everyday'],
+          description: 'Optional category filter.'
+        }
+      },
+      additionalProperties: false
+    }
+  },
+  {
     name: 'list_camera_moves',
     description:
       'List the classic camera-move presets (orbits, cranes, drone follows, vertigo dolly-zoom, whip pan…) with ids, categories, and descriptions. Call before apply_camera_move.',
@@ -331,6 +410,55 @@ const TOOLS = [
       type: 'object',
       properties: { id: { type: 'string', description: 'Preset id from list_presets.' } },
       required: ['id'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'import_scan',
+    description:
+      "Import a Gaussian-splat / photogrammetry scan (.ply/.splat/.spz/.ksplat) as an environment. The file is copied into the project's scans/ folder and attached to the current scene. Scans are editor-only reference geometry — visible while you block, never rendered into any export pass. Returns the created scan (id, name, transform).",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sourcePath: { type: 'string', description: 'Absolute path to the scan file (.ply/.splat/.spz/.ksplat).' }
+      },
+      required: ['sourcePath'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'set_scan_transform',
+    description:
+      'Position, rotate, scale, or show/hide an imported scan. Omitted fields are left unchanged; position merges onto the current position.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        scanId: { type: 'string', description: 'Scan id from get_state or import_scan.' },
+        position: {
+          type: 'object',
+          properties: {
+            x: { type: 'number', description: 'X in meters (+X right).' },
+            y: { type: 'number', description: 'Y in meters (height).' },
+            z: { type: 'number', description: 'Z in meters (-Z away).' }
+          },
+          additionalProperties: false,
+          description: 'World position (partial; merged onto the current position).'
+        },
+        rotationDeg: { type: 'number', description: 'Yaw in degrees, clockwise from above.' },
+        scale: { type: 'number', description: 'Uniform scale (min 0.01).' },
+        visible: { type: 'boolean', description: 'Editor-viewport visibility.' }
+      },
+      required: ['scanId'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'remove_scan',
+    description: 'Remove an imported scan from the current scene (the copied file is left on disk).',
+    inputSchema: {
+      type: 'object',
+      properties: { scanId: { type: 'string', description: 'Scan id from get_state or import_scan.' } },
+      required: ['scanId'],
       additionalProperties: false
     }
   },

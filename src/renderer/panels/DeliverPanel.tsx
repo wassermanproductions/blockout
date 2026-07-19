@@ -114,6 +114,11 @@ export function DeliverPanel(): JSX.Element {
             Normal
           </button>
         </div>
+        <p style={{ color: 'var(--text-dim)', fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
+          Physical-sky presets render into the <b>Clean</b> plate (deterministic, byte-reproducible) and
+          are held out of the Depth and Normal passes. Imported 3D scans are a staging aid and stay out
+          of every pass; they&apos;re listed in the package&apos;s <code>metadata.json</code>.
+        </p>
       </div>
 
       <div className="field">

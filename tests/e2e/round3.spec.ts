@@ -161,7 +161,7 @@ test('record performer: cursor puppeteering lays actor marks with gaits', async 
     await page.mouse.move(cx - 150 + i * 15, cy + Math.sin(i / 3) * 60)
     await page.waitForTimeout(75)
   }
-  await page.getByRole('button', { name: '■ Stop' }).click()
+  await page.getByRole('button', { name: '■ Stop', exact: true }).click()
   await page.waitForTimeout(400)
   const result = await page.evaluate(() => {
     const store = (window as any).__blockout.store.getState()

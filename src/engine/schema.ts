@@ -14,6 +14,7 @@ import type {
   GaitId,
   ProjectDoc,
   Scene,
+  ScanRef,
   Shot,
   V3
 } from './types'
@@ -42,7 +43,8 @@ export function createScene(number: number): Scene {
     environment: { lighting: 'day', sunAzimuth: 0.8, sunElevation: 0.9, fog: 0 },
     entities: [],
     blocking: [take],
-    shots: []
+    shots: [],
+    scans: []
   }
   scene.shots.push(createShot(scene, `${number}A`))
   return scene
@@ -63,6 +65,18 @@ export function createShot(scene: Scene, name: string): Shot {
       seed: Math.floor(Math.random() * 1e9),
       marks: []
     }
+  }
+}
+
+export function createScan(name: string, file: string, position: V3): ScanRef {
+  return {
+    id: newId('scan'),
+    name,
+    file,
+    position,
+    rotationY: 0,
+    scale: 1,
+    visible: true
   }
 }
 
@@ -226,6 +240,47 @@ export function serializeProject(doc: ProjectDoc): string {
   return JSON.stringify(stable(normalizeProjectPaths(copy)), null, 2) + '\n'
 }
 
+/**
+ * Forward-migrate a validated document in place. Additive fields introduced
+ * after v1 (like scene.scans) are normalized here so the rest of the app can
+ * rely on their shape without version-gating. Never throws — an unrecognized
+ * value is replaced with its safe default rather than rejected.
+ */
+function migrateProject(doc: ProjectDoc): ProjectDoc {
+  for (const scene of doc.scenes) {
+    const raw = (scene as { scans?: unknown }).scans
+    if (!Array.isArray(raw)) {
+      scene.scans = []
+      continue
+    }
+    // Keep only well-formed scan refs; fill missing transform fields.
+    scene.scans = raw
+      .filter((s): s is Record<string, unknown> => typeof s === 'object' && s !== null)
+      .map((s): ScanRef => {
+        const pos = (s.position ?? {}) as Partial<V3>
+        // Normalize to a portable project-relative path (Windows docs may
+        // carry backslashes); a scan that can't normalize is dropped below.
+        const file = typeof s.file === 'string' ? (normalizeProjectRelativePath(s.file) ?? '') : ''
+        return {
+          id: typeof s.id === 'string' ? s.id : newId('scan'),
+          name: typeof s.name === 'string' ? s.name : 'Scan',
+          file,
+          position: {
+            x: typeof pos.x === 'number' ? pos.x : 0,
+            y: typeof pos.y === 'number' ? pos.y : 0,
+            z: typeof pos.z === 'number' ? pos.z : 0
+          },
+          rotationY: typeof s.rotationY === 'number' ? s.rotationY : 0,
+          scale: typeof s.scale === 'number' && s.scale > 0 ? s.scale : 1,
+          visible: s.visible !== false,
+          ...(s.holdout === true ? { holdout: true } : {})
+        }
+      })
+      .filter((s) => s.file !== '')
+  }
+  return doc
+}
+
 export function parseProject(json: string): { doc: ProjectDoc | null; issues: ValidationIssue[] } {
   let raw: unknown
   try {
@@ -235,5 +290,7 @@ export function parseProject(json: string): { doc: ProjectDoc | null; issues: Va
   }
   const issues = validateProject(raw)
   if (issues.length > 0) return { doc: null, issues }
-  return { doc: normalizeProjectPaths(raw as ProjectDoc), issues: [] }
+  // Order matters only by convention: migrate fills additive fields (scans),
+  // then path normalization enforces portable project-relative paths.
+  return { doc: normalizeProjectPaths(migrateProject(raw as ProjectDoc)), issues: [] }
 }

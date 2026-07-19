@@ -23,6 +23,10 @@ function Hud(): JSX.Element | null {
   const time = useStore((s) => s.time)
   const mutate = useStore((s) => s.mutate)
   const mode = useStore((s) => s.mode)
+  const showMarks = useStore((s) => s.showMarks)
+  const showPaths = useStore((s) => s.showPaths)
+  const setShowMarks = useStore((s) => s.setShowMarks)
+  const setShowPaths = useStore((s) => s.setShowPaths)
 
   const scene = doc?.scenes.find((s) => s.id === sceneId)
   const shot = scene?.shots.find((s) => s.id === shotId)
@@ -74,6 +78,22 @@ function Hud(): JSX.Element | null {
           {shot.camera.marks.length}
         </button>
       )}
+      <button
+        className={showMarks ? 'active' : ''}
+        onClick={() => setShowMarks(!showMarks)}
+        title="Show/hide the spike-tape floor marks (editor only — never in exports)"
+      >
+        <span className="hud-label">{showMarks ? '👁' : '🚫'}</span>
+        MARKS
+      </button>
+      <button
+        className={showPaths ? 'active' : ''}
+        onClick={() => setShowPaths(!showPaths)}
+        title="Show/hide path ribbons, direction chevrons and time labels (editor only)"
+      >
+        <span className="hud-label">{showPaths ? '👁' : '🚫'}</span>
+        PATHS
+      </button>
     </div>
   )
 }
@@ -134,6 +154,152 @@ function FramingRow(): JSX.Element {
   )
 }
 
+/**
+ * Take bar — the Rehearse → Record → Review loop. Purely composes existing
+ * store/SceneManager calls: it wraps beginRecording/finishRecording with a
+ * 3-2-1 countdown and forces path ribbons on while rehearsing.
+ */
+function TakeBar(): JSX.Element {
+  const recording = useStore((s) => s.recording)
+  const selection = useStore((s) => s.selection)
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const [pending, setPending] = useState<'camera' | 'performer' | null>(null)
+
+  const singleEntity = selection?.kind === 'entity'
+
+  // Tick the 3-2-1 countdown; at zero, arm the selection and start recording.
+  useEffect(() => {
+    if (countdown === null) return
+    if (countdown <= 0) {
+      const s = useStore.getState()
+      if (pending === 'camera') s.setSelection({ kind: 'camera' })
+      s.setLookThrough(false)
+      s.setTime(0)
+      s.setRecording(true)
+      setCountdown(null)
+      setPending(null)
+      return
+    }
+    const id = window.setTimeout(() => setCountdown((c) => (c === null ? null : c - 1)), 800)
+    return () => window.clearTimeout(id)
+  }, [countdown, pending])
+
+  const rehearse = (): void => {
+    const s = useStore.getState()
+    s.setShowPaths(true)
+    s.setRecording(false)
+    s.setLookThrough(false)
+    s.setTime(0)
+    s.setPlaying(true)
+  }
+  const review = (): void => {
+    const s = useStore.getState()
+    s.setRecording(false)
+    s.setLookThrough(true)
+    s.setTime(0)
+    s.setPlaying(true)
+  }
+  const startCountdown = (which: 'camera' | 'performer'): void => {
+    const s = useStore.getState()
+    s.setPlaying(false)
+    setPending(which)
+    setCountdown(3)
+  }
+  const cancel = (): void => {
+    setCountdown(null)
+    setPending(null)
+  }
+
+  return (
+    <>
+      <div className="tool-row" title="Rehearse → Record → Review: the take loop">
+        <button
+          className="btn small"
+          onClick={rehearse}
+          disabled={recording || countdown !== null}
+          title="Rehearse: play the take from the top with path ribbons on, so you can watch the blocking before you shoot"
+        >
+          🔁 Rehearse
+        </button>
+        {recording ? (
+          <button
+            className="btn small"
+            style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+            onClick={() => useStore.getState().setRecording(false)}
+            title="Stop recording and save the take"
+          >
+            ■ Stop take
+          </button>
+        ) : (
+          <>
+            <button
+              className="btn small"
+              onClick={() => startCountdown('camera')}
+              disabled={countdown !== null}
+              title="Record the camera move with a 3-2-1 countdown: fly the viewport; existing blocking replays underneath"
+            >
+              ⏺ Record camera
+            </button>
+            <button
+              className="btn small"
+              onClick={() => startCountdown('performer')}
+              disabled={countdown !== null || !singleEntity}
+              title={
+                singleEntity
+                  ? 'Record this performer with a 3-2-1 countdown: puppeteer it with the cursor'
+                  : 'Select one character or vehicle first to record its performance'
+              }
+            >
+              ⏺ Record performance
+            </button>
+          </>
+        )}
+        <button
+          className="btn small"
+          onClick={review}
+          disabled={recording || countdown !== null}
+          title="Review: play back through the shot camera (look-through on), exactly as it will export"
+        >
+          ▶ Review
+        </button>
+      </div>
+      {countdown !== null && countdown > 0 && (
+        <div
+          onClick={cancel}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 60,
+            pointerEvents: 'auto',
+            cursor: 'pointer',
+            background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.35), rgba(0,0,0,0.55))'
+          }}
+          title="Click to cancel"
+        >
+          <div
+            style={{
+              fontSize: 120,
+              fontWeight: 800,
+              color: 'var(--danger)',
+              textShadow: '0 2px 24px rgba(0,0,0,0.6)',
+              lineHeight: 1
+            }}
+          >
+            {countdown}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 13, letterSpacing: '0.14em', color: 'var(--text-faint)' }}>
+            {pending === 'performer' ? 'RECORDING PERFORMANCE…' : 'RECORDING CAMERA…'} · click to cancel
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 function GizmoModeRow(): JSX.Element {
   const [mode, setMode] = useState<'translate' | 'rotate'>('translate')
   const apply = (m: 'translate' | 'rotate'): void => {
@@ -174,6 +340,7 @@ export function Viewport(): JSX.Element {
   const setRecording = useStore((s) => s.setRecording)
   const placingAssetId = useStore((s) => s.placingAssetId)
   const placingSequence = useStore((s) => s.placingSequence)
+  const placingChoreography = useStore((s) => s.placingChoreography)
   const droppingMarks = useStore((s) => s.droppingMarks)
   const selection = useStore((s) => s.selection)
   const doc = useStore((s) => s.doc)
@@ -209,7 +376,9 @@ export function Viewport(): JSX.Element {
   const singleEntitySelected = selection?.kind === 'entity'
 
   let hint: string | null = null
-  if (placingSequence)
+  if (placingChoreography)
+    hint = `Click the floor to stage this ${placingChoreography.kind} routine there (facing you) · Esc to cancel`
+  else if (placingSequence)
     hint = `Click the floor to stage ${placingSequence.count} performers there (facing you) · Esc to cancel`
   else if (placingAssetId) hint = `Click the floor to place · ${window.blockout.platform.alternateModifier}-click to place multiple · Esc to cancel`
   else if (droppingMarks && selection?.kind === 'entity')
@@ -282,6 +451,7 @@ export function Viewport(): JSX.Element {
           )}
           {mode === 'shoot' && <ShotSizeRow />}
           {mode === 'shoot' && <FramingRow />}
+          {mode === 'shoot' && <TakeBar />}
           <GizmoModeRow />
           <div className="tool-row">
             <button

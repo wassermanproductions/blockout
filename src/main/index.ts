@@ -163,6 +163,19 @@ ipcMain.handle('project:importAsset', async (_e, folder: string, sourcePath: str
   return { relativePath: `assets/${name}`, name: sanitizeName(basename(sourcePath, extname(sourcePath))) }
 })
 
+// Copy an external Gaussian-splat / photogrammetry scan into the open
+// project's scans/ folder. The scan stays with the project so it can be
+// served over the relative-path bridge and travels with the .blockout folder.
+ipcMain.handle('scan:import', async (_e, folder: string, sourcePath: string) => {
+  const scansDir = join(folder, 'scans')
+  await mkdir(scansDir, { recursive: true })
+  const name = `${Date.now().toString(36)}-${basename(sourcePath)}`
+  const dest = join(scansDir, name)
+  await copyFile(sourcePath, dest)
+  // Posix-style so the stored doc stays portable across macOS/Windows.
+  return { relativePath: `scans/${name}`, name: basename(sourcePath, extname(sourcePath)) }
+})
+
 // Copy an external reference clip into the open project's refs/ folder. Used by
 // the set_reference control action (Motion Previs Studio handoff) so a solved
 // reference video lives alongside the project and can be served relative-path.

@@ -84,7 +84,7 @@ No `env`, no headers, no URL — the bridge discovers the running app on its own
 
 ## Tools
 
-26 tools. Coordinates are in **meters**: `+X` right, `−Z` forward/away from the default camera; **heading 0 faces −Z**; `rotationDeg` / `panDeg` are clockwise seen from above; `tiltDeg` is positive up. Focal lengths are mm on Super 35 (24 wide, 35 normal, 50–85 tight).
+33 tools. Coordinates are in **meters**: `+X` right, `−Z` forward/away from the default camera; **heading 0 faces −Z**; `rotationDeg` / `panDeg` are clockwise seen from above; `tiltDeg` is positive up. Focal lengths are mm on Super 35 (24 wide, 35 normal, 50–85 tight).
 
 | Tool | Params | Does |
 |---|---|---|
@@ -103,6 +103,10 @@ No `env`, no headers, no URL — the bridge discovers the running app on its own
 | `apply_action_preset` | `entityId, presetId` | Lay a full motion path (with altitude) on an entity from its current pose. Replaces its marks. |
 | `list_sequence_styles` | — | Styles available per sequence type (dance styles, fight formats, chase modes). |
 | `spawn_sequence` | `type, count, style?, x?, z?, headingDeg?` | Stage a whole choreographed crowd — `dance` / `fight` / `footChase` / `carChase` — performers *and* their choreography, in one call. |
+| `list_choreography_options` | — | The choreography vocabulary: kinds, styles per kind, formations, endings per kind. Call before `spawn_choreography` / `choreograph_entities`. |
+| `spawn_choreography` | `kind, performers, durationS?, style?, bpm?, formation?, canon?, mirror?, formationChange?, ending?, seed?, x?, z?, headingDeg?` | Stage a full routine — a dance number, a paired / one-vs-many fight, or a foot chase — spawning fresh performers *and* their per-beat blocking. |
+| `choreograph_entities` | `entityIds, kind, style?, durationS?, bpm?, formation?, canon?, mirror?, formationChange?, ending?, seed?` | Retarget existing people into a routine: keeps their assets/labels, replaces their timeline. Centers on the group. |
+| `list_motion_presets` | `category?` | The single-performer motion library (fight / dance / gesture / everyday / sport / stunt) as `{ id, name, category, duration }`. |
 | `list_camera_moves` | — | The 27 classic camera-move presets (orbits, cranes, drone follows, vertigo dolly-zoom, whip pan…). Call before `apply_camera_move`. |
 | `apply_camera_move` | `presetId, entityId?` | Generate a full set of camera marks for a preset, built around a subject and riding along if it moves. Track moves enable aim-lock. Replaces camera marks. |
 | `set_track_subject` | `entityId?` | Aim-lock the shot camera onto an entity (omit `entityId` to turn tracking off). |
@@ -113,6 +117,9 @@ No `env`, no headers, no URL — the bridge discovers the running app on its own
 | `list_presets` | — | Saved global stage presets, as `{ id, name, savedAt, entityCount }`. |
 | `save_preset` | `name` | Save the current staging as a named global preset. |
 | `apply_preset` | `id` | Load a saved stage preset into the current scene. |
+| `import_scan` | `sourcePath` | Import a Gaussian-splat / photogrammetry scan (`.ply/.splat/.spz/.ksplat`) into `scans/` as an editor-only environment. Returns the created scan. |
+| `set_scan_transform` | `scanId, position?, rotationDeg?, scale?, visible?` | Position / rotate / scale / show-hide an imported scan. Omitted fields unchanged. |
+| `remove_scan` | `scanId` | Remove an imported scan from the current scene. |
 | `set_reference` | `videoPath, handoffVersion?, mode?, opacity?` | Attach a reference clip (copied into `refs/`) as a ghost/PIP underlay. Motion Previs sends independent handoff protocol version `1`; missing version remains accepted for legacy clients. |
 
 ---

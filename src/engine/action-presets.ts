@@ -54,6 +54,7 @@ export type ActionCategory =
   | 'destruction'
   | 'object'
   | 'person'
+  | 'animal'
 
 export interface ActionPreset {
   id: string
@@ -646,6 +647,134 @@ const carReverseEscape: ActionPreset = {
   }
 }
 
+const motorcycleWeave: ActionPreset = {
+  id: 'motorcycle-weave',
+  name: 'Motorcycle Weave',
+  category: 'vehicle',
+  description: 'A fast run forward with tight, quick S-weaves — a bike threading between traffic.',
+  suggestedAssets: ['vehicle.motorcycle', 'vehicle.sedan'],
+  generate(ctx) {
+    // Like car-chase-weave but tighter amplitude, higher frequency, faster.
+    const total = 90
+    const wave = 2
+    const ts = times(10, ctx.duration)
+    return build(
+      ctx,
+      ts.map((t) => {
+        const u = t / ctx.duration
+        const side = wave * Math.sin(u * Math.PI * 5)
+        return { t, pos: at(ctx, total * u, side, 0), gait: 'run' as Gait }
+      })
+    )
+  }
+}
+
+const boatWakeTurn: ActionPreset = {
+  id: 'boat-wake-turn',
+  name: 'Boat Wake Turn',
+  category: 'vehicle',
+  description: 'A fast run forward carving into a wide banked turn, throwing a long wake — still moving at the end.',
+  suggestedAssets: ['vehicle.boat'],
+  generate(ctx) {
+    // Approach forward, then a wide 90° banked arc (heading derived from travel).
+    const approach = 40
+    const arcR = 25
+    const f = forward(ctx.start.heading)
+    const r = right(ctx.start.heading)
+    const apex = {
+      x: ctx.start.x + f.x * approach,
+      z: ctx.start.z + f.z * approach
+    }
+    const cx = apex.x + r.x * arcR
+    const cz = apex.z + r.z * arcR
+    const raw: MarkBuild[] = []
+    raw.push({ t: 0, pos: at(ctx, 0, 0, 0), gait: 'run', easeIn: 0.25 })
+    raw.push({ t: ctx.duration * 0.4, pos: at(ctx, approach, 0, 0), gait: 'run' })
+    const arcSteps = 4
+    for (let k = 1; k <= arcSteps; k++) {
+      const u = k / arcSteps
+      const ang = Math.PI - (Math.PI / 2) * u // π → π/2, a quarter turn
+      const px = cx + r.x * arcR * Math.cos(ang) + f.x * arcR * Math.sin(ang)
+      const pz = cz + r.z * arcR * Math.cos(ang) + f.z * arcR * Math.sin(ang)
+      raw.push({
+        t: ctx.duration * (0.4 + 0.6 * u),
+        pos: { x: px, y: 0, z: pz },
+        // Eases from a plane to a cruise but never fully stops (still leaving wake).
+        gait: u >= 1 ? 'walk' : 'run'
+      })
+    }
+    return build(ctx, raw)
+  }
+}
+
+const trainPassThrough: ActionPreset = {
+  id: 'train-pass-through',
+  name: 'Train Pass-Through',
+  category: 'vehicle',
+  description: 'A long, steady, straight high-speed pass along the heading — a train roaring through frame.',
+  suggestedAssets: ['vehicle.train'],
+  generate(ctx) {
+    const total = 120 // long, fast, dead straight
+    const ts = times(7, ctx.duration)
+    return build(
+      ctx,
+      ts.map((t) => {
+        const u = t / ctx.duration
+        return { t, pos: at(ctx, total * u, 0, 0), gait: 'run' as Gait }
+      })
+    )
+  }
+}
+
+const carJumpRamp: ActionPreset = {
+  id: 'car-jump-ramp',
+  name: 'Car Jump Ramp',
+  category: 'vehicle',
+  description: 'Approach, launch off a ramp into a ballistic arc peaking a few metres up, land and roll to a settle.',
+  suggestedAssets: ['vehicle.sedan', 'vehicle.suv', 'vehicle.pickup'],
+  generate(ctx) {
+    const approach = 20 // ground approach to the ramp
+    const airFwd = 24 // horizontal distance while airborne
+    const roll = 12 // roll-out after landing
+    const peak = 3.5 // ballistic peak height (clear airborne peak)
+    const raw: MarkBuild[] = [
+      { t: 0, pos: at(ctx, 0, 0, 0), gait: 'run', easeIn: 0.25 },
+      // Hit the ramp on the ground.
+      { t: ctx.duration * 0.3, pos: at(ctx, approach, 0, 0), gait: 'run' },
+      // Apex of the jump.
+      { t: ctx.duration * 0.45, pos: at(ctx, approach + airFwd * 0.5, 0, peak), gait: 'run' },
+      // Land.
+      { t: ctx.duration * 0.6, pos: at(ctx, approach + airFwd, 0, 0), gait: 'run' },
+      // Roll out, decelerating.
+      { t: ctx.duration * 0.8, pos: at(ctx, approach + airFwd + roll * 0.7, 0, 0), gait: 'walk' },
+      { t: ctx.duration, pos: at(ctx, approach + airFwd + roll, 0, 0), gait: 'stand', easeIn: 0.25, hold: 1 }
+    ]
+    return build(ctx, raw)
+  }
+}
+
+const truckJackknifeStop: ActionPreset = {
+  id: 'truck-jackknife-stop',
+  name: 'Truck Jackknife Stop',
+  category: 'vehicle',
+  description: 'A fast approach into a hard braking stop that swings the tail out to one side, then parks.',
+  suggestedAssets: ['vehicle.truck', 'vehicle.van'],
+  generate(ctx) {
+    const total = 60
+    const swing = 6 // tail breaks out to the right near the stop
+    const raw: MarkBuild[] = [
+      { t: 0, pos: at(ctx, 0, 0, 0), gait: 'run', easeIn: 0.25 },
+      { t: ctx.duration * 0.4, pos: at(ctx, total * 0.5, 0, 0), gait: 'run' },
+      { t: ctx.duration * 0.7, pos: at(ctx, total * 0.85, 0, 0), gait: 'run' },
+      // Tail breaks out as it brakes hard.
+      { t: ctx.duration * 0.85, pos: at(ctx, total * 0.96, swing * 0.5, 0), gait: 'walk' },
+      // Parked, jackknifed to the side.
+      { t: ctx.duration, pos: at(ctx, total, swing, 0), gait: 'stand', easeIn: 0.25, hold: 1.5 }
+    ]
+    return build(ctx, raw)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // DESTRUCTION / OBJECT
 // ---------------------------------------------------------------------------
@@ -926,6 +1055,90 @@ const jumpForward: ActionPreset = {
   }
 }
 
+const doorBurstRun: ActionPreset = {
+  id: 'door-burst-run',
+  name: 'Door Burst Run',
+  category: 'person',
+  description: 'Explode forward from a standstill — a brief still beat, then accelerate hard into a full run.',
+  suggestedAssets: ['person.man', 'person.woman'],
+  generate(ctx) {
+    const total = 42 // large forward distance
+    const raw: MarkBuild[] = [
+      // Brief still start (bursting through the door).
+      { t: 0, pos: at(ctx, 0, 0, 0), gait: 'stand', easeIn: 0.25, hold: 0.3 },
+      { t: ctx.duration * 0.12, pos: at(ctx, 0.6, 0, 0), gait: 'walk' },
+      // Accelerate into a run (distance grows quadratically).
+      { t: ctx.duration * 0.35, pos: at(ctx, total * 0.12, 0, 0), gait: 'run' },
+      { t: ctx.duration * 0.6, pos: at(ctx, total * 0.4, 0, 0), gait: 'run' },
+      { t: ctx.duration * 0.8, pos: at(ctx, total * 0.68, 0, 0), gait: 'run' },
+      { t: ctx.duration, pos: at(ctx, total, 0, 0), gait: 'run', easeOut: 0.25 }
+    ]
+    return build(ctx, raw)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ANIMAL — quadruped locomotion paths (gallop, fetch)
+// ---------------------------------------------------------------------------
+
+const horseGallopLoop: ActionPreset = {
+  id: 'horse-gallop-loop',
+  name: 'Horse Gallop Loop',
+  category: 'animal',
+  description: 'A galloping travel around a large oval that returns near its start — a loop-friendly run.',
+  suggestedAssets: ['animal.horse'],
+  generate(ctx) {
+    const radius = 20
+    const ts = times(9, ctx.duration)
+    const f = forward(ctx.start.heading)
+    const r = right(ctx.start.heading)
+    // Circle whose centre is `radius` to the right; start at angle π (near edge)
+    // and sweep a full turn so the path returns to the start (loop-friendly).
+    return build(
+      ctx,
+      ts.map((t) => {
+        const u = t / ctx.duration
+        const ang = Math.PI - 2 * Math.PI * u
+        const side = radius + radius * Math.cos(ang) // 0 at start, back to 0
+        const along = radius * Math.sin(ang)
+        return {
+          t,
+          pos: {
+            x: ctx.start.x + r.x * side + f.x * along,
+            y: 0,
+            z: ctx.start.z + r.z * side + f.z * along
+          },
+          gait: 'run' as Gait
+        }
+      })
+    )
+  }
+}
+
+const dogFetchRun: ActionPreset = {
+  id: 'dog-fetch-run',
+  name: 'Dog Fetch Run',
+  category: 'animal',
+  description: 'Run out forward, pause to grab the ball, then run back — ending near where it started.',
+  suggestedAssets: ['animal.dog'],
+  generate(ctx) {
+    const out = 30 // distance out to the ball
+    const raw: MarkBuild[] = [
+      { t: 0, pos: at(ctx, 0, 0, 0), gait: 'run', easeIn: 0.25 },
+      // Sprint out to the ball.
+      { t: ctx.duration * 0.3, pos: at(ctx, out, 0, 0), gait: 'run' },
+      // Grab it — a brief decelerating pause (the fetch).
+      { t: ctx.duration * 0.45, pos: at(ctx, out + 2, 0, 0), gait: 'walk', hold: 0.4 },
+      // Run back toward the start.
+      { t: ctx.duration * 0.6, pos: at(ctx, out * 0.6, 0, 0), gait: 'run' },
+      { t: ctx.duration * 0.85, pos: at(ctx, out * 0.2, 0, 0), gait: 'run' },
+      // Arrive back near where it began.
+      { t: ctx.duration, pos: at(ctx, 1, 0, 0), gait: 'walk', easeOut: 0.25 }
+    ]
+    return build(ctx, raw)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -952,6 +1165,11 @@ export const ACTION_PRESETS: ActionPreset[] = [
   carScreechStop,
   carPullUpPark,
   carReverseEscape,
+  motorcycleWeave,
+  boatWakeTurn,
+  trainPassThrough,
+  carJumpRamp,
+  truckJackknifeStop,
   // destruction / object
   debrisFall,
   buildingTopple,
@@ -961,5 +1179,9 @@ export const ACTION_PRESETS: ActionPreset[] = [
   walkForward,
   runForward,
   walkUpStairs,
-  jumpForward
+  jumpForward,
+  doorBurstRun,
+  // animal
+  horseGallopLoop,
+  dogFetchRun
 ]

@@ -13,6 +13,9 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { Sky } from 'three/examples/jsm/objects/Sky.js'
+import { ViewHelper } from 'three/examples/jsm/helpers/ViewHelper.js'
+import { DropInViewer, SceneFormat } from '@mkkellogg/gaussian-splats-3d'
 import { ShotEvaluator } from '@engine/evaluate'
 import { newId } from '@engine/ids'
 import { GAITS } from '@engine/gaits'
@@ -71,6 +74,12 @@ export class SceneManager {
 
   private visuals = new Map<string, EntityVisual>()
   private overlay = new THREE.Group() // marks, paths, camera body — hidden in exports
+  /** Spike-tape mark visuals (toggled by the HUD "Marks" eye). */
+  private marksGroup = new THREE.Group()
+  /** Path ribbons + chevrons + time labels (toggled by the HUD "Paths" eye). */
+  private pathsGroup = new THREE.Group()
+  /** Chevron/time-label decorations for the SELECTED lane's path only. */
+  private selectionPathObjects: THREE.Object3D[] = []
   private cameraBody: THREE.Group
   private selectionBox = new THREE.BoxHelper(new THREE.Object3D(), 0xf5a524)
   /** Additional boxes for multi-selection members. */
@@ -84,6 +93,16 @@ export class SceneManager {
   private sun: THREE.DirectionalLight
   private ambient: THREE.HemisphereLight
   private clubLights: THREE.PointLight[] = []
+  /** Physical-sky dome for the *Sky lighting presets. Part of the clean export
+   *  (deterministic scattering from the sun position); hidden in depth/normal
+   *  passes and whenever a non-sky preset is active. */
+  private sky: Sky
+  private skyEnabled = false
+  /** Bottom-right orientation gizmo (editor-only; never rendered into exports). */
+  private viewHelper: ViewHelper | null = null
+  /** Emissive tint applied to the selected entity in the editor. Cleared during
+   *  every export pass so selection never affects exported pixels. */
+  private tintedMaterials: { mat: THREE.MeshStandardMaterial; emissive: number; intensity: number }[] = []
 
   private evaluator: ShotEvaluator | null = null
   private docScene: DocScene | null = null
@@ -123,6 +142,16 @@ export class SceneManager {
   private unsubscribers: (() => void)[] = []
   /** True while an export owns the scene — the live loop stands down. */
   suspendLive = false
+
+  /** Imported 3D scans (Gaussian splats). Editor staging only: hidden from
+   *  every export pass — worker-based splat sorting cannot guarantee the
+   *  byte-deterministic renders the export contract requires, and splats
+   *  have no meaning in the depth/normal passes. */
+  private scansGroup = new THREE.Group()
+  private scanVisuals = new Map<
+    string,
+    { file: string; holder: THREE.Group; viewer: DropInViewer | null; loading: boolean }
+  >()
 
   /** Set by Viewport for overlay layout (letterbox rect in CSS px). */
   onViewRect?: (rect: { x: number; y: number; w: number; h: number } | null) => void
@@ -205,8 +234,19 @@ export class SceneManager {
       this.scene.add(light)
     }
 
+    // Physical sky dome (huge, backside). Invisible until a *Sky preset is
+    // active. Kept out of the overlay so it CAN reach the clean export pass.
+    this.sky = new Sky()
+    this.sky.scale.setScalar(45000)
+    this.sky.visible = false
+    this.sky.name = '__sky'
+    this.scene.add(this.sky)
+
     // Camera body visual (selectable, draggable in shoot mode)
     this.cameraBody = this.buildCameraBody()
+    // Marks + paths live in their own toggleable sub-groups of the overlay.
+    this.overlay.add(this.marksGroup)
+    this.overlay.add(this.pathsGroup)
     this.overlay.add(this.cameraBody)
     this.scene.add(this.overlay)
 
@@ -225,6 +265,11 @@ export class SceneManager {
     })
     this.scene.add(this.transform.getHelper ? this.transform.getHelper() : (this.transform as unknown as THREE.Object3D))
 
+    // Orientation gizmo (bottom-right). Rendered in its own corner viewport in
+    // the live loop only — it is never part of this.scene, so exports are clean.
+    this.viewHelper = new ViewHelper(this.freeCam, canvas)
+    this.viewHelper.setLabels('X', 'Y', 'Z')
+
     canvas.addEventListener('pointerdown', this.onPointerDown)
     canvas.addEventListener('pointermove', this.onPointerMove)
     canvas.addEventListener('wheel', this.onWheel, { passive: false })
@@ -242,6 +287,9 @@ export class SceneManager {
         }
         if (state.selection !== prev.selection || state.mode !== prev.mode) {
           this.syncSelection()
+        }
+        if (state.showMarks !== prev.showMarks || state.showPaths !== prev.showPaths) {
+          this.applyOverlayToggles()
         }
         if (state.recording !== prev.recording) {
           if (state.recording) this.beginRecording()
@@ -277,6 +325,7 @@ export class SceneManager {
 
   dispose(): void {
     this.disposed = true
+    for (const id of [...this.scanVisuals.keys()]) this.removeScanVisual(id)
     cancelAnimationFrame(this.raf)
     this.unsubscribers.forEach((u) => u())
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
@@ -285,6 +334,7 @@ export class SceneManager {
     window.removeEventListener('keydown', this.onKeyDown)
     this.controls.dispose()
     this.transform.dispose()
+    this.viewHelper?.dispose()
     this.renderer.dispose()
   }
 
@@ -347,8 +397,117 @@ export class SceneManager {
 
     this.rebuildOverlay()
     this.applyEnvironment()
+    this.syncScans()
     this.applyTime(s.time)
     this.syncSelection()
+  }
+
+  /* ------------------------- 3D scans (splats) -------------------------- */
+
+  /** Diff the scene's ScanRefs against loaded splat viewers. */
+  private syncScans(): void {
+    if (!this.scansGroup.parent) this.scene.add(this.scansGroup)
+    const s = this.currentState()
+    const wanted = new Map((this.docScene?.scans ?? []).map((r) => [r.id, r]))
+
+    for (const [id, visual] of this.scanVisuals) {
+      const ref = wanted.get(id)
+      if (!ref || ref.file !== visual.file) {
+        this.removeScanVisual(id)
+      }
+    }
+    for (const ref of wanted.values()) {
+      const existing = this.scanVisuals.get(ref.id)
+      if (!existing) {
+        const holder = new THREE.Group()
+        holder.name = '__scan'
+        this.scansGroup.add(holder)
+        const visual = { file: ref.file, holder, viewer: null, loading: true }
+        this.scanVisuals.set(ref.id, visual)
+        void this.loadScan(ref.id, ref.file, s.projectFolder)
+      }
+      this.applyScanTransform(ref.id)
+    }
+  }
+
+  private applyScanTransform(scanId: string): void {
+    const ref = this.docScene?.scans?.find((r) => r.id === scanId)
+    const visual = this.scanVisuals.get(scanId)
+    if (!ref || !visual) return
+    visual.holder.position.set(ref.position.x, ref.position.y, ref.position.z)
+    visual.holder.rotation.set(0, ref.rotationY, 0)
+    visual.holder.scale.setScalar(ref.scale)
+    visual.holder.visible = ref.visible
+  }
+
+  private removeScanVisual(scanId: string): void {
+    const visual = this.scanVisuals.get(scanId)
+    if (!visual) return
+    this.scanVisuals.delete(scanId)
+    this.scansGroup.remove(visual.holder)
+    if (visual.viewer) {
+      visual.holder.remove(visual.viewer)
+      // dispose() tears down workers + GPU buffers; failures are non-fatal.
+      Promise.resolve(visual.viewer.dispose()).catch(() => undefined)
+    }
+  }
+
+  /** Async splat load with stale-guard: the scene may change mid-flight. */
+  private async loadScan(scanId: string, file: string, projectFolder: string | null): Promise<void> {
+    const toast = this.currentState().toast
+    const fail = (message: string): void => {
+      const visual = this.scanVisuals.get(scanId)
+      if (visual) visual.loading = false
+      toast(message, 'error')
+    }
+    if (!projectFolder) return fail('Scan load failed: no open project folder.')
+
+    const ext = file.toLowerCase().split('.').pop() ?? ''
+    const format = { ply: SceneFormat.Ply, splat: SceneFormat.Splat, ksplat: SceneFormat.KSplat, spz: SceneFormat.Spz }[
+      ext
+    ]
+    if (format === undefined) return fail(`Scan format ".${ext}" is not supported (.ply/.splat/.ksplat/.spz).`)
+
+    let url: string
+    try {
+      const buffer = await window.blockout.readProjectFile(projectFolder, file)
+      url = URL.createObjectURL(new Blob([buffer]))
+    } catch (e) {
+      return fail(`Scan load failed: ${(e as Error).message}`)
+    }
+
+    const stale = (): boolean => {
+      const visual = this.scanVisuals.get(scanId)
+      return this.disposed || !visual || visual.file !== file
+    }
+    if (stale()) return URL.revokeObjectURL(url)
+
+    const viewer = new DropInViewer({
+      // No SharedArrayBuffer requirements, no GPU sort: maximum portability
+      // inside Electron's renderer at grey-box-previs scene sizes.
+      sharedMemoryForWorkers: false,
+      gpuAcceleratedSort: false,
+      freeIntermediateSplatData: true
+    })
+    viewer.addSplatScene(url, { format, showLoadingUI: false, splatAlphaRemovalThreshold: 5 }).then(
+      () => {
+        URL.revokeObjectURL(url)
+        if (stale()) {
+          Promise.resolve(viewer.dispose()).catch(() => undefined)
+          return
+        }
+        const visual = this.scanVisuals.get(scanId)!
+        visual.viewer = viewer
+        visual.loading = false
+        visual.holder.add(viewer)
+        this.applyScanTransform(scanId)
+      },
+      (e: unknown) => {
+        URL.revokeObjectURL(url)
+        Promise.resolve(viewer.dispose()).catch(() => undefined)
+        fail(`Scan load failed: ${e instanceof Error ? e.message : 'unreadable splat file'}`)
+      }
+    )
   }
 
   /** Remove a visual and free its GPU resources (long sessions must not leak). */
@@ -438,7 +597,7 @@ export class SceneManager {
     // This runs on every mutation — dispose or the mark sprites' canvas
     // textures and path geometries pile up on the GPU all session.
     for (const o of this.markObjects) {
-      this.overlay.remove(o)
+      o.parent?.remove(o)
       o.traverse((child) => {
         if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
           child.geometry.dispose()
@@ -467,7 +626,7 @@ export class SceneManager {
           m.position.set(mark.position.x, mark.position.y + 0.01, mark.position.z)
           m.userData.markId = mark.id
           m.userData.entityId = track.entityId
-          this.overlay.add(m)
+          this.marksGroup.add(m)
           this.markObjects.push(m)
         })
       }
@@ -478,7 +637,7 @@ export class SceneManager {
       m.position.set(mark.position.x, mark.position.y + 0.01, mark.position.z)
       m.userData.markId = mark.id
       m.userData.entityId = 'camera'
-      this.overlay.add(m)
+      this.marksGroup.add(m)
       this.markObjects.push(m)
     })
 
@@ -499,8 +658,89 @@ export class SceneManager {
         })
       )
       line.computeLineDistances()
-      this.overlay.add(line)
+      this.pathsGroup.add(line)
       this.markObjects.push(line)
+    }
+
+    this.rebuildSelectionDecorations()
+    this.applyOverlayToggles()
+  }
+
+  /** Store-driven visibility for the Marks and Paths overlay groups. */
+  private applyOverlayToggles(): void {
+    const s = this.currentState()
+    this.marksGroup.visible = s.showMarks
+    this.pathsGroup.visible = s.showPaths
+  }
+
+  /**
+   * Direction chevrons + "t=2.4s" time labels along the SELECTED lane's path.
+   * Editor chrome (lives in pathsGroup, hidden in every export). Rebuilt on
+   * both blocking changes and selection changes so it always tracks the pick.
+   */
+  private rebuildSelectionDecorations(): void {
+    for (const o of this.selectionPathObjects) {
+      o.parent?.remove(o)
+      o.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose()
+          const mats = Array.isArray(child.material) ? child.material : [child.material]
+          for (const m of mats) m.dispose()
+        }
+        if (child instanceof THREE.Sprite) {
+          child.material.map?.dispose()
+          child.material.dispose()
+        }
+      })
+    }
+    this.selectionPathObjects = []
+    if (!this.evaluator || !this.docScene || !this.shot) return
+
+    // Which lane is selected? (entity id or 'camera')
+    const sel = this.currentState().selection
+    let laneId: string | null = null
+    if (sel?.kind === 'entity') laneId = sel.entityId
+    else if (sel?.kind === 'entities') laneId = sel.entityIds[sel.entityIds.length - 1] ?? null
+    else if (sel?.kind === 'camera') laneId = 'camera'
+    if (!laneId) return
+
+    const path = this.evaluator.paths().find((p) => p.entityId === laneId)
+    const isCam = laneId === 'camera'
+    const color = new THREE.Color(isCam ? '#7dd3fc' : (path?.color ?? '#f5a524'))
+
+    // Chevrons: small arrowheads pointing along travel at even path samples.
+    if (path && path.points.length >= 2) {
+      const pts = path.points.map((p) => new THREE.Vector3(p.x, p.y + 0.03, p.z))
+      const chevronCount = Math.min(10, Math.max(3, Math.floor(pts.length / 6)))
+      const chevMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
+      for (let c = 1; c <= chevronCount; c++) {
+        const idx = Math.min(pts.length - 2, Math.floor((c / (chevronCount + 1)) * (pts.length - 1)))
+        const a = pts[idx]!
+        const b = pts[idx + 1]!
+        const dir = b.clone().sub(a)
+        if (dir.lengthSq() < 1e-6) continue
+        dir.normalize()
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.28, 4), chevMat)
+        cone.position.copy(a)
+        // Cone points +Y by default; rotate to face the travel direction.
+        cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
+        this.pathsGroup.add(cone)
+        this.selectionPathObjects.push(cone)
+      }
+    }
+
+    // Time labels at every mark of the selected lane.
+    const marks = isCam
+      ? this.shot.camera.marks
+      : (this.docScene.blocking
+          .find((b) => b.id === this.shot!.blockingTakeId)
+          ?.tracks.find((t) => t.entityId === laneId)?.marks ?? [])
+    for (const mark of [...marks].sort((a, b) => a.time - b.time)) {
+      const sprite = labelSprite(`t=${mark.time.toFixed(1)}s`, isCam ? '#7dd3fc' : (path?.color ?? '#f5a524'))
+      sprite.position.set(mark.position.x, mark.position.y + 0.55, mark.position.z)
+      sprite.scale.multiplyScalar(0.8)
+      this.pathsGroup.add(sprite)
+      this.selectionPathObjects.push(sprite)
     }
   }
 
@@ -518,7 +758,20 @@ export class SceneManager {
       night: { sky: 0x2c3e5a, sun: 0.7, sunColor: 0x7a9cc6, ambient: 0.4, bg: 0x11151c, club: 0 },
       interiorWarm: { sky: 0xffe0b3, sun: 1.6, sunColor: 0xffd9a0, ambient: 0.95, bg: 0x27231d, club: 0 },
       interiorCool: { sky: 0xd0e4f5, sun: 1.7, sunColor: 0xe8f2ff, ambient: 1.0, bg: 0x212528, club: 0 },
-      club: { sky: 0x281a35, sun: 0.2, sunColor: 0x8844ff, ambient: 0.3, bg: 0x0b0810, club: 40 }
+      club: { sky: 0x281a35, sun: 0.2, sunColor: 0x8844ff, ambient: 0.3, bg: 0x0b0810, club: 40 },
+      // Physical-sky presets: base scene lights approximate the sky's own key.
+      middaySky: { sky: 0xbcd6f0, sun: 3.4, sunColor: 0xfff6e8, ambient: 1.2, bg: 0x8fb4dc, club: 0 },
+      goldenHourSky: { sky: 0xf0c79a, sun: 2.6, sunColor: 0xffb15a, ambient: 0.85, bg: 0xcaa070, club: 0 },
+      blueHourSky: { sky: 0x53617f, sun: 1.0, sunColor: 0x9fb6d8, ambient: 0.6, bg: 0x2c3550, club: 0 }
+    }
+    // Deterministic atmospheric-scattering parameters per sky preset (no time /
+    // random inputs → byte-identical renders every export).
+    const SKY_PARAMS: Partial<
+      Record<LightingPresetId, { turbidity: number; rayleigh: number; mieCoefficient: number; mieDirectionalG: number }>
+    > = {
+      middaySky: { turbidity: 2.2, rayleigh: 1.2, mieCoefficient: 0.005, mieDirectionalG: 0.8 },
+      goldenHourSky: { turbidity: 6.5, rayleigh: 2.6, mieCoefficient: 0.008, mieDirectionalG: 0.86 },
+      blueHourSky: { turbidity: 4.0, rayleigh: 3.4, mieCoefficient: 0.006, mieDirectionalG: 0.9 }
     }
     const p = presets[env.lighting]
     this.ambient.color.set(p.sky)
@@ -530,12 +783,27 @@ export class SceneManager {
 
     // Sun direction from azimuth/elevation.
     const r = 30
-    this.sun.position.set(
+    const sunDir = new THREE.Vector3(
       Math.cos(env.sunAzimuth) * Math.cos(env.sunElevation) * r,
       Math.sin(env.sunElevation) * r,
       Math.sin(env.sunAzimuth) * Math.cos(env.sunElevation) * r
     )
+    this.sun.position.copy(sunDir)
     this.sun.target.position.set(0, 0, 0)
+
+    // Physical sky dome. Enabled only for the *Sky presets; the sun uniform is
+    // a pure function of the scene's sun direction, so it stays deterministic.
+    const skyCfg = SKY_PARAMS[env.lighting]
+    this.skyEnabled = !!skyCfg
+    this.sky.visible = this.skyEnabled
+    if (skyCfg) {
+      const u = this.sky.material.uniforms
+      u.turbidity!.value = skyCfg.turbidity
+      u.rayleigh!.value = skyCfg.rayleigh
+      u.mieCoefficient!.value = skyCfg.mieCoefficient
+      u.mieDirectionalG!.value = skyCfg.mieDirectionalG
+      u.sunPosition!.value.copy(sunDir).normalize()
+    }
 
     this.scene.fog = env.fog > 0.01 ? new THREE.FogExp2(p.bg, env.fog * 0.06) : null
   }
@@ -578,6 +846,12 @@ export class SceneManager {
     if (s.mode === 'deliver') return
     // While recording a performance, clicks must not change the selection.
     if (s.recording) return
+    // Orientation gizmo (bottom-right) gets first refusal: a hit snaps the free
+    // camera to that axis (orbiting the current target) and consumes the click.
+    if (!s.lookThrough && this.viewHelper) {
+      this.viewHelper.center.copy(this.controls.target)
+      if (this.viewHelper.handleClick(e)) return
+    }
     const ndc = this.pointerNdc(e)
     this.raycaster.setFromCamera(ndc, s.lookThrough ? this.shotCam : this.freeCam)
 
@@ -602,6 +876,20 @@ export class SceneManager {
         const seq = s.placingSequence
         s.setPlacingSequence(null)
         s.spawnSequence({ ...seq, origin: { x: point.x, z: point.z, heading } })
+      }
+      return
+    }
+
+    // 1c) Choreography placement: the routine stages where you click, facing
+    // the camera.
+    if (s.placingChoreography) {
+      const point = this.groundHit()
+      if (point) {
+        const toCam = this.freeCam.position.clone().sub(point)
+        const heading = headingOf({ x: toCam.x, y: 0, z: toCam.z })
+        const spec = s.placingChoreography
+        s.setPlacingChoreography(null)
+        s.spawnChoreography(spec, { x: point.x, z: point.z, heading })
       }
       return
     }
@@ -772,6 +1060,56 @@ export class SceneManager {
         this.extraSelectionBoxes.push(box)
       }
     }
+
+    // Subtle emissive tint on the selected entities (editor-only; cleared in
+    // every export pass by renderFrameAt). Cheaper/safer than an OutlinePass —
+    // no EffectComposer on the render path.
+    this.clearSelectionTint()
+    if (!s.lookThrough && s.mode !== 'deliver') {
+      const ids = selectedEntityIds(s.selection)
+      for (const id of ids) {
+        const visual = this.visuals.get(id)
+        // Env kits are room-scale — a whole-asset glow paints the entire set.
+        // Their selection reads fine from the selection box alone.
+        if (visual && !visual.entity.assetId.startsWith('env.')) this.tintEntity(visual.root)
+      }
+    }
+
+    this.rebuildSelectionDecorations()
+  }
+
+  /** Apply a faint emissive glow to every standard material under a root. */
+  private tintEntity(root: THREE.Object3D): void {
+    const seen = new Set(this.tintedMaterials.map((t) => t.mat))
+    root.traverse((child) => {
+      const mesh = child as THREE.Mesh
+      if (!mesh.isMesh) return
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+      for (const m of mats) {
+        const std = m as THREE.MeshStandardMaterial
+        if (!std || !('emissive' in std) || !std.emissive) continue
+        // A material shared across meshes must be recorded once — a second
+        // push would remember the TINTED values as "original".
+        if (seen.has(std)) continue
+        seen.add(std)
+        this.tintedMaterials.push({
+          mat: std,
+          emissive: std.emissive.getHex(),
+          intensity: std.emissiveIntensity ?? 1
+        })
+        std.emissive.setHex(0x2b6cff)
+        std.emissiveIntensity = 0.12
+      }
+    })
+  }
+
+  /** Restore every tinted material to its pre-selection emissive. */
+  private clearSelectionTint(): void {
+    for (const t of this.tintedMaterials) {
+      t.mat.emissive.setHex(t.emissive)
+      t.mat.emissiveIntensity = t.intensity
+    }
+    this.tintedMaterials = []
   }
 
   /** Snapshot doc transforms of every selected entity when a drag starts. */
@@ -1782,6 +2120,7 @@ export class SceneManager {
     }
     this.applyTime(s.time)
     this.controls.update()
+    if (this.viewHelper?.animating) this.viewHelper.update(dt)
 
     // Live recording. Playback-synced recordings sample against the shot
     // clock (the choreography replays underneath); free recordings run on
@@ -1913,6 +2252,13 @@ export class SceneManager {
         this.selectionBox.visible = false
         gizmo.visible = false
 
+        // The PiP mirrors the shot as it will export — selection tint is
+        // editor chrome and must not color it.
+        for (const t of this.tintedMaterials) {
+          t.mat.emissive.setHex(t.emissive)
+          t.mat.emissiveIntensity = t.intensity
+        }
+
         this.shotCam.aspect = aspect
         this.shotCam.updateProjectionMatrix()
         this.renderer.setScissorTest(true)
@@ -1921,6 +2267,10 @@ export class SceneManager {
         this.renderer.render(this.scene, this.shotCam)
         this.renderer.setScissorTest(false)
 
+        for (const t of this.tintedMaterials) {
+          t.mat.emissive.setHex(0x2b6cff)
+          t.mat.emissiveIntensity = 0.12
+        }
         this.overlay.visible = overlayWas
         this.cameraBody.visible = bodyWas
         this.selectionBox.visible = selWas
@@ -1928,6 +2278,23 @@ export class SceneManager {
         this.onPipRect?.({ x: px, y: h - py - ph, w: pw, h: ph })
       } else {
         this.onPipRect?.(null)
+      }
+
+      // Orientation gizmo, bottom-right. Editor-only: its own corner viewport,
+      // rendered after the scene, never part of any export. (This branch is the
+      // free-cam view — mode is already stage/shoot here.)
+      // Skip it while the PiP is open: three's ViewHelper hardcodes the same
+      // bottom-right corner the PiP overlay occupies.
+      const pipOpen = s.pipSize !== 'off' && this.shot !== null
+      if (!s.recording && !pipOpen) {
+        this.renderer.setViewport(0, 0, w, h)
+        // autoClear must be off here: the helper's internal render() would
+        // otherwise clear the whole canvas (clears ignore viewports), wiping
+        // the scene that was just drawn. It clearDepth()s on its own.
+        const autoClearWas = this.renderer.autoClear
+        this.renderer.autoClear = false
+        this.viewHelper?.render(this.renderer)
+        this.renderer.autoClear = autoClearWas
       }
     }
 
@@ -1999,6 +2366,9 @@ export class SceneManager {
     this.applyTime(t)
     const overlayWas = this.overlay.visible
     this.overlay.visible = false
+    // Scans are editor staging only — never in exports (determinism contract).
+    const scansWas = this.scansGroup.visible
+    this.scansGroup.visible = false
     // Entities the filmmaker excluded from exports stay editor-only.
     const excludedStates: [THREE.Object3D, boolean][] = []
     for (const v of this.visuals.values()) {
@@ -2020,6 +2390,17 @@ export class SceneManager {
         v.label.visible = opts.showLabels && pass === 'clean'
       }
     }
+    // Selection emissive tint must never reach exported pixels — neutralize it
+    // for the duration of the render, then restore the editor glow.
+    const tintWas = this.tintedMaterials.map((t) => ({ hex: t.mat.emissive.getHex(), intensity: t.mat.emissiveIntensity }))
+    for (const t of this.tintedMaterials) {
+      t.mat.emissive.setHex(t.emissive)
+      t.mat.emissiveIntensity = t.intensity
+    }
+    // The physical sky belongs in the clean plate only — as a giant textured
+    // box it would swamp the depth/normal passes (background, not geometry).
+    const skyWas = this.sky.visible
+    if (pass !== 'clean') this.sky.visible = false
     const bgWas = this.scene.background
     const fogWas = this.scene.fog
     if (pass === 'depth') {
@@ -2053,6 +2434,16 @@ export class SceneManager {
     this.scene.overrideMaterial = null
     this.scene.background = bgWas
     this.scene.fog = fogWas
+    this.sky.visible = skyWas
+    // Restore the editor selection tint.
+    this.tintedMaterials.forEach((t, i) => {
+      const w = tintWas[i]
+      if (w) {
+        t.mat.emissive.setHex(w.hex)
+        t.mat.emissiveIntensity = w.intensity
+      }
+    })
+    this.scansGroup.visible = scansWas
     this.overlay.visible = overlayWas
     this.selectionBox.visible = selectionWas
     gizmo.visible = gizmoWas
@@ -2078,11 +2469,22 @@ export class SceneManager {
     this.applyTime(0)
     const overlayWas = this.overlay.visible
     const camBodyWas = this.cameraBody.visible
+    const scansWas = this.scansGroup.visible
+    const marksWas = this.marksGroup.visible
+    const pathsWas = this.pathsGroup.visible
     this.overlay.visible = true
     this.cameraBody.visible = true
+    this.scansGroup.visible = false
+    // The blocking diagram is ABOUT the marks and paths — force them on even if
+    // the editor HUD toggles have hidden them.
+    this.marksGroup.visible = true
+    this.pathsGroup.visible = true
     exportRenderer.setSize(width, height, false)
     exportRenderer.render(this.scene, cam)
     this.overlay.visible = overlayWas
     this.cameraBody.visible = camBodyWas
+    this.scansGroup.visible = scansWas
+    this.marksGroup.visible = marksWas
+    this.pathsGroup.visible = pathsWas
   }
 }

@@ -97,6 +97,10 @@ describe('action presets — registry', () => {
     expect(ACTION_PRESETS.length).toBeGreaterThanOrEqual(20)
   })
 
+  it('has 33 presets', () => {
+    expect(ACTION_PRESETS.length).toBe(33)
+  })
+
   it('all preset ids are unique', () => {
     const ids = ACTION_PRESETS.map((p) => p.id)
     expect(new Set(ids).size).toBe(ids.length)
@@ -258,6 +262,20 @@ describe('action presets — targeted behavior', () => {
     expect(last.gait).toBe('stand')
     expect(forwardOf(last)).toBeGreaterThan(3)
   })
+
+  it('car-jump-ramp has a clear airborne peak (y > 1) then lands at y ≈ 0', () => {
+    const marks = byId('car-jump-ramp').generate(groundCtx())
+    const peak = Math.max(...marks.map((m) => m.position.y))
+    expect(peak).toBeGreaterThan(1)
+    expect(marks[marks.length - 1]!.position.y).toBeCloseTo(0, 6)
+  })
+
+  it('train-pass-through drives a long straight pass (>80m) all at run gait', () => {
+    const marks = byId('train-pass-through').generate(groundCtx())
+    const last = marks[marks.length - 1]!
+    expect(forwardOf(last)).toBeGreaterThan(80)
+    for (const m of marks) expect(m.gait).toBe('run')
+  })
 })
 
 describe('action presets — person category', () => {
@@ -275,5 +293,26 @@ describe('action presets — person category', () => {
       expect(p.suggestedAssets).toContain('person.man')
       expect(p.suggestedAssets).toContain('person.woman')
     }
+  })
+})
+
+describe('action presets — animal category', () => {
+  it("registers the 'animal' category", () => {
+    const cats = new Set(ACTION_PRESETS.map((p) => p.category))
+    expect(cats.has('animal' as never)).toBe(true)
+  })
+
+  it("horse-gallop-loop and dog-fetch-run exist with category 'animal'", () => {
+    for (const id of ['horse-gallop-loop', 'dog-fetch-run']) {
+      const p = byId(id)
+      expect(p.category).toBe('animal')
+    }
+  })
+
+  it('horse-gallop-loop returns near its start (loop-friendly)', () => {
+    const marks = byId('horse-gallop-loop').generate(groundCtx())
+    const first = marks[0]!.position
+    const last = marks[marks.length - 1]!.position
+    expect(Math.hypot(last.x - first.x, last.z - first.z)).toBeLessThan(4)
   })
 })

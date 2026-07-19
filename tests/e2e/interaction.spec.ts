@@ -121,7 +121,7 @@ test('camera-move recording converts flight into camera marks', async () => {
   }
   await page.mouse.up()
   await page.waitForTimeout(300)
-  await page.getByRole('button', { name: '■ Stop' }).click()
+  await page.getByRole('button', { name: '■ Stop', exact: true }).click()
   await page.waitForTimeout(400)
   const after = await page.evaluate(() => {
     const store = (window as any).__blockout.store.getState()

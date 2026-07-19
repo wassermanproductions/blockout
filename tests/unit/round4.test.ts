@@ -59,8 +59,46 @@ describe('motion presets: data invariants the renderer relies on', () => {
     }
   })
 
-  it('covers fights, dances, gestures, and stunts', () => {
+  it('covers every motion category', () => {
     const cats = new Set(MOTION_PRESETS.map((p) => p.category))
-    for (const c of ['fight', 'dance', 'gesture', 'stunt']) expect(cats.has(c as never)).toBe(true)
+    for (const c of ['fight', 'dance', 'gesture', 'stunt', 'sport', 'everyday'])
+      expect(cats.has(c as never)).toBe(true)
+  })
+
+  // The renderer's animatePerson (builders.ts) only applies these joint keys as
+  // pose overrides; anything else is silently ignored and would never render.
+  const LEGAL_JOINTS = new Set([
+    'shoulderLX', 'shoulderRX', 'shoulderLZ', 'shoulderRZ',
+    'elbowL', 'elbowR',
+    'hipLX', 'hipRX', 'hipLZ', 'hipRZ',
+    'kneeL', 'kneeR',
+    'torsoX', 'torsoY', 'torsoZ',
+    'headX', 'headY', 'headZ',
+  ])
+
+  it('only references joints the renderer knows how to apply', () => {
+    for (const p of MOTION_PRESETS) {
+      for (const kf of p.keyframes) {
+        for (const j of Object.keys(kf.joints)) {
+          expect(LEGAL_JOINTS.has(j), `${p.id} references unknown joint ${j}`).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('keeps joint values within a sane range (no rig explosions)', () => {
+    for (const p of MOTION_PRESETS) {
+      for (const kf of p.keyframes) {
+        for (const [j, v] of Object.entries(kf.joints)) {
+          expect(Number.isFinite(v), `${p.id} @${kf.t}s ${j} is not finite`).toBe(true)
+          expect(Math.abs(v), `${p.id} @${kf.t}s ${j}=${v} out of range`).toBeLessThan(3.2)
+        }
+      }
+    }
+  })
+
+  it('unique preset ids', () => {
+    const ids = MOTION_PRESETS.map((p) => p.id)
+    expect(new Set(ids).size).toBe(ids.length)
   })
 })

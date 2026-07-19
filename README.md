@@ -20,8 +20,10 @@ It is deliberately **not** a 3D art tool. Grey-box mannequins and vehicles at re
 - 🚶 **Marks-based choreography** — one mental model for camera and actors; editable paths, per-mark easing, gaits, and speed sanity warnings.
 - 🎥 **Coverage model** — a scene owns the blocking; shots own cameras. Shoot the same action from five angles without re-blocking.
 - 👥 **One-click crowds** — dance numbers, brawls, foot and car chases: pick a size and style, click the floor, and the whole choreographed cast stages exactly there. Restyle the entire group later in one click.
-- ✨ **An Animate tab** — 64 character motions (fights, dances, sit/drink/jump, playing cards, squirt-gun) and 25 action paths (plane landings, helicopter orbits, car chases, collapsing debris) always one click away.
-- 🎛️ **27 classic camera moves** — orbits, cranes, drone follows, vertigo dolly-zoom — built around your subject and riding along if it moves.
+- 💃 **A choreographer** — build real staged routines: timed dance phrases with formations, canon and mirroring; paired fight exchanges where reactions land on the attack; and chases along a serpentine path. Spawn a fresh cast or apply it to people you already placed.
+- ✨ **An Animate tab** — 194 character motions (fights, weapons, dances, sports, everyday actions, stunts) and 33 action paths (plane landings, helicopter orbits, car chases, motorcycle weaves, galloping horses, collapsing debris) always one click away.
+- 🎛️ **39 classic camera moves** — orbits, cranes, drone follows, spirals, crash-zooms, the vertigo dolly-zoom — built around your subject and riding along if it moves.
+- 🌍 **Block inside real places** — import a Gaussian-splat / photogrammetry scan of a location (shot on your phone or any video-to-3D tool) and stage the action inside it. Scans are an editor aid — they never touch the export.
 - 📦 **Deterministic exports** — the same project renders byte-identical frames on every run. Playback performance never touches the output.
 - 🤖 **Agent-drivable** — a bundled MCP server lets Claude Code, Codex, or any MCP client stage and shoot the scene for you.
 
@@ -56,7 +58,7 @@ Plus per-scene tools: **animatic export** (all shots stitched), **contact sheet*
 | ![Stage mode: a 20-dancer number on a lit stage](docs/images/stage-crowd.png) | ![Shoot mode: looking through a drone rig following a plane](docs/images/shoot-followcam.png) |
 | **Stage** — one click spawns a whole choreographed crowd. Twenty dancers, mixed styles, every performer individually editable. | **Shoot** — look through the shot camera as a *Follow Behind* drone move rides a climbing plane, aim-locked to the aircraft. |
 | ![Shoot mode: a fight sequence with timeline lanes and the inspector open](docs/images/timeline-choreo.png) | ![Stage mode: a backyard scene at golden hour](docs/images/backyard.png) |
-| **Choreograph** — a paired brawl laid out as timeline lanes of mark pills; select a fighter to edit its path in the inspector. | **Light** — a backyard with pool, trampoline, grill, kid and dog, dressed in golden-hour light. Six lighting presets, one click each. |
+| **Choreograph** — a paired brawl laid out as timeline lanes of mark pills; select a fighter to edit its path in the inspector. | **Light** — a backyard with pool, trampoline, grill, kid and dog, dressed in golden-hour light. Nine lighting presets — including physical-sky domes lit by the sun — one click each. |
 
 ### Deliver
 
@@ -82,7 +84,9 @@ Data-driven **generator profiles** define durations, resolutions, reference mode
 
 ### Sequences & presets
 
-Stage a whole choreographed crowd in one action — pick **Dance number / Fight / Foot chase / Car chase**, set the head-count (2–60) and style, then **click the floor exactly where you want them**: performers *and* their choreography appear there, facing the camera. A staged sequence is a *starting point*: shift-click the group (their choreography moves with them when you drag) and the **✨ Animate tab** swaps everyone's dance style or path in one click. Non-character performers get motion-path presets too: plane takeoff / landing / flyby, helicopter orbit, bird swoop, falling debris, thrown objects. For the camera, apply one of **27 classic moves** — orbits, cranes, drone follows, whip pans, the vertigo dolly-zoom — each built around your subject and riding along if it moves.
+Stage a whole choreographed crowd in one action — pick **Dance number / Fight / Foot chase / Car chase**, set the head-count (2–60) and style, then **click the floor exactly where you want them**: performers *and* their choreography appear there, facing the camera. For a fully staged routine, the **Choreographer** builds timed dance phrases (with formations, canon and mirroring), paired fight exchanges where each reaction lands on the attack, and chases along a serpentine path — spawn a new cast or apply it to people already on set. A staged sequence is a *starting point*: shift-click the group (their choreography moves with them when you drag) and the **✨ Animate tab** swaps everyone's dance style or path in one click. Non-character performers get motion-path presets too: plane takeoff / landing / flyby, helicopter orbit, bird swoop, motorcycle weave, galloping horse, falling debris, thrown objects. For the camera, apply one of **39 classic moves** — orbits, cranes, drone follows, whip pans, spirals, crash-zooms, the vertigo dolly-zoom — each built around your subject and riding along if it moves.
+
+Run the take the way a set does: the **Take bar** in Shoot walks Rehearse → Record → Review — rehearse plays the blocking with path ribbons on, record wraps the camera or performer capture in a 3-2-1 countdown, and review plays back through the shot camera exactly as it will export. Spike-tape floor marks and path ribbons (with direction chevrons and time labels) are toggleable editor chrome, and a **Set your marks** coach walks a first-timer through the whole loop.
 
 ### Agent control
 
@@ -178,8 +182,10 @@ default per-user Windows install.
 Discovery and auth are automatic — the app writes a versioned localhost-only
 control descriptor to `~/.config/blockout/control.json` on macOS/Linux or
 `%APPDATA%\blockout\control.json` on Windows. The zero-dependency bridge reads
-both versioned and legacy descriptors. There are **26 tools** (from `get_state`
-and `add_entity` through `spawn_sequence`, `apply_camera_move`, and `screenshot`).
+both versioned and legacy descriptors. There are **33 tools** (from `get_state`
+and `add_entity` through `spawn_choreography`, `import_scan`, `apply_camera_move`,
+and `screenshot`).
+>>>>>>> Stashed changes
 
 👉 **Full setup, the complete tool table, and a worked session: [mcp/README.md](mcp/README.md).**
 

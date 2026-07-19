@@ -1037,6 +1037,414 @@ const snapZoomPunch: CameraMovePreset = {
 }
 
 // ---------------------------------------------------------------------------
+// ADDITIONAL PRESETS (v5.x expansion) — grouped by category.
+// ---------------------------------------------------------------------------
+
+// --- follow ---------------------------------------------------------------
+
+const leadFollowFront: CameraMovePreset = {
+  id: 'lead-follow-front',
+  name: 'Lead-Follow Front',
+  category: 'follow',
+  description: 'Travel ~4m directly in front of the subject facing back at it — a front-lead tracking shot that reads the face while leading the move.',
+  track: true,
+  generate(ctx) {
+    const airborne = isAirborne(ctx)
+    const scale = airborne ? 2.5 : 1
+    const distance = 4 * scale
+    const height = airborne ? 1.8 * scale : 1.6
+    const ts = times(8, ctx.duration)
+    return build(
+      ts.map((t) => {
+        const s = ctx.subjectAt(t)
+        const fwd = forward(s.heading)
+        const target = aimPoint(s, ctx.subjectHeight)
+        return {
+          t,
+          pos: { x: s.x + fwd.x * distance, y: s.y + height, z: s.z + fwd.z * distance },
+          aimAt: target,
+          focalLength: ctx.camera.focalLength
+        }
+      }),
+      airborne
+    )
+  }
+}
+
+const lowLeadTiltUp: CameraMovePreset = {
+  id: 'low-lead-tilt-up',
+  name: 'Low Lead Tilt-Up',
+  category: 'follow',
+  description: 'Lead the subject low to the ground (~0.4m) tilting up to meet it as it approaches — a heroic low-angle lead.',
+  track: true,
+  generate(ctx) {
+    const airborne = isAirborne(ctx)
+    const distance = 4
+    const lowY = 0.4
+    const ts = times(8, ctx.duration)
+    return build(
+      ts.map((t) => {
+        const s = ctx.subjectAt(t)
+        const fwd = forward(s.heading)
+        const target = aimPoint(s, ctx.subjectHeight)
+        return {
+          t,
+          pos: { x: s.x + fwd.x * distance, y: lowY, z: s.z + fwd.z * distance },
+          aimAt: target,
+          focalLength: ctx.camera.focalLength
+        }
+      }),
+      airborne
+    )
+  }
+}
+
+const sideDollyPast: CameraMovePreset = {
+  id: 'side-dolly-past',
+  name: 'Side-Dolly Past',
+  category: 'follow',
+  description: 'A lateral dolly ~4m off the subject’s flank that overtakes it — starts slightly behind, ends slightly ahead, aiming at it throughout.',
+  track: true,
+  generate(ctx) {
+    const airborne = isAirborne(ctx)
+    const flank = 4
+    const height = airborne ? 4 : 1.6
+    const behind = 6 // meters behind at start
+    const ahead = 6 // meters ahead at end
+    const ts = times(8, ctx.duration)
+    return build(
+      ts.map((t) => {
+        const u = t / ctx.duration
+        const s = ctx.subjectAt(t)
+        const target = aimPoint(s, ctx.subjectHeight)
+        const fwd = forward(s.heading)
+        const side = forward(s.heading - Math.PI / 2) // right flank
+        const along = -behind + (behind + ahead) * u // behind → ahead
+        return {
+          t,
+          pos: {
+            x: s.x + side.x * flank + fwd.x * along,
+            y: s.y + height,
+            z: s.z + side.z * flank + fwd.z * along
+          },
+          aimAt: target,
+          focalLength: ctx.camera.focalLength
+        }
+      }),
+      airborne
+    )
+  }
+}
+
+// --- orbit & arc ----------------------------------------------------------
+
+/**
+ * Orbit variant that lets the caller drive the camera height per mark (the
+ * base `orbit` helper pins Y to the live camera Y). Used for low/high arcs.
+ */
+function orbitAt(
+  ctx: CameraMoveContext,
+  sweep: number,
+  count: number,
+  yAt: (camY: number, s: SubjectSample) => number
+): CameraMarkSpec[] {
+  const cam: P3 = { x: ctx.camera.x, y: ctx.camera.y, z: ctx.camera.z }
+  const s0 = ctx.subjectAt(0)
+  const center0 = { x: s0.x, y: s0.y, z: s0.z }
+  const radius0 = Math.max(planarDist(cam, center0), 2)
+  const startAz = headingOf({ x: cam.x - center0.x, y: 0, z: cam.z - center0.z })
+  const camY = ctx.camera.y
+  const airborne = isAirborne(ctx)
+  const ts = times(count, ctx.duration)
+  return build(
+    ts.map((t) => {
+      const u = t / ctx.duration
+      const s = ctx.subjectAt(t)
+      const az = startAz + sweep * u
+      const off = forward(az)
+      const target = aimPoint(s, ctx.subjectHeight)
+      return {
+        t,
+        pos: { x: s.x + off.x * radius0, y: yAt(camY, s), z: s.z + off.z * radius0 },
+        aimAt: target,
+        focalLength: ctx.camera.focalLength
+      }
+    }),
+    airborne
+  )
+}
+
+const orbit45Low: CameraMovePreset = {
+  id: 'orbit-45-low',
+  name: 'Orbit 45° Low',
+  category: 'orbit & arc',
+  description: 'A 45° arc around the subject at a low camera height (~0.5m) — a ground-level profile change looking up.',
+  track: true,
+  generate(ctx) {
+    return orbitAt(ctx, Math.PI / 4, 6, () => 0.5)
+  }
+}
+
+const orbit45High: CameraMovePreset = {
+  id: 'orbit-45-high',
+  name: 'Orbit 45° High',
+  category: 'orbit & arc',
+  description: 'A 45° arc around the subject raised ~4m above the start height, looking down — the high companion to Orbit 45° Low.',
+  track: true,
+  generate(ctx) {
+    return orbitAt(ctx, Math.PI / 4, 6, (camY) => camY + 4)
+  }
+}
+
+// --- crane & boom ---------------------------------------------------------
+
+/**
+ * A helical move: orbit `sweep` while the radius scales toward `radScaleEnd`
+ * and the camera height eases from the live camera Y toward `endY`.
+ */
+function spiral(
+  ctx: CameraMoveContext,
+  sweep: number,
+  radScaleEnd: number,
+  endY: (camY: number, s0: SubjectSample) => number,
+  count: number
+): CameraMarkSpec[] {
+  const cam: P3 = { x: ctx.camera.x, y: ctx.camera.y, z: ctx.camera.z }
+  const s0 = ctx.subjectAt(0)
+  const center0 = { x: s0.x, y: s0.y, z: s0.z }
+  const radius0 = Math.max(planarDist(cam, center0), 2)
+  const startAz = headingOf({ x: cam.x - center0.x, y: 0, z: cam.z - center0.z })
+  const camY = ctx.camera.y
+  const yEnd = endY(camY, s0)
+  const airborne = isAirborne(ctx)
+  const ts = times(count, ctx.duration)
+  return build(
+    ts.map((t) => {
+      const u = t / ctx.duration
+      const s = ctx.subjectAt(t)
+      const az = startAz + sweep * u
+      const radius = radius0 * (1 + (radScaleEnd - 1) * u)
+      const off = forward(az)
+      const target = aimPoint(s, ctx.subjectHeight)
+      return {
+        t,
+        pos: { x: s.x + off.x * radius, y: camY + (yEnd - camY) * u, z: s.z + off.z * radius },
+        aimAt: target,
+        focalLength: ctx.camera.focalLength
+      }
+    }),
+    airborne
+  )
+}
+
+const spiralInDescend: CameraMovePreset = {
+  id: 'spiral-in-descend',
+  name: 'Spiral-In Descend',
+  category: 'crane & boom',
+  description: 'Orbit ~180° while the radius tightens ~45% and the camera descends toward the subject’s eyeline — a closing spiral onto the face.',
+  track: true,
+  generate(ctx) {
+    // End height at subject eye height (aim point height).
+    return spiral(ctx, Math.PI, 0.55, (_camY, s0) => s0.y + ctx.subjectHeight * 0.8, 7)
+  }
+}
+
+const spiralOutAscend: CameraMovePreset = {
+  id: 'spiral-out-ascend',
+  name: 'Spiral-Out Ascend',
+  category: 'crane & boom',
+  description: 'Orbit ~180° while the radius blooms ~1.8× and the camera rises ~4m — an opening spiral that reveals the surroundings.',
+  track: true,
+  generate(ctx) {
+    return spiral(ctx, Math.PI, 1.8, (camY) => camY + 4, 7)
+  }
+}
+
+const pedestalUpSlow: CameraMovePreset = {
+  id: 'pedestal-up-slow',
+  name: 'Pedestal Up (Slow)',
+  category: 'crane & boom',
+  description: 'A gentle ~2m vertical rise holding aim on the subject — a softer, shorter boom than the standard pedestal.',
+  track: true,
+  generate(ctx) {
+    const cam: P3 = { x: ctx.camera.x, y: ctx.camera.y, z: ctx.camera.z }
+    const s0 = ctx.subjectAt(0)
+    const startAim = aimPoint(s0, ctx.subjectHeight)
+    const bearing = headingOf({ x: cam.x - startAim.x, y: 0, z: cam.z - startAim.z })
+    const dir = forward(bearing)
+    const radius = Math.max(planarDist(cam, startAim), 2)
+    const ts = times(6, ctx.duration)
+    const airborne = isAirborne(ctx)
+    return build(
+      ts.map((t) => {
+        const u = t / ctx.duration
+        const s = ctx.subjectAt(t)
+        const target = aimPoint(s, ctx.subjectHeight)
+        const y = ctx.camera.y + 2 * u
+        return {
+          t,
+          pos: { x: target.x + dir.x * radius, y, z: target.z + dir.z * radius },
+          aimAt: target,
+          focalLength: ctx.camera.focalLength
+        }
+      }),
+      airborne
+    )
+  }
+}
+
+// --- aerial ---------------------------------------------------------------
+
+const overheadTrackFollow: CameraMovePreset = {
+  id: 'overhead-track-follow',
+  name: 'Overhead Track-Follow',
+  category: 'aerial',
+  description: 'Ride ~8m directly above the subject looking straight down and moving with it — a top-down following shot.',
+  track: true,
+  generate(ctx) {
+    const ts = times(7, ctx.duration)
+    const airborne = isAirborne(ctx)
+    const straightDown = -Math.PI / 2 + 0.001
+    const altitude = 8
+    const last = ts.length - 1
+    return ts.map((t, i) => {
+      const s = ctx.subjectAt(t)
+      const y = s.y + altitude
+      const edge = i === 0 || i === last
+      // Keep camera slightly off vertical so pan stays defined; pin tilt down.
+      const pos = { x: s.x + 0.001, y, z: s.z }
+      const pan = headingOf({ x: s.x - pos.x, y: 0, z: s.z - pos.z })
+      return {
+        time: t,
+        position: floorClampSpec(pos, airborne),
+        pan,
+        tilt: straightDown,
+        roll: 0,
+        focalLength: ctx.camera.focalLength,
+        easeIn: edge ? 0.25 : 0,
+        easeOut: edge ? 0.25 : 0,
+        hold: 0
+      }
+    })
+  }
+}
+
+const droneStrafeReveal: CameraMovePreset = {
+  id: 'drone-strafe-reveal',
+  name: 'Drone Strafe Reveal',
+  category: 'aerial',
+  description: 'At ~10m altitude, strafe laterally ~20m across the subject’s flank while aiming at it — a sideways drone reveal.',
+  track: true,
+  generate(ctx) {
+    const s0 = ctx.subjectAt(0)
+    const heading = s0.heading
+    const altitude = 10
+    const span = 20
+    const ts = times(8, ctx.duration)
+    const airborne = isAirborne(ctx)
+    return build(
+      ts.map((t) => {
+        const u = t / ctx.duration
+        const s = ctx.subjectAt(t)
+        const target = aimPoint(s, ctx.subjectHeight)
+        // Perpendicular to the subject's heading (right flank direction).
+        const side = forward(heading - Math.PI / 2)
+        const along = -span / 2 + span * u
+        return {
+          t,
+          pos: { x: s.x + side.x * along, y: s.y + altitude, z: s.z + side.z * along },
+          aimAt: target,
+          focalLength: ctx.camera.focalLength
+        }
+      }),
+      airborne
+    )
+  }
+}
+
+// --- stylized -------------------------------------------------------------
+
+const crashZoomOut: CameraMovePreset = {
+  id: 'crash-zoom-out',
+  name: 'Crash-Zoom Out',
+  category: 'stylized',
+  description: 'Static frame; the lens snaps 85→35mm over three tight marks mid-shot — a jarring pull-back zoom accent.',
+  track: false,
+  generate(ctx) {
+    const cam: P3 = { x: ctx.camera.x, y: ctx.camera.y, z: ctx.camera.z }
+    const airborne = isAirborne(ctx)
+    const dur = ctx.duration
+    const mid = dur / 2
+    const raw = [
+      { t: 0, fl: 85 },
+      { t: Math.max(0.001, mid - 0.15), fl: 85 },
+      { t: mid, fl: 60 },
+      { t: mid + 0.15, fl: 35 },
+      { t: dur, fl: 35 }
+    ]
+    const pts = raw
+      .map((p) => ({ ...p, t: Math.min(dur, Math.max(0, p.t)) }))
+      .sort((a, b) => a.t - b.t)
+    const last = pts.length - 1
+    return pts.map((p, i) => {
+      const tt = i > 0 && p.t <= pts[i - 1]!.t ? pts[i - 1]!.t + 0.001 : p.t
+      pts[i]!.t = tt
+      const s = ctx.subjectAt(tt)
+      const target = aimPoint(s, ctx.subjectHeight)
+      const base = aim(cam, target)
+      const edge = i === 0 || i === last
+      return {
+        time: tt,
+        position: floorClampSpec(cam, airborne),
+        pan: base.pan,
+        tilt: base.tilt,
+        roll: 0,
+        focalLength: clampFocal(p.fl, 12, 135),
+        easeIn: edge ? 0.25 : 0,
+        easeOut: edge ? 0.25 : 0,
+        hold: 0
+      }
+    })
+  }
+}
+
+const pushInDutchRoll: CameraMovePreset = {
+  id: 'push-in-dutch-roll',
+  name: 'Push-In Dutch Roll',
+  category: 'stylized',
+  description: 'A slow push toward the subject while the horizon rolls into a ±0.3rad dutch tilt — mounting unease.',
+  track: true,
+  generate(ctx) {
+    const cam: P3 = { x: ctx.camera.x, y: ctx.camera.y, z: ctx.camera.z }
+    const ts = times(7, ctx.duration)
+    const s0 = ctx.subjectAt(0)
+    const startAim = aimPoint(s0, ctx.subjectHeight)
+    const startDist = Math.max(planarDist(cam, startAim), 0.5)
+    const endDist = 2
+    const bearing = headingOf({ x: cam.x - startAim.x, y: 0, z: cam.z - startAim.z })
+    const dir = forward(bearing)
+    const airborne = isAirborne(ctx)
+    return build(
+      ts.map((t) => {
+        const u = t / ctx.duration
+        const s = ctx.subjectAt(t)
+        const target = aimPoint(s, ctx.subjectHeight)
+        const d = startDist + (endDist - startDist) * u
+        const y = ctx.camera.y + (target.y - ctx.camera.y) * u * 0.4
+        return {
+          t,
+          pos: { x: target.x + dir.x * d, y, z: target.z + dir.z * d },
+          aimAt: target,
+          focalLength: ctx.camera.focalLength,
+          roll: 0.3 * u
+        }
+      }),
+      airborne
+    )
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
@@ -1052,21 +1460,31 @@ export const CAMERA_MOVE_PRESETS: CameraMovePreset[] = [
   orbit180,
   orbit360,
   arcAndPush,
+  orbit45Low,
+  orbit45High,
   // crane & boom
   craneUpReveal,
   craneDownIntro,
   pedestalUp,
   boomOver,
+  spiralInDescend,
+  spiralOutAscend,
+  pedestalUpSlow,
   // aerial
   droneRisePullback,
   flyover,
   droneOrbitHigh,
   topDownDescend,
+  overheadTrackFollow,
+  droneStrafeReveal,
   // follow
   followBehind,
   leadTheSubject,
   sideTrackLeft,
   sideTrackRight,
+  leadFollowFront,
+  lowLeadTiltUp,
+  sideDollyPast,
   // pan & scan
   staticPanAcross,
   whipPan,
@@ -1074,5 +1492,7 @@ export const CAMERA_MOVE_PRESETS: CameraMovePreset[] = [
   // stylized
   vertigoDollyZoom,
   dutchOrbit,
-  snapZoomPunch
+  snapZoomPunch,
+  crashZoomOut,
+  pushInDutchRoll
 ]

@@ -44,6 +44,12 @@ export type LightingPresetId =
   | 'interiorWarm'
   | 'interiorCool'
   | 'club'
+  // Physical-sky presets: a real atmospheric-scattering sky dome lit from the
+  // scene's sunAzimuth/sunElevation. Fully deterministic (fixed turbidity /
+  // rayleigh per preset) so they render byte-identically in clean exports.
+  | 'middaySky'
+  | 'goldenHourSky'
+  | 'blueHourSky'
 
 export type RigId =
   | 'sticks'
@@ -218,12 +224,43 @@ export interface SceneEnvironment {
   fog: number
 }
 
+/**
+ * A Gaussian-splat / photogrammetry scan of a real location, imported as a
+ * blocking environment. Scan a place with a phone (Polycam/Luma/Scaniverse)
+ * or any video-to-3D tool and block the action inside it. Editor-only: scans
+ * are a staging aid and are hidden in every export pass so the deterministic
+ * motion-reference package stays grey-box and byte-reproducible (they are
+ * listed in metadata.json for the downstream generator's context).
+ */
+export interface ScanRef {
+  id: string
+  name: string
+  /** Project-relative path, always 'scans/<file>' (.ply/.splat/.spz/.ksplat). */
+  file: string
+  /** World position of the scan's origin. */
+  position: V3
+  /** Yaw around +Y (radians). */
+  rotationY: number
+  /** Uniform scale. */
+  scale: number
+  /** Hidden in the editor viewport when false (still never exported). */
+  visible: boolean
+  /**
+   * Reserved for a future holdout/matte pass — when true the scan would be
+   * treated as an occluder rather than visible geometry. Parsed and preserved
+   * but not yet acted on.
+   */
+  holdout?: boolean
+}
+
 export interface Scene {
   id: string
   name: string
   number: number
   environment: SceneEnvironment
   entities: Entity[]
+  /** Imported Gaussian-splat / photogrammetry environments (editor-only). */
+  scans?: ScanRef[]
   blocking: BlockingTake[]
   shots: Shot[]
   /**

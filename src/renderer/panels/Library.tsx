@@ -8,6 +8,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { ASSET_CATALOG, type AssetSpec } from '@engine/assets'
 import type { EntityCategory } from '@engine/types'
 import { sequenceStyles, type SequenceType } from '@engine/sequences'
+import {
+  choreoStyles,
+  choreoEndings,
+  choreoFormations,
+  type ChoreoKind,
+  type FormationId,
+  type RoutineSpec
+} from '@engine/choreography'
 import { useStore } from '../store'
 import { populateFromReference } from '../ai/populate'
 
@@ -189,6 +197,224 @@ function Sequences(): JSX.Element {
         title="Arms placement — then click the floor exactly where you want the group. It stages there, facing the camera. Esc cancels. One undo step; every performer stays individually editable."
       >
         {placingSequence ? '⟳ Click the floor to place… (Esc cancels)' : `🎬 Stage ${count} performers`}
+      </button>
+    </div>
+  )
+}
+
+const randomSeed = (): number => Math.floor(Math.random() * 1_000_000_000)
+
+/**
+ * Choreographer: author a staged routine (dance number, paired fight, chase)
+ * and either spawn fresh performers (click the floor) or apply it to the
+ * currently selected characters.
+ */
+function Choreographer(): JSX.Element {
+  const [kind, setKind] = useState<ChoreoKind>('dance')
+  const [style, setStyle] = useState('mixed')
+  const [performers, setPerformers] = useState(8)
+  const [duration, setDuration] = useState(8)
+  const [bpm, setBpm] = useState(116)
+  const [formation, setFormation] = useState<FormationId>('line')
+  const [canon, setCanon] = useState(false)
+  const [mirror, setMirror] = useState(false)
+  const [formationChange, setFormationChange] = useState(false)
+  const [ending, setEnding] = useState('finish')
+  const [seed, setSeed] = useState(randomSeed)
+
+  const placing = useStore((s) => s.placingChoreography)
+  const setPlacing = useStore((s) => s.setPlacingChoreography)
+  const choreographSelected = useStore((s) => s.choreographSelected)
+  const selection = useStore((s) => s.selection)
+  const toast = useStore((s) => s.toast)
+
+  const styles = choreoStyles(kind)
+  const activeStyle = styles.some((s) => s.id === style) ? style : styles[0]!.id
+  const endings = choreoEndings(kind)
+  const activeEnding = endings.some((e) => e.id === ending) ? ending : endings[0]!.id
+
+  const spec = (): RoutineSpec => ({
+    kind,
+    performers,
+    durationS: duration,
+    seed,
+    bpm,
+    style: activeStyle,
+    formation,
+    canon,
+    mirror,
+    formationChange,
+    ending: activeEnding
+  })
+
+  const selCount =
+    selection?.kind === 'entities' ? selection.entityIds.length : selection?.kind === 'entity' ? 1 : 0
+
+  const onApply = (): void => {
+    if (selCount === 0) {
+      toast('Select the performers to choreograph first.', 'info')
+      return
+    }
+    if (!window.confirm(`Replace the choreography of ${selCount} selected performer${selCount > 1 ? 's' : ''}?`))
+      return
+    choreographSelected(spec())
+  }
+
+  const KIND_LABELS: { id: ChoreoKind; label: string }[] = [
+    { id: 'dance', label: '💃 Dance number' },
+    { id: 'fight', label: '🥋 Fight' },
+    { id: 'chase', label: '🏃 Chase' }
+  ]
+
+  return (
+    <div className="panel-section">
+      <div className="panel-title">Choreographer</div>
+      <div className="field">
+        <label>Routine</label>
+        <select value={kind} onChange={(e) => setKind(e.target.value as ChoreoKind)}>
+          {KIND_LABELS.map((k) => (
+            <option key={k.id} value={k.id}>
+              {k.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field-row">
+        <div className="field" style={{ flex: 2 }}>
+          <label>Style</label>
+          <select value={activeStyle} onChange={(e) => setStyle(e.target.value)}>
+            {styles.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field" style={{ flex: 1 }}>
+          <label>Performers</label>
+          <input
+            type="number"
+            min={kind === 'dance' ? 1 : 2}
+            max={kind === 'dance' ? 40 : kind === 'fight' ? 8 : 6}
+            value={performers}
+            onChange={(e) => {
+              const v = Number(e.target.value)
+              if (!Number.isNaN(v)) setPerformers(Math.max(1, Math.round(v)))
+            }}
+          />
+        </div>
+      </div>
+      <div className="field-row">
+        <div className="field" style={{ flex: 1 }}>
+          <label>Duration (s)</label>
+          <input
+            type="number"
+            min={2}
+            max={60}
+            value={duration}
+            onChange={(e) => {
+              const v = Number(e.target.value)
+              if (!Number.isNaN(v)) setDuration(Math.max(2, Math.min(60, Math.round(v))))
+            }}
+          />
+        </div>
+        {kind === 'dance' && (
+          <div className="field" style={{ flex: 1 }}>
+            <label>BPM</label>
+            <input
+              type="number"
+              min={60}
+              max={180}
+              value={bpm}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                if (!Number.isNaN(v)) setBpm(Math.max(60, Math.min(180, Math.round(v))))
+              }}
+            />
+          </div>
+        )}
+        {(kind === 'fight' || kind === 'chase') && (
+          <div className="field" style={{ flex: 2 }}>
+            <label>Ending</label>
+            <select value={activeEnding} onChange={(e) => setEnding(e.target.value)}>
+              {endings.map((en) => (
+                <option key={en.id} value={en.id}>
+                  {en.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+      {kind === 'dance' && (
+        <>
+          <div className="field">
+            <label>Formation</label>
+            <select value={formation} onChange={(e) => setFormation(e.target.value as FormationId)}>
+              {choreoFormations().map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field-row" style={{ gap: 12, marginBottom: 6, flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+              <input type="checkbox" checked={canon} onChange={(e) => setCanon(e.target.checked)} /> Canon
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+              <input type="checkbox" checked={mirror} onChange={(e) => setMirror(e.target.checked)} /> Mirror
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+              <input
+                type="checkbox"
+                checked={formationChange}
+                onChange={(e) => setFormationChange(e.target.checked)}
+              />{' '}
+              Formations
+            </label>
+          </div>
+        </>
+      )}
+      {kind === 'fight' && (
+        <div className="field-row" style={{ gap: 12, marginBottom: 6 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+            <input type="checkbox" checked={mirror} onChange={(e) => setMirror(e.target.checked)} /> Mirror stance
+          </label>
+        </div>
+      )}
+      <div className="field">
+        <label>Seed</label>
+        <div className="field-row" style={{ gap: 6 }}>
+          <input
+            type="number"
+            style={{ flex: 1 }}
+            value={seed}
+            onChange={(e) => {
+              const v = Number(e.target.value)
+              if (!Number.isNaN(v)) setSeed(Math.max(0, Math.round(v)))
+            }}
+          />
+          <button className="btn small" title="Reroll the seed" onClick={() => setSeed(randomSeed())}>
+            🎲
+          </button>
+        </div>
+      </div>
+      <button
+        className={`btn primary${placing ? ' active' : ''}`}
+        style={{ width: '100%', marginBottom: 6 }}
+        onClick={() => setPlacing(placing ? null : spec())}
+        title="Arm placement — then click the floor where the routine should stage, facing the camera. Esc cancels. One undo step; every performer stays editable."
+      >
+        {placing ? '⟳ Click the floor to place… (Esc cancels)' : '🎬 Spawn routine'}
+      </button>
+      <button
+        className="btn"
+        style={{ width: '100%' }}
+        onClick={onApply}
+        title="Replace the choreography of the selected performers with this routine (keeps their look)."
+      >
+        {selCount > 0 ? `Apply to ${selCount} selected` : 'Apply to selection'}
       </button>
     </div>
   )
@@ -438,6 +664,7 @@ export function Library(): JSX.Element {
   const addEntity = useStore((s) => s.addEntity)
   const mutate = useStore((s) => s.mutate)
   const projectFolder = useStore((s) => s.projectFolder)
+  const importScan = useStore((s) => s.importScan)
   const toast = useStore((s) => s.toast)
 
   const groups = useMemo(() => {
@@ -461,6 +688,14 @@ export function Library(): JSX.Element {
   const onPick = (id: string): void => {
     if (placingAssetId === id) setPlacingAsset(null)
     else setPlacingAsset(id)
+  }
+
+  const onImportScan = async (): Promise<void> => {
+    const path = await window.blockout.pickFile([
+      { name: '3D Scans (Gaussian splats)', extensions: ['ply', 'splat', 'ksplat', 'spz'] }
+    ])
+    if (!path) return
+    await importScan(path)
   }
 
   const onImport = async (): Promise<void> => {
@@ -493,6 +728,7 @@ export function Library(): JSX.Element {
   return (
     <>
       <Sequences />
+      <Choreographer />
       <StagePresets />
 
       <div className="library-search">
@@ -577,9 +813,20 @@ export function Library(): JSX.Element {
         >
           ✨ Populate from reference…
         </button>
-        <button className="btn" style={{ width: '100%' }} onClick={() => void onImport()}>
+        <button className="btn" style={{ width: '100%', marginBottom: 8 }} onClick={() => void onImport()}>
           Import 3D Model…
         </button>
+        <button
+          className="btn"
+          style={{ width: '100%' }}
+          onClick={() => void onImportScan()}
+          title="Load a Gaussian-splat scan of a real location (.ply/.splat/.ksplat/.spz) and block your scene inside it. Scan with any phone app (Polycam, Luma, Scaniverse) or a video-to-3D tool. Editor staging only — scans never appear in exports."
+        >
+          🏙 Import 3D Scan…
+        </button>
+        <p style={{ color: 'var(--text-faint)', fontSize: 10.5, lineHeight: 1.4, margin: '6px 0 0' }}>
+          Scans: phone-capture a real location, then stage and block inside it.
+        </p>
       </div>
     </>
   )

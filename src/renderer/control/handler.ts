@@ -14,6 +14,7 @@ import { newId } from '@engine/ids'
 import { renderStillPngForTest } from '../export/exporter'
 import { getSceneManager } from '../export/scene-access'
 import type { AspectId, GaitId } from '@engine/types'
+import type { ChoreoKind, FormationId, RoutineSpec } from '@engine/choreography'
 import type { FramingKind } from '../bus'
 
 type Params = Record<string, unknown>
@@ -23,6 +24,10 @@ const str = (p: Params, k: string): string | undefined =>
   typeof p[k] === 'string' ? (p[k] as string) : undefined
 const flt = (p: Params, k: string): number | undefined =>
   typeof p[k] === 'number' && isFinite(p[k] as number) ? (p[k] as number) : undefined
+const bool = (p: Params, k: string): boolean | undefined =>
+  typeof p[k] === 'boolean' ? (p[k] as boolean) : undefined
+const strList = (p: Params, k: string): string[] =>
+  Array.isArray(p[k]) ? (p[k] as unknown[]).filter((v): v is string => typeof v === 'string') : []
 
 const toRad = (deg: number): number => (deg * Math.PI) / 180
 const toDeg = (rad: number): number => Math.round((rad * 180) / Math.PI)
@@ -64,6 +69,16 @@ function summary(): unknown {
             label: e.label?.text,
             attachedTo: e.attachedTo,
             markCount: take?.tracks.find((t) => t.entityId === e.id)?.marks.length ?? 0
+          })),
+          scans: (scene.scans ?? []).map((sc) => ({
+            id: sc.id,
+            name: sc.name,
+            visible: sc.visible,
+            x: sc.position.x,
+            y: sc.position.y,
+            z: sc.position.z,
+            rotationDeg: toDeg(sc.rotationY),
+            scale: sc.scale
           }))
         }
       : null,
@@ -91,6 +106,39 @@ function summary(): unknown {
     conventions:
       'meters; +X right, -Z forward; heading/pan 0 faces -Z; rotationDeg/panDeg clockwise from above'
   }
+}
+
+/**
+ * Build a validated `RoutineSpec` from control params (shared by
+ * spawn_choreography and choreograph_entities). The engine stays pure — this
+ * renderer side picks the default seed when none is supplied.
+ */
+function routineSpecFromParams(params: Params): RoutineSpec {
+  const kind = str(params, 'kind') as ChoreoKind | undefined
+  if (!kind || !['dance', 'fight', 'chase'].includes(kind)) {
+    throw new Error("kind must be 'dance', 'fight', or 'chase'.")
+  }
+  const spec: RoutineSpec = {
+    kind,
+    performers: Math.round(flt(params, 'performers') ?? (kind === 'dance' ? 6 : 2)),
+    durationS: flt(params, 'durationS') ?? useStore.getState().shot()?.duration ?? 8,
+    seed: flt(params, 'seed') ?? Math.floor(Math.random() * 1e9)
+  }
+  const style = str(params, 'style')
+  if (style) spec.style = style
+  const bpm = flt(params, 'bpm')
+  if (bpm !== undefined) spec.bpm = bpm
+  const formation = str(params, 'formation')
+  if (formation) spec.formation = formation as FormationId
+  const ending = str(params, 'ending')
+  if (ending) spec.ending = ending
+  const canon = bool(params, 'canon')
+  if (canon !== undefined) spec.canon = canon
+  const mirror = bool(params, 'mirror')
+  if (mirror !== undefined) spec.mirror = mirror
+  const formationChange = bool(params, 'formationChange')
+  if (formationChange !== undefined) spec.formationChange = formationChange
+  return spec
 }
 
 async function execute(action: string, params: Params): Promise<unknown> {
@@ -409,6 +457,110 @@ async function execute(action: string, params: Params): Promise<unknown> {
         staged: sel?.kind === 'entities' ? sel.entityIds.length : 0,
         entityIds: sel?.kind === 'entities' ? sel.entityIds : []
       }
+    }
+
+    case 'list_choreography_options': {
+      const { choreoStyles, choreoFormations, choreoEndings } = await import('@engine/choreography')
+      const kinds: ChoreoKind[] = ['dance', 'fight', 'chase']
+      return {
+        kinds,
+        styles: Object.fromEntries(kinds.map((k) => [k, choreoStyles(k)])),
+        formations: choreoFormations(),
+        endings: Object.fromEntries(kinds.map((k) => [k, choreoEndings(k)]))
+      }
+    }
+
+    case 'spawn_choreography': {
+      requireDoc()
+      const spec = routineSpecFromParams(params)
+      const x = flt(params, 'x') ?? 0
+      const z = flt(params, 'z') ?? 0
+      const headingDeg = flt(params, 'headingDeg') ?? 0
+      s.spawnChoreography(spec, { x, z, heading: toRad(headingDeg) })
+      const sel = useStore.getState().selection
+      return {
+        kind: spec.kind,
+        staged: sel?.kind === 'entities' ? sel.entityIds.length : 0,
+        entityIds: sel?.kind === 'entities' ? sel.entityIds : []
+      }
+    }
+
+    case 'choreograph_entities': {
+      requireDoc()
+      const entityIds = strList(params, 'entityIds')
+      if (entityIds.length === 0) {
+        throw new Error('entityIds must be a non-empty array of person entity ids.')
+      }
+      const spec = routineSpecFromParams(params)
+      const applied = s.choreographEntities(entityIds, spec)
+      if (applied === 0) {
+        throw new Error('No matching performers — choreography applies to people (person.* entities).')
+      }
+      return { kind: spec.kind, choreographed: applied }
+    }
+
+    case 'list_motion_presets': {
+      const { MOTION_PRESETS } = await import('@engine/motions')
+      const category = str(params, 'category')
+      return MOTION_PRESETS.filter((m) => !category || m.category === category).map((m) => ({
+        id: m.id,
+        name: m.name,
+        category: m.category,
+        duration: m.duration
+      }))
+    }
+
+    case 'import_scan': {
+      requireDoc()
+      const sourcePath = str(params, 'sourcePath') ?? str(params, 'path') ?? ''
+      if (!sourcePath) {
+        throw new Error('sourcePath is required — an absolute path to a .ply/.splat/.spz/.ksplat file.')
+      }
+      const before = new Set((s.scene()?.scans ?? []).map((sc) => sc.id))
+      await s.importScan(sourcePath)
+      const scan = (useStore.getState().scene()?.scans ?? []).find((sc) => !before.has(sc.id))
+      if (!scan) {
+        throw new Error('Scan import failed — check the file path and that the project has been saved.')
+      }
+      return { scan }
+    }
+
+    case 'set_scan_transform': {
+      requireDoc()
+      const scanId = str(params, 'scanId') ?? ''
+      const scan = s.scene()?.scans?.find((sc) => sc.id === scanId)
+      if (!scan) throw new Error(`No scan "${scanId}" — call get_state or import_scan.`)
+      const patch: { position?: { x: number; y: number; z: number }; rotationY?: number; scale?: number } = {}
+      const pos = params.position
+      if (pos && typeof pos === 'object') {
+        const pp = pos as Params
+        patch.position = {
+          x: flt(pp, 'x') ?? scan.position.x,
+          y: flt(pp, 'y') ?? scan.position.y,
+          z: flt(pp, 'z') ?? scan.position.z
+        }
+      }
+      const rotationDeg = flt(params, 'rotationDeg')
+      if (rotationDeg !== undefined) patch.rotationY = toRad(rotationDeg)
+      const scale = flt(params, 'scale')
+      if (scale !== undefined) patch.scale = scale
+      if (patch.position || patch.rotationY !== undefined || patch.scale !== undefined) {
+        s.updateScanTransform(scanId, patch)
+      }
+      const visible = bool(params, 'visible')
+      if (visible !== undefined) s.setScanVisible(scanId, visible)
+      const updated = useStore.getState().scene()?.scans?.find((sc) => sc.id === scanId)
+      return { scan: updated }
+    }
+
+    case 'remove_scan': {
+      requireDoc()
+      const scanId = str(params, 'scanId') ?? ''
+      if (!s.scene()?.scans?.some((sc) => sc.id === scanId)) {
+        throw new Error(`No scan "${scanId}" — call get_state for scan ids.`)
+      }
+      s.removeScan(scanId)
+      return { removed: scanId }
     }
 
     case 'snap_to_ground': {

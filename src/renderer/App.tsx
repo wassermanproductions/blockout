@@ -13,7 +13,7 @@ import { ProjectRail } from './panels/ProjectRail'
 import { Timeline } from './panels/Timeline'
 import { DeliverPanel } from './panels/DeliverPanel'
 import { Toasts } from './panels/Toasts'
-import { HelpOverlay } from './panels/Help'
+import { HelpOverlay, BlockingCoach } from './panels/Help'
 import logoUrl from './assets/logo.png'
 import { DISTRIBUTION } from '../shared/distribution'
 
@@ -189,6 +189,7 @@ function useKeyboard(): void {
         }
         s.setPlacingAsset(null)
         s.setPlacingSequence(null)
+        s.setPlacingChoreography(null)
         s.setDroppingMarks(false)
         s.setSelection(null)
       } else if (e.key >= '1' && e.key <= '9') {
@@ -294,6 +295,7 @@ export function App(): JSX.Element {
       )}
       <Toasts />
       <HelpOverlay />
+      <BlockingCoach />
     </div>
   )
 }

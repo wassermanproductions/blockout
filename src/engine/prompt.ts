@@ -18,7 +18,10 @@ const LIGHTING_WORDS: Record<LightingPresetId, string> = {
   night: 'night, cool moonlit ambience',
   interiorWarm: 'warm interior lighting',
   interiorCool: 'cool interior lighting',
-  club: 'dark nightclub with colored moving lights'
+  club: 'dark nightclub with colored moving lights',
+  middaySky: 'bright midday sky, clear blue atmosphere',
+  goldenHourSky: 'golden-hour sky, low warm sun',
+  blueHourSky: 'blue-hour twilight sky, deep dusk tones'
 }
 
 export function generatePrompt(scene: Scene, shot: Shot, profile: GeneratorProfile): string {

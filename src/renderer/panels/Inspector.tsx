@@ -45,7 +45,11 @@ const LIGHTING: { id: LightingPresetId; label: string }[] = [
   { id: 'night', label: 'Night' },
   { id: 'interiorWarm', label: 'Warm Int' },
   { id: 'interiorCool', label: 'Cool Int' },
-  { id: 'club', label: 'Club' }
+  { id: 'club', label: 'Club' },
+  // Physical-sky presets (real atmospheric dome, deterministic).
+  { id: 'middaySky', label: 'Midday Sky' },
+  { id: 'goldenHourSky', label: 'Golden Sky' },
+  { id: 'blueHourSky', label: 'Blue Hour Sky' }
 ]
 
 const ASPECTS: AspectId[] = ['16:9', '9:16', '2.39:1', '4:3', '1:1']
@@ -81,6 +85,8 @@ export function Inspector(): JSX.Element {
     body = <MultiEntityInspector scene={scene} entityIds={selection.entityIds} />
   } else if (selection.kind === 'camera') {
     body = <CameraInspector scene={scene} shot={shot} />
+  } else if (selection.kind === 'scan') {
+    body = <ScanInspector scene={scene} scanId={selection.scanId} />
   } else if (selection.kind === 'marks') {
     body = (
       <MultiMarkInspector
@@ -280,6 +286,105 @@ function findEntity(doc: ProjectDoc, sceneId: string, entityId: string): Entity 
 
 /* =========================== A) Scene =============================== */
 
+/** Scene-level list of imported 3D scans (Gaussian splats). */
+function ScansSection({ scene }: { scene: Scene }): JSX.Element {
+  const setScanVisible = useStore((s) => s.setScanVisible)
+  const removeScan = useStore((s) => s.removeScan)
+  const setSelection = (scanId: string): void => useStore.setState({ selection: { kind: 'scan', scanId } })
+
+  return (
+    <div className="panel-section">
+      <div className="panel-title">3D scans</div>
+      {(scene.scans ?? []).map((scan) => (
+        <div key={scan.id} className="field-row" style={{ alignItems: 'center', gap: 6 }}>
+          <button
+            className="btn"
+            style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}
+            onClick={() => setSelection(scan.id)}
+            title="Select this scan to edit its position, rotation, and scale"
+          >
+            🏙 {scan.name}
+          </button>
+          <button
+            className="btn"
+            onClick={() => setScanVisible(scan.id, !scan.visible)}
+            title={scan.visible ? 'Hide in the editor viewport' : 'Show in the editor viewport'}
+          >
+            {scan.visible ? '👁' : '—'}
+          </button>
+          <button className="btn" onClick={() => removeScan(scan.id)} title="Remove from scene (file stays in the project)">
+            ✕
+          </button>
+        </div>
+      ))}
+      <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4, margin: '4px 0 0' }}>
+        Editor staging only — scans never render into exports.
+      </p>
+    </div>
+  )
+}
+
+/** Transform editor for a selected 3D scan. */
+function ScanInspector({ scene, scanId }: { scene: Scene; scanId: string }): JSX.Element {
+  const updateScanTransform = useStore((s) => s.updateScanTransform)
+  const scan = scene.scans?.find((s) => s.id === scanId)
+  if (!scan) return <div className="panel-section">Scan not found.</div>
+
+  const num = (v: number): string => String(Math.round(v * 100) / 100)
+
+  return (
+    <div>
+      <div className="panel-section">
+        <div className="panel-title">🏙 {scan.name}</div>
+        <div className="field-row">
+          {(['x', 'y', 'z'] as const).map((axis) => (
+            <div className="field" key={axis} style={{ flex: 1 }}>
+              <label>{axis.toUpperCase()} (m)</label>
+              <input
+                type="number"
+                step={0.5}
+                value={num(scan.position[axis])}
+                onChange={(e) =>
+                  updateScanTransform(scanId, {
+                    position: { ...scan.position, [axis]: Number(e.target.value) || 0 }
+                  })
+                }
+              />
+            </div>
+          ))}
+        </div>
+        <div className="field-row">
+          <div className="field" style={{ flex: 1 }}>
+            <label>Rotation (°)</label>
+            <input
+              type="number"
+              step={5}
+              value={Math.round((scan.rotationY * 180) / Math.PI)}
+              onChange={(e) =>
+                updateScanTransform(scanId, { rotationY: ((Number(e.target.value) || 0) * Math.PI) / 180 })
+              }
+            />
+          </div>
+          <div className="field" style={{ flex: 1 }}>
+            <label>Scale</label>
+            <input
+              type="number"
+              step={0.1}
+              min={0.01}
+              value={num(scan.scale)}
+              onChange={(e) => updateScanTransform(scanId, { scale: Math.max(0.01, Number(e.target.value) || 1) })}
+            />
+          </div>
+        </div>
+        <p style={{ color: 'var(--text-faint)', fontSize: 11, lineHeight: 1.4 }}>
+          Line the scan's floor up with the grid, then stage and block inside it. Scans are editor
+          staging only and never render into exports.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function SceneInspector({ scene, shot }: { scene: Scene; shot: Shot }): JSX.Element {
   const mode = useStore((s) => s.mode)
   const mutate = useMutate()
@@ -315,6 +420,8 @@ function SceneInspector({ scene, shot }: { scene: Scene; shot: Shot }): JSX.Elem
           </p>
         )}
       </div>
+
+      {(scene.scans?.length ?? 0) > 0 && <ScansSection scene={scene} />}
 
       <div className="panel-section">
         <div className="panel-title">Lighting</div>
@@ -728,6 +835,8 @@ const MOTION_CATEGORIES: { key: MotionPreset['category']; label: string }[] = [
   { key: 'fight', label: 'Fight' },
   { key: 'dance', label: 'Dance' },
   { key: 'gesture', label: 'Gesture' },
+  { key: 'everyday', label: 'Everyday' },
+  { key: 'sport', label: 'Sport' },
   { key: 'stunt', label: 'Stunt' }
 ]
 
@@ -1849,12 +1958,16 @@ const JOINTS: { key: string; label: string; range: number }[] = [
   { key: 'elbowR', label: 'R elbow', range: 150 },
   { key: 'hipLX', label: 'L leg', range: 120 },
   { key: 'hipRX', label: 'R leg', range: 120 },
+  { key: 'hipLZ', label: 'L leg out', range: 90 },
+  { key: 'hipRZ', label: 'R leg out', range: 90 },
   { key: 'kneeL', label: 'L knee', range: 150 },
   { key: 'kneeR', label: 'R knee', range: 150 },
   { key: 'torsoX', label: 'Torso lean', range: 60 },
   { key: 'torsoY', label: 'Torso twist', range: 80 },
+  { key: 'torsoZ', label: 'Torso tilt', range: 50 },
   { key: 'headY', label: 'Head turn', range: 80 },
-  { key: 'headX', label: 'Head nod', range: 45 }
+  { key: 'headX', label: 'Head nod', range: 45 },
+  { key: 'headZ', label: 'Head tilt', range: 45 }
 ]
 
 const DEG = 180 / Math.PI

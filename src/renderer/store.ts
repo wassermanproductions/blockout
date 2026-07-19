@@ -14,12 +14,14 @@ import {
   createEntity,
   createActorMark,
   createCameraMark,
+  createScan,
   serializeProject,
   parseProject
 } from '@engine/schema'
 import { assetSpec } from '@engine/assets'
 import { newId } from '@engine/ids'
 import { generateSequence, choreographMotion } from '@engine/sequences'
+import { buildRoutine } from '@engine/choreography'
 import { ACTION_PRESETS } from '@engine/action-presets'
 
 export type Mode = 'stage' | 'shoot' | 'deliver'
@@ -28,6 +30,7 @@ export type Selection =
   | { kind: 'entity'; entityId: string }
   | { kind: 'entities'; entityIds: string[] } // shift-click multi-select
   | { kind: 'camera' }
+  | { kind: 'scan'; scanId: string } // an imported 3D-scan environment
   | { kind: 'mark'; entityId: string | 'camera'; markId: string }
   | { kind: 'marks'; entityId: string | 'camera'; markIds: string[] } // shift-click on pills
   | null
@@ -66,6 +69,8 @@ interface BlockoutState {
   placingAssetId: string | null
   /** Armed sequence: next floor click stages the crowd THERE. */
   placingSequence: { type: import('@engine/sequences').SequenceType; count: number; style: string } | null
+  /** Armed choreography routine: next floor click stages the routine THERE. */
+  placingChoreography: import('@engine/choreography').RoutineSpec | null
   /** When true, clicking the floor drops a mark for the selection. */
   droppingMarks: boolean
   lookThrough: boolean
@@ -73,6 +78,12 @@ interface BlockoutState {
   pipSize: 'off' | 'small' | 'medium' | 'large'
   /** Help & tutorial overlay. */
   helpOpen: boolean
+  /** Spike-tape floor marks visible in the editor (HUD "Marks" eye). */
+  showMarks: boolean
+  /** Path ribbons + chevrons + time labels visible in the editor (HUD "Paths" eye). */
+  showPaths: boolean
+  /** The "Set your marks" blocking-coach walkthrough overlay. */
+  coachOpen: boolean
   /** True while performing a live camera-move recording. */
   recording: boolean
   /** How tightly recording follows the mouse: precise = heavy smoothing. */
@@ -97,6 +108,7 @@ interface BlockoutState {
   setSelection(sel: Selection): void
   setPlacingAsset(assetId: string | null): void
   setPlacingSequence(seq: { type: import('@engine/sequences').SequenceType; count: number; style: string } | null): void
+  setPlacingChoreography(spec: import('@engine/choreography').RoutineSpec | null): void
   setDroppingMarks(on: boolean): void
   setLookThrough(on: boolean): void
   setPipSize(size: 'off' | 'small' | 'medium' | 'large'): void
@@ -109,6 +121,9 @@ interface BlockoutState {
   /** Delete the marks in the current mark/marks selection. */
   deleteSelectedMarks(): void
   setHelpOpen(open: boolean): void
+  setShowMarks(on: boolean): void
+  setShowPaths(on: boolean): void
+  setCoachOpen(open: boolean): void
 
   /* --- playback --- */
   setPlaying(playing: boolean): void
@@ -156,12 +171,42 @@ interface BlockoutState {
     origin?: { x: number; z: number; heading: number }
   }): void
   /**
+   * Drop a full choreography routine — a dance number, a paired fight, a
+   * chase — into the scene at `at`, spawning fresh performers, as one
+   * undoable step.
+   */
+  spawnChoreography(spec: import('@engine/choreography').RoutineSpec, at: { x: number; z: number; heading: number }): void
+  /**
+   * Apply a choreography routine to the currently selected PERSON entities:
+   * keeps their assets/labels, replaces their track in the active take.
+   */
+  choreographSelected(spec: import('@engine/choreography').RoutineSpec): void
+  /**
+   * Apply a choreography routine to specific PERSON entities by id — the
+   * selection-independent core of `choreographSelected`, so non-UI callers
+   * (agent control) don't have to touch selection. Returns how many
+   * performers were choreographed.
+   */
+  choreographEntities(entityIds: string[], spec: import('@engine/choreography').RoutineSpec): number
+  /**
    * Restyle performers in place: replace each selected PERSON's choreography
    * with a motion preset (swap the dance, change the strike) at their spots.
    */
   applyMotionToEntities(entityIds: string[], presetId: string): void
   /** Replace each selected entity's path with an action preset from its pose. */
   applyActionToEntities(entityIds: string[], presetId: string): void
+  /**
+   * Import a Gaussian-splat / photogrammetry scan file into the project's
+   * scans/ folder and attach it to the current scene as an environment.
+   * Renderer-only content: hidden from every export pass.
+   */
+  importScan(sourcePath: string): Promise<void>
+  /** Remove a scan from the current scene (leaves the copied file on disk). */
+  removeScan(scanId: string): void
+  /** Toggle a scan's editor-viewport visibility. */
+  setScanVisible(scanId: string, visible: boolean): void
+  /** Patch a scan's transform (position / rotationY / scale). */
+  updateScanTransform(scanId: string, patch: Partial<{ position: V3; rotationY: number; scale: number }>): void
   /** Save the current scene's staging as a reusable, globally persistent preset. */
   saveStagePreset(name: string): Promise<void>
   /** Stage a preset into a brand-new scene (originals stay untouched). */
@@ -200,12 +245,16 @@ export const useStore = create<BlockoutState>((set, get) => ({
   selection: null,
   placingAssetId: null,
   placingSequence: null,
+  placingChoreography: null,
   droppingMarks: false,
   lookThrough: false,
   pipSize: 'medium',
   recording: false,
   recordControl: 'normal',
   helpOpen: false,
+  showMarks: true,
+  showPaths: true,
+  coachOpen: false,
   playing: false,
   time: 0,
   dirty: false,
@@ -268,6 +317,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
       mode,
       placingAssetId: null,
       placingSequence: null,
+      placingChoreography: null,
       droppingMarks: false,
       lookThrough: false,
       recording: false,
@@ -287,8 +337,10 @@ export const useStore = create<BlockoutState>((set, get) => ({
     set({ shotId, time: 0, playing: false })
   },
   setSelection: (selection) => set({ selection, droppingMarks: false }),
-  setPlacingAsset: (placingAssetId) => set({ placingAssetId, placingSequence: null }),
-  setPlacingSequence: (placingSequence) => set({ placingSequence, placingAssetId: null }),
+  setPlacingAsset: (placingAssetId) => set({ placingAssetId, placingSequence: null, placingChoreography: null }),
+  setPlacingSequence: (placingSequence) => set({ placingSequence, placingAssetId: null, placingChoreography: null }),
+  setPlacingChoreography: (placingChoreography) =>
+    set({ placingChoreography, placingAssetId: null, placingSequence: null }),
   setDroppingMarks: (droppingMarks) => set({ droppingMarks }),
   setLookThrough: (lookThrough) => set({ lookThrough }),
   setPipSize: (pipSize) => set({ pipSize }),
@@ -346,6 +398,9 @@ export const useStore = create<BlockoutState>((set, get) => ({
     get().toast(n > 1 ? `Deleted ${n} marks.` : 'Mark deleted.', 'info')
   },
   setHelpOpen: (helpOpen) => set({ helpOpen }),
+  setShowMarks: (showMarks) => set({ showMarks }),
+  setShowPaths: (showPaths) => set({ showPaths }),
+  setCoachOpen: (coachOpen) => set({ coachOpen }),
 
   setPlaying(playing) {
     const { shot, time } = get()
@@ -818,6 +873,107 @@ export const useStore = create<BlockoutState>((set, get) => ({
     }
   },
 
+  spawnChoreography(spec, at) {
+    const { sceneId, shotId } = get()
+    const duration = get().shot()?.duration ?? spec.durationS
+    const specs = buildRoutine({ ...spec, durationS: duration }, { origin: at })
+    const newIds: string[] = []
+    get().mutate(`choreograph ${spec.kind}`, (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      const shot = scene?.shots.find((s) => s.id === shotId)
+      const take = scene?.blocking.find((b) => b.id === shot?.blockingTakeId)
+      if (!scene || !take) return
+      for (const espec of specs) {
+        const entity = createEntity(espec.assetId, espec.name, { ...espec.position })
+        entity.transform.rotationY = espec.rotationY
+        if (espec.label) entity.label = { ...espec.label }
+        scene.entities.push(entity)
+        newIds.push(entity.id)
+        if (espec.marks.length > 0) {
+          take.tracks.push({
+            entityId: entity.id,
+            marks: espec.marks.map((m) => ({
+              id: newId('mark'),
+              time: m.time,
+              hold: m.hold,
+              easeIn: m.easeIn,
+              easeOut: m.easeOut,
+              position: { ...m.position },
+              gait: m.gait,
+              arriveHeading: m.arriveHeading,
+              joints: m.joints ? { ...m.joints } : undefined
+            }))
+          })
+        }
+      }
+    })
+    if (newIds.length > 0) {
+      set({ selection: { kind: 'entities', entityIds: newIds } })
+      get().toast(
+        `Choreographed ${spec.kind} with ${newIds.length} performer${newIds.length > 1 ? 's' : ''} — ▶ to watch. Every performer stays individually editable.`,
+        'success'
+      )
+    }
+  },
+
+  choreographSelected(spec) {
+    get().choreographEntities(selectedEntityIds(get().selection), spec)
+  },
+
+  choreographEntities(entityIds, spec) {
+    const { sceneId, shotId } = get()
+    const scene = get().scene()
+    const people = entityIds
+      .map((id) => scene?.entities.find((e) => e.id === id))
+      .filter((e): e is Entity => !!e && e.assetId.startsWith('person.'))
+    if (people.length === 0) {
+      get().toast('Choreography applies to people — select characters first.', 'info')
+      return 0
+    }
+    // Stage the routine around the group's centroid, facing the first pick.
+    const cx = people.reduce((s, e) => s + e.transform.position.x, 0) / people.length
+    const cz = people.reduce((s, e) => s + e.transform.position.z, 0) / people.length
+    const heading = people[0]!.transform.rotationY
+    const duration = get().shot()?.duration ?? spec.durationS
+    const specs = buildRoutine(
+      { ...spec, performers: people.length, durationS: duration },
+      { origin: { x: cx, z: cz, heading } }
+    )
+    let applied = 0
+    get().mutate(`apply choreography: ${spec.kind}`, (doc) => {
+      const dScene = doc.scenes.find((s) => s.id === sceneId)
+      const shot = dScene?.shots.find((s) => s.id === shotId)
+      const take = dScene?.blocking.find((b) => b.id === shot?.blockingTakeId)
+      if (!dScene || !take) return
+      for (let i = 0; i < people.length && i < specs.length; i++) {
+        const entity = dScene.entities.find((e) => e.id === people[i]!.id)
+        const espec = specs[i]!
+        if (!entity) continue
+        entity.transform.rotationY = espec.rotationY
+        let track = take.tracks.find((t) => t.entityId === entity.id)
+        if (!track) {
+          track = { entityId: entity.id, marks: [] }
+          take.tracks.push(track)
+        }
+        track.marks = espec.marks.map((m) => ({
+          id: newId('mark'),
+          time: m.time,
+          hold: m.hold,
+          easeIn: m.easeIn,
+          easeOut: m.easeOut,
+          position: { ...m.position },
+          gait: m.gait,
+          arriveHeading: m.arriveHeading,
+          joints: m.joints ? { ...m.joints } : undefined
+        }))
+        applied++
+      }
+    })
+    if (applied > 0)
+      get().toast(`Choreographed ${applied} performer${applied > 1 ? 's' : ''} — ▶ to watch.`, 'success')
+    return applied
+  },
+
   applyMotionToEntities(entityIds, presetId) {
     const { sceneId, shotId } = get()
     const duration = get().shot()?.duration ?? 8
@@ -900,6 +1056,67 @@ export const useStore = create<BlockoutState>((set, get) => ({
       }
     })
     if (applied > 0) get().toast(`Applied ${preset.name} to ${applied} performer${applied > 1 ? 's' : ''}.`, 'success')
+  },
+
+  async importScan(sourcePath) {
+    const { sceneId, projectFolder } = get()
+    if (!projectFolder) {
+      get().toast('Open or save a project before importing a scan.', 'error')
+      return
+    }
+    let result: { relativePath: string; name: string }
+    try {
+      result = await window.blockout.importScan(projectFolder, sourcePath)
+    } catch (e) {
+      get().toast(`Scan import failed: ${(e as Error).message}`, 'error')
+      return
+    }
+    const scan = createScan(result.name, result.relativePath, { x: 0, y: 0, z: 0 })
+    get().mutate('import 3D scan', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      if (!scene) return
+      scene.scans = scene.scans ?? []
+      // Number duplicates: "living-room 2", "living-room 3"…
+      const count = scene.scans.filter((s) => s.name === scan.name).length
+      if (count > 0) scan.name = `${scan.name} ${count + 1}`
+      scene.scans.push(scan)
+    })
+    set({ selection: { kind: 'scan', scanId: scan.id } })
+    get().toast(
+      `Scan "${scan.name}" imported — block your action inside it. Scans stay in the editor and never appear in exports.`,
+      'success'
+    )
+  },
+
+  removeScan(scanId) {
+    const { sceneId, selection } = get()
+    get().mutate('remove scan', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      if (!scene?.scans) return
+      scene.scans = scene.scans.filter((s) => s.id !== scanId)
+    })
+    if (selection?.kind === 'scan' && selection.scanId === scanId) set({ selection: null })
+  },
+
+  setScanVisible(scanId, visible) {
+    const { sceneId } = get()
+    get().mutate('scan visibility', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      const scan = scene?.scans?.find((s) => s.id === scanId)
+      if (scan) scan.visible = visible
+    })
+  },
+
+  updateScanTransform(scanId, patch) {
+    const { sceneId } = get()
+    get().mutate('scan transform', (doc) => {
+      const scene = doc.scenes.find((s) => s.id === sceneId)
+      const scan = scene?.scans?.find((s) => s.id === scanId)
+      if (!scan) return
+      if (patch.position) scan.position = { ...scan.position, ...patch.position }
+      if (patch.rotationY !== undefined) scan.rotationY = patch.rotationY
+      if (patch.scale !== undefined) scan.scale = Math.max(0.01, patch.scale)
+    })
   },
 
   async saveStagePreset(name) {

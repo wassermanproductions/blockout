@@ -96,6 +96,10 @@ describe('camera-move presets — targeted behavior', () => {
     expect(CAMERA_MOVE_PRESETS.length).toBeGreaterThanOrEqual(22)
   })
 
+  it('has 39 presets', () => {
+    expect(CAMERA_MOVE_PRESETS.length).toBe(39)
+  })
+
   it('all preset ids are unique', () => {
     const ids = CAMERA_MOVE_PRESETS.map((p) => p.id)
     expect(new Set(ids).size).toBe(ids.length)
@@ -156,6 +160,28 @@ describe('camera-move presets — targeted behavior', () => {
       if (dpan >= 1.2 && dt <= 1) found = true
     }
     expect(found).toBe(true)
+  })
+
+  it('crash-zoom-out focalLength ends wider than it starts', () => {
+    const marks = byId('crash-zoom-out')
+    expect(marks[marks.length - 1]!.focalLength).toBeLessThan(marks[0]!.focalLength)
+    // Never increases across the shot.
+    for (let i = 1; i < marks.length; i++) {
+      expect(marks[i]!.focalLength).toBeLessThanOrEqual(marks[i - 1]!.focalLength)
+    }
+  })
+
+  it('spiral-in-descend tightens and drops toward the subject', () => {
+    const ctx = makeCtx()
+    const marks = byId('spiral-in-descend')
+    const first = marks[0]!
+    const last = marks[marks.length - 1]!
+    const sFirst = ctx.subjectAt(first.time)
+    const sLast = ctx.subjectAt(last.time)
+    const planarFirst = Math.hypot(first.position.x - sFirst.x, first.position.z - sFirst.z)
+    const planarLast = Math.hypot(last.position.x - sLast.x, last.position.z - sLast.z)
+    expect(planarLast).toBeLessThan(planarFirst)
+    expect(last.position.y).toBeLessThan(first.position.y)
   })
 
   it('top-down-descend tilt ≈ −π/2', () => {

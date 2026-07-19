@@ -44,6 +44,34 @@ describe('schema round-trip', () => {
     expect(parseProject('{"version": 99, "name": "x", "scenes": []}').doc).toBeNull()
   })
 
+  it('migrates scans: missing → [], malformed refs dropped, defaults filled', () => {
+    const doc = createProject('Scans')
+    const json = JSON.parse(serializeProject(doc)) as Record<string, unknown>
+    const scene = (json.scenes as Record<string, unknown>[])[0]!
+    // A v1 document has no scans key at all.
+    delete scene.scans
+    const v1 = parseProject(JSON.stringify(json))
+    expect(v1.doc?.scenes[0]?.scans).toEqual([])
+
+    // Malformed entries are dropped; partial entries get safe defaults.
+    scene.scans = [
+      null,
+      42,
+      { id: 'scan_x' }, // no file → dropped
+      { file: 'scans/loft.splat', position: { x: 1 } } // partial → defaults
+    ]
+    const v2 = parseProject(JSON.stringify(json))
+    const scans = v2.doc?.scenes[0]?.scans
+    expect(scans).toHaveLength(1)
+    expect(scans?.[0]).toMatchObject({
+      file: 'scans/loft.splat',
+      position: { x: 1, y: 0, z: 0 },
+      rotationY: 0,
+      scale: 1,
+      visible: true
+    })
+  })
+
   it('flags a shot referencing a missing blocking take', () => {
     const doc = createProject('Bad')
     doc.scenes[0]!.shots[0]!.blockingTakeId = 'take_missing'
