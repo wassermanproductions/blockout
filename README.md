@@ -4,6 +4,13 @@
 
 <img src="docs/images/logo.png" alt="Blockout logo" width="340" />
 
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
+  <a href="../../releases"><img src="https://img.shields.io/github/v/release/wassermanproductions/blockout?include_prereleases&label=download" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/platforms-macOS%20·%20Windows-2f7bf6" alt="Platforms">
+  <a href="https://ko-fi.com/samwasserman"><img src="https://img.shields.io/badge/Ko--fi-support%20Sam%20Wasserman-ff5e5b?logo=kofi&logoColor=white" alt="Support Sam Wasserman on Ko-fi"></a>
+</p>
+
 **Previs for AI-native filmmaking.** Stage a scene, choreograph the camera and cast against marks — the way real sets work — and export a motion-reference package a video generator can't misread.
 
 ![Blockout — a downtown car chase staged in Shoot mode](docs/images/hero.png)
