@@ -23,6 +23,8 @@ import { newId } from '@engine/ids'
 import { generateSequence, choreographMotion } from '@engine/sequences'
 import { buildRoutine } from '@engine/choreography'
 import { ACTION_PRESETS } from '@engine/action-presets'
+import { t } from '../i18n/core'
+import { catalogName } from '../i18n/catalog'
 
 export type Mode = 'stage' | 'shoot' | 'deliver'
 
@@ -287,7 +289,11 @@ export const useStore = create<BlockoutState>((set, get) => ({
   loadFromJson(folder, json) {
     const { doc, issues } = parseProject(json)
     if (!doc) {
-      get().toast(`Could not open project: ${issues[0]?.message ?? 'unknown error'}`, 'error')
+      const issue = issues[0]
+      const error = issue
+        ? t('toast.invalidProject', { path: issue.path, message: issue.message })
+        : t('toast.unknownError')
+      get().toast(t('toast.openFailed', { error }), 'error')
       return false
     }
     const scene = doc.scenes[0] ?? null
@@ -398,7 +404,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
       }
     })
     set({ selection: null })
-    get().toast(n > 1 ? `Deleted ${n} marks.` : 'Mark deleted.', 'info')
+    get().toast(n > 1 ? t('toast.deletedMarks', { count: n }) : t('toast.markDeleted'), 'info')
   },
   setHelpOpen: (helpOpen) => set({ helpOpen }),
   setShowMarks: (showMarks) => set({ showMarks }),
@@ -420,7 +426,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
     if (exportProgress.running) {
       // The export loop is reading this document frame by frame; editing it
       // mid-export would change the video partway through.
-      get().toast('Editing is locked while an export is running.', 'info')
+      get().toast(t('toast.editLocked'), 'info')
       return
     }
     const next = structuredClone(doc)
@@ -658,8 +664,8 @@ export const useStore = create<BlockoutState>((set, get) => ({
         married++
       }
     })
-    if (married > 0) get().toast(`Married ${married} to the anchor — they now move together.`, 'success')
-    if (cycles > 0) get().toast('Skipped a marriage that would loop back on itself.', 'error')
+    if (married > 0) get().toast(t('toast.married', { count: married }), 'success')
+    if (cycles > 0) get().toast(t('toast.marryCycle'), 'error')
   },
 
   unmarryEntities(entityIds) {
@@ -694,7 +700,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
         delete entity.attachedLocal
       }
     })
-    get().toast('Unmarried — they move independently again.', 'info')
+    get().toast(t('toast.unmarried'), 'info')
   },
 
   switchCamera(name) {
@@ -745,7 +751,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
     })
     if (added) {
       set({ selection: { kind: 'camera' } })
-      get().toast(`Camera ${added} added — frame it and drop marks. Switch cameras with the A/B chips.`, 'success')
+      get().toast(t('toast.cameraAdded', { name: added }), 'success')
     }
   },
 
@@ -757,7 +763,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
         scene?.shots.find((s) => s.id === shotId) ?? scene?.drafts?.find((s) => s.id === shotId)
       if (shot) shot.camera.marks = []
     })
-    get().toast('Camera move cleared — record or drop new marks.', 'info')
+    get().toast(t('toast.cameraCleared'), 'info')
   },
 
   saveDraftOfShot() {
@@ -785,7 +791,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
       draftName = clone.name
       scene.drafts.push(clone)
     })
-    if (draftName) get().toast(`Saved as draft "${draftName}" — keep experimenting safely.`, 'success')
+    if (draftName) get().toast(t('toast.draftSaved', { name: draftName }), 'success')
   },
 
   promoteDraft(draftId) {
@@ -810,7 +816,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
     })
     if (promotedInto) {
       set({ shotId: promotedInto, time: 0, playing: false })
-      get().toast('Draft promoted — it is now the shot.', 'success')
+      get().toast(t('toast.draftPromoted'), 'success')
     }
   },
 
@@ -869,10 +875,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
     })
     if (newIds.length > 0) {
       set({ selection: { kind: 'entities', entityIds: newIds } })
-      get().toast(
-        `${newIds.length} performers staged and choreographed — ▶ to watch. Drag the group to reposition; every performer stays individually editable.`,
-        'success'
-      )
+      get().toast(t('toast.stagedPerformers', { count: newIds.length }), 'success')
     }
   },
 
@@ -913,7 +916,16 @@ export const useStore = create<BlockoutState>((set, get) => ({
     if (newIds.length > 0) {
       set({ selection: { kind: 'entities', entityIds: newIds } })
       get().toast(
-        `Choreographed ${spec.kind} with ${newIds.length} performer${newIds.length > 1 ? 's' : ''} — ▶ to watch. Every performer stays individually editable.`,
+        t('toast.choreographedKind', {
+          kind:
+            spec.kind === 'dance'
+              ? t('viewport.kindDance')
+              : spec.kind === 'fight'
+                ? t('viewport.kindFight')
+                : t('viewport.kindChase'),
+          count: newIds.length,
+          plural: newIds.length > 1 ? 's' : ''
+        }),
         'success'
       )
     }
@@ -930,7 +942,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
       .map((id) => scene?.entities.find((e) => e.id === id))
       .filter((e): e is Entity => !!e && e.assetId.startsWith('person.'))
     if (people.length === 0) {
-      get().toast('Choreography applies to people — select characters first.', 'info')
+      get().toast(t('toast.choreoPeopleOnly'), 'info')
       return 0
     }
     // Stage the routine around the group's centroid, facing the first pick.
@@ -973,7 +985,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
       }
     })
     if (applied > 0)
-      get().toast(`Choreographed ${applied} performer${applied > 1 ? 's' : ''} — ▶ to watch.`, 'success')
+      get().toast(t('toast.choreographedN', { count: applied, plural: applied > 1 ? 's' : '' }), 'success')
     return applied
   },
 
@@ -1014,8 +1026,8 @@ export const useStore = create<BlockoutState>((set, get) => ({
         applied++
       }
     })
-    if (applied > 0) get().toast(`Restyled ${applied} performer${applied > 1 ? 's' : ''} — ▶ to watch.`, 'success')
-    else get().toast('That style applies to people — select characters.', 'info')
+    if (applied > 0) get().toast(t('toast.restyled', { count: applied, plural: applied > 1 ? 's' : '' }), 'success')
+    else get().toast(t('toast.stylePeopleOnly'), 'info')
   },
 
   applyActionToEntities(entityIds, presetId) {
@@ -1058,20 +1070,28 @@ export const useStore = create<BlockoutState>((set, get) => ({
         applied++
       }
     })
-    if (applied > 0) get().toast(`Applied ${preset.name} to ${applied} performer${applied > 1 ? 's' : ''}.`, 'success')
+    if (applied > 0)
+      get().toast(
+        t('toast.appliedAction', {
+          name: catalogName(`action:${preset.id}`, preset.name),
+          count: applied,
+          plural: applied > 1 ? 's' : ''
+        }),
+        'success'
+      )
   },
 
   async importScan(sourcePath) {
     const { sceneId, projectFolder } = get()
     if (!projectFolder) {
-      get().toast('Open or save a project before importing a scan.', 'error')
+      get().toast(t('toast.scanNeedProject'), 'error')
       return
     }
     let result: { relativePath: string; name: string }
     try {
       result = await window.blockout.importScan(projectFolder, sourcePath)
     } catch (e) {
-      get().toast(`Scan import failed: ${(e as Error).message}`, 'error')
+      get().toast(t('toast.scanFailed', { error: (e as Error).message }), 'error')
       return
     }
     const scan = createScan(result.name, result.relativePath, { x: 0, y: 0, z: 0 })
@@ -1085,10 +1105,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
       scene.scans.push(scan)
     })
     set({ selection: { kind: 'scan', scanId: scan.id } })
-    get().toast(
-      `Scan "${scan.name}" imported — block your action inside it. Scans stay in the editor and never appear in exports.`,
-      'success'
-    )
+    get().toast(t('toast.scanImported', { name: scan.name }), 'success')
   },
 
   removeScan(scanId) {
@@ -1139,14 +1156,14 @@ export const useStore = create<BlockoutState>((set, get) => ({
       blocking: structuredClone(scene.blocking)
     }
     const res = await window.blockout.presetSave(name, JSON.stringify(payload))
-    if (res.ok) get().toast(`Preset "${name}" saved — reuse it from the Library in any project.`, 'success')
-    else get().toast(`Could not save preset: ${res.error ?? 'unknown error'}`, 'error')
+    if (res.ok) get().toast(t('toast.presetSaved', { name }), 'success')
+    else get().toast(t('toast.presetSaveFailed', { error: res.error ?? t('toast.unknownError') }), 'error')
   },
 
   async applyStagePreset(id) {
     const json = await window.blockout.presetLoad(id)
     if (!json) {
-      get().toast('Preset not found — it may have been deleted.', 'error')
+      get().toast(t('toast.presetMissing'), 'error')
       return
     }
     let payload: {
@@ -1158,7 +1175,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
     try {
       payload = JSON.parse(json)
     } catch {
-      get().toast('Preset file is corrupted.', 'error')
+      get().toast(t('toast.presetCorrupt'), 'error')
       return
     }
     // Stage into a brand-new scene with fresh ids so the preset (and any
@@ -1200,7 +1217,7 @@ export const useStore = create<BlockoutState>((set, get) => ({
     })
     if (newSceneId) {
       get().selectScene(newSceneId)
-      get().toast(`Staged "${payload.name ?? 'preset'}" as a new scene — the original preset is untouched.`, 'success')
+      get().toast(t('toast.presetStaged', { name: payload.name ?? t('defaults.preset') }), 'success')
     }
   },
 

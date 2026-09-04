@@ -8,6 +8,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
+import { t } from '../../i18n/core'
+import { useT } from '../../i18n/react'
 
 export function ReferenceUnderlay(): JSX.Element | null {
   const doc = useStore((s) => s.doc)
@@ -87,6 +89,7 @@ export function ReferenceUnderlay(): JSX.Element | null {
 
 /** Toolbar controls for the underlay (Shoot mode). */
 export function ReferenceControls(): JSX.Element | null {
+  const i18n = useT()
   const doc = useStore((s) => s.doc)
   const sceneId = useStore((s) => s.sceneId)
   const shotId = useStore((s) => s.shotId)
@@ -103,7 +106,7 @@ export function ReferenceControls(): JSX.Element | null {
   const attach = async (): Promise<void> => {
     if (!folder) return
     const file = await window.blockout.pickFile([
-      { name: 'Videos', extensions: ['mp4', 'mov', 'webm', 'm4v'] }
+      { name: t('dialog.videosFilter'), extensions: ['mp4', 'mov', 'webm', 'm4v'] }
     ])
     if (!file) return
     const imported = await window.blockout.importReference(folder, file)
@@ -114,17 +117,17 @@ export function ReferenceControls(): JSX.Element | null {
       }
     })
     setOpen(true)
-    toast('Reference attached — match your blocking against it.', 'success')
+    toast(t('toast.refAttached'), 'success')
   }
 
   return (
     <div style={{ position: 'relative' }}>
       <button
         className={`btn small ${ref ? 'active' : ''}`}
-        title="Reference video underlay — match an existing shot by eye"
+        title={i18n('ref.title')}
         onClick={() => (ref ? setOpen(!open) : void attach())}
       >
-        🎞 Ref
+        {i18n('ref.button')}
       </button>
       {open && ref && (
         <div
@@ -141,7 +144,7 @@ export function ReferenceControls(): JSX.Element | null {
           }}
         >
           <div className="field">
-            <label>Opacity ({Math.round(ref.opacity * 100)}%)</label>
+            <label>{i18n('ref.opacity', { pct: Math.round(ref.opacity * 100) })}</label>
             <input
               type="range"
               min={0.1}
@@ -159,7 +162,7 @@ export function ReferenceControls(): JSX.Element | null {
             />
           </div>
           <div className="field">
-            <label>Mode</label>
+            <label>{i18n('ref.mode')}</label>
             <div className="seg">
               {(['ghost', 'pip'] as const).map((m) => (
                 <button
@@ -174,13 +177,13 @@ export function ReferenceControls(): JSX.Element | null {
                     })
                   }
                 >
-                  {m === 'ghost' ? 'Ghost overlay' : 'PiP'}
+                  {m === 'ghost' ? i18n('ref.ghost') : i18n('ref.pip')}
                 </button>
               ))}
             </div>
           </div>
           <div className="field">
-            <label>Time offset ({ref.timeOffset.toFixed(1)}s)</label>
+            <label>{i18n('ref.offset', { value: ref.timeOffset.toFixed(1) })}</label>
             <input
               type="range"
               min={-10}
@@ -210,7 +213,7 @@ export function ReferenceControls(): JSX.Element | null {
               setOpen(false)
             }}
           >
-            Remove reference
+            {i18n('ref.remove')}
           </button>
         </div>
       )}

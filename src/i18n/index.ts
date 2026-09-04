@@ -1,0 +1,5 @@
+export { applyDocumentLang, getLocale, isLocaleForced, setLocale, subscribeLocale, t, tOr } from './core'
+export type { Locale, TxKey } from './core'
+export { useLocale, useT } from './react'
+export { actionDescription, cameraMoveDescription, catalogName } from './catalog'
+export { LocaleSwitcher } from './LocaleSwitcher'

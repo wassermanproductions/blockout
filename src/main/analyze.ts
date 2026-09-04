@@ -16,6 +16,7 @@ import { join, extname } from 'path'
 import { ASSET_CATALOG } from '../engine/assets'
 import { resolveConfigPath } from '../shared/config-paths'
 import { friendlyFfmpegError, resolveFfmpeg } from './ffmpeg'
+import { t } from '../i18n/core'
 
 const VIDEO_EXTS = new Set(['.mp4', '.mov', '.webm', '.m4v', '.avi'])
 const MEDIA_TYPES: Record<string, string> = {
@@ -128,10 +129,10 @@ async function extractFrame(videoPath: string): Promise<string> {
     child.stderr?.resume()
     child.once('close', (code) => {
       if (code === 0) resolve()
-      else reject(new Error('FFmpeg could not extract a frame from the reference video. Check that the file is readable and uses a supported codec.'))
+      else reject(new Error(t('analyze.frameExtractionFailed')))
     })
     child.once('error', (error) => {
-      reject(new Error(`Could not analyze the reference video: ${friendlyFfmpegError(error)}`))
+      reject(new Error(t('analyze.videoAnalyzeFailed', { error: friendlyFfmpegError(error) })))
     })
   })
   return out
@@ -153,10 +154,9 @@ async function resolveApiKey(): Promise<string | undefined> {
   }
 }
 
-const AUTH_HELP =
-  'Claude API authentication failed. Either: (1) run `ant auth login` in a terminal, ' +
-  `(2) save your key to ${resolveConfigPath('anthropic-api-key')}, or ` +
-  '(3) launch Blockout from a terminal with ANTHROPIC_API_KEY set.'
+function authHelp(): string {
+  return t('analyze.authHelp', { path: resolveConfigPath('anthropic-api-key') })
+}
 
 export async function analyzeReference(filePath: string): Promise<AnalyzeResult> {
   let imagePath = filePath
@@ -168,11 +168,11 @@ export async function analyzeReference(filePath: string): Promise<AnalyzeResult>
       imagePath = extractedFrame
     }
     const mediaType = MEDIA_TYPES[extname(imagePath).toLowerCase()]
-    if (!mediaType) return { ok: false, error: `Unsupported file type: ${ext}` }
+    if (!mediaType) return { ok: false, error: t('analyze.unsupportedFileType', { ext }) }
 
     const bytes = await readFile(imagePath)
     if (bytes.byteLength > 20 * 1024 * 1024) {
-      return { ok: false, error: 'Image is larger than 20MB — please use a smaller reference.' }
+      return { ok: false, error: t('analyze.imageTooLarge') }
     }
     const data = bytes.toString('base64')
 
@@ -201,29 +201,32 @@ export async function analyzeReference(filePath: string): Promise<AnalyzeResult>
     })
 
     if (response.stop_reason === 'refusal') {
-      return { ok: false, error: 'The model declined to analyze this image.' }
+      return { ok: false, error: t('analyze.declined') }
     }
     const text = response.content.find((b) => b.type === 'text')
     if (!text || text.type !== 'text') {
-      return { ok: false, error: 'No layout returned — try a clearer reference image.' }
+      return { ok: false, error: t('analyze.noLayout') }
     }
     const layout = JSON.parse(text.text) as AnalyzedLayout
     if (!Array.isArray(layout.entities) || layout.entities.length === 0) {
-      return { ok: false, error: 'The model found nothing stageable in this reference.' }
+      return { ok: false, error: t('analyze.nothingStageable') }
     }
     return { ok: true, layout }
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) {
-      return { ok: false, error: AUTH_HELP }
+      return { ok: false, error: authHelp() }
     }
     // SDK throws a plain Error before any request when no credential resolves.
     if (e instanceof Error && /apiKey|api key|ANTHROPIC_API_KEY/i.test(e.message)) {
-      return { ok: false, error: AUTH_HELP }
+      return { ok: false, error: authHelp() }
     }
     if (e instanceof Anthropic.APIError) {
-      return { ok: false, error: `Claude API error: ${e.message}` }
+      return { ok: false, error: t('analyze.apiError', { error: e.message }) }
     }
-    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    return {
+      ok: false,
+      error: t('analyze.unknownError', { error: e instanceof Error ? e.message : String(e) })
+    }
   } finally {
     if (extractedFrame) {
       try {

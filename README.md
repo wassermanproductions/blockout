@@ -154,6 +154,15 @@ macOS packaging downloads and verifies the same pinned, audited FFmpeg pair
 automatically. To rebuild it from verified sources and the audited patch
 instead, run `npm run prepare:ffmpeg:mac -- --build-from-source`.
 
+### Language
+
+Blockout follows the operating-system language on first launch: Chinese
+language tags use the Simplified Chinese UI, and every other language falls
+back to English. Use the **中 / EN** switch in the welcome screen or title bar
+to save a preference. For automated runs or managed deployments, set
+`BLOCKOUT_LOCALE=zh` or `BLOCKOUT_LOCALE=en`; a forced locale hides the switch
+and is not persisted.
+
 Current release artifacts are unsigned. A macOS DMG downloaded in a browser is
 quarantined, so macOS falsely claims the app "is damaged" — either use the
 one-line installer above (terminal downloads aren't quarantined, so no warning

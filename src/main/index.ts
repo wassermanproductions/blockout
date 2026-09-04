@@ -15,6 +15,7 @@ import { friendlyFfmpegError, resolveFfmpeg, terminateProcessTree } from './ffmp
 import { sanitizeName } from '../engine/strings'
 import { ffmpegConcatEntry, normalizeProjectRelativePath } from '../shared/portable-paths'
 import { DISTRIBUTION } from '../shared/distribution'
+import { getLocale, localeFromLanguage, setLocale, t, type Locale } from '../i18n/core'
 // Inlined at build time — app.getVersion() reports Electron's own version
 // when launched unpackaged (e2e runs `electron out/main/index.js`).
 import { version as APP_VERSION } from '../../package.json'
@@ -22,6 +23,34 @@ import { version as APP_VERSION } from '../../package.json'
 const isDev = !!process.env.ELECTRON_RENDERER_URL
 
 let mainWindow: BrowserWindow | null = null
+
+function localeFile(): string {
+  return join(app.getPath('userData'), 'locale')
+}
+
+function localeForcedByEnv(): boolean {
+  const env = process.env.BLOCKOUT_LOCALE
+  return env === 'en' || env === 'zh' || !!process.env.BLOCKOUT_SMOKE_DIR
+}
+
+async function readPersistedLocale(): Promise<Locale | null> {
+  try {
+    const raw = (await readFile(localeFile(), 'utf8')).trim()
+    if (raw === 'en' || raw === 'zh') return raw
+  } catch {
+    /* first launch / missing file */
+  }
+  return null
+}
+
+async function persistLocale(locale: Locale): Promise<void> {
+  if (localeForcedByEnv()) return
+  try {
+    await writeFile(localeFile(), locale, 'utf8')
+  } catch {
+    /* ignore */
+  }
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -52,7 +81,11 @@ function createWindow(): void {
   })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  const envLocale = process.env.BLOCKOUT_LOCALE
+  if (envLocale === 'en' || envLocale === 'zh') setLocale(envLocale)
+  else if (process.env.BLOCKOUT_SMOKE_DIR) setLocale('en')
+  else setLocale((await readPersistedLocale()) ?? localeFromLanguage(app.getLocale()))
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null)
   if (process.platform === 'win32') app.setAppUserModelId(DISTRIBUTION.appId)
   createWindow()
@@ -79,10 +112,10 @@ ipcMain.handle('dialog:newProject', async () => {
   }
   if (!mainWindow) return null
   const result = await dialog.showSaveDialog(mainWindow, {
-    title: 'Create Blockout Project',
-    buttonLabel: 'Create',
-    nameFieldLabel: 'Project name',
-    defaultPath: join(app.getPath('documents'), 'Untitled.blockout')
+    title: t('dialog.createTitle'),
+    buttonLabel: t('dialog.createButton'),
+    nameFieldLabel: t('dialog.projectName'),
+    defaultPath: join(app.getPath('documents'), t('dialog.untitledProject'))
   })
   if (result.canceled || !result.filePath) return null
   const withoutExtension = result.filePath.replace(/\.blockout$/i, '')
@@ -100,12 +133,22 @@ ipcMain.handle('dialog:openProject', async () => {
   }
   if (!mainWindow) return null
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Open Blockout Project',
+    title: t('dialog.openTitle'),
     properties: ['openDirectory'],
-    message: 'Choose a .blockout project folder'
+    message: t('dialog.openMessage')
   })
   if (result.canceled || result.filePaths.length === 0) return null
   return result.filePaths[0]
+})
+
+ipcMain.handle('i18n:getLocale', () => getLocale())
+
+ipcMain.handle('i18n:setLocale', async (_e, locale: Locale) => {
+  if (locale === 'en' || locale === 'zh') {
+    setLocale(locale)
+    await persistLocale(locale)
+  }
+  return true
 })
 
 ipcMain.handle('dialog:pickFile', async (_e, filters: { name: string; extensions: string[] }[]) => {
