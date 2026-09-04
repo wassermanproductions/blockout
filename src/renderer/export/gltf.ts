@@ -13,6 +13,7 @@ import { useStore } from '../store'
 import { buildAsset } from '../viewport/builders'
 import { exportDims } from './exporter'
 import { getProfile } from '@engine/profiles'
+import { t } from '../../i18n/core'
 
 import { sanitizeName as sanitize, uniqueName } from '@engine/strings'
 
@@ -21,7 +22,7 @@ export async function exportGlb(profileId: string): Promise<{ ok: boolean; packa
   const scene = s.scene()
   const shot = s.shot()
   const folder = s.projectFolder
-  if (!scene || !shot || !folder) return { ok: false, error: 'No open shot.' }
+  if (!scene || !shot || !folder) return { ok: false, error: t('deliver.errorOpenShot') }
 
   const evaluator = new ShotEvaluator(scene, shot)
   const root = new THREE.Scene()
@@ -125,8 +126,8 @@ export async function exportGlb(profileId: string): Promise<{ ok: boolean; packa
   await window.blockout.exportWriteFile(
     `${base}/blender_import.py`,
     [
-      '# Blockout → Blender helper. Run in Blender: Scripting tab → open this file → Run.',
-      '# Imports the .glb next to this script, sets fps/resolution, activates the shot camera.',
+      t('blender.scriptHeader'),
+      t('blender.scriptDetails'),
       'import bpy, os',
       '',
       `GLB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "${sanitize(shot.name)}.glb")`,
@@ -140,7 +141,7 @@ export async function exportGlb(profileId: string): Promise<{ ok: boolean; packa
       `    if obj.type == "CAMERA" and obj.name.startswith("ShotCam"):`,
       '        bpy.context.scene.camera = obj',
       '        break',
-      'print("Blockout shot imported.")',
+      `print(${JSON.stringify(t('blender.imported'))})`,
       ''
     ].join('\n')
   )

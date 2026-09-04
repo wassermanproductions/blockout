@@ -18,6 +18,9 @@ import {
 } from '@engine/choreography'
 import { useStore } from '../store'
 import { populateFromReference } from '../ai/populate'
+import { catalogName } from '../../i18n/catalog'
+import { useT } from '../../i18n/react'
+import type { TxKey } from '../../i18n/core'
 
 interface PresetInfo {
   id: string
@@ -32,6 +35,7 @@ interface PresetInfo {
  * project — applying stages a fresh copy, never touching the original.
  */
 function StagePresets(): JSX.Element {
+  const t = useT()
   const [presets, setPresets] = useState<PresetInfo[]>([])
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState('')
@@ -62,17 +66,16 @@ function StagePresets(): JSX.Element {
 
   const onDelete = async (p: PresetInfo): Promise<void> => {
     await window.blockout.presetDelete(p.id)
-    toast(`Preset "${p.name}" deleted.`, 'info')
+    toast(t('toast.presetDeleted', { name: p.name }), 'info')
     await refresh()
   }
 
   return (
     <div className="panel-section">
-      <div className="panel-title">Stage Presets</div>
+      <div className="panel-title">{t('library.presets')}</div>
       {presets.length === 0 && !naming && (
         <div className="empty-hint" style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>
-          Save a staging you'll reuse — a dinner scene, a driving setup — and
-          start from it in any project.
+          {t('library.presetsEmpty')}
         </div>
       )}
       {presets.map((p) => (
@@ -80,17 +83,17 @@ function StagePresets(): JSX.Element {
           key={p.id}
           style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}
         >
-          <span style={{ flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${p.entityCount} items · saved ${new Date(p.savedAt).toLocaleDateString()}`}>
+          <span style={{ flex: 1, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t('library.presetMeta', { count: p.entityCount, date: new Date(p.savedAt).toLocaleDateString() })}>
             {p.name}
           </span>
           <button
             className="btn small"
             onClick={() => void applyStagePreset(p.id)}
-            title="Stage this preset as a NEW scene — the preset itself stays untouched"
+            title={t('library.stageTitle')}
           >
-            Stage
+            {t('library.stage')}
           </button>
-          <button className="btn small" onClick={() => void onDelete(p)} title="Delete this preset">
+          <button className="btn small" onClick={() => void onDelete(p)} title={t('library.deletePreset')}>
             ✕
           </button>
         </div>
@@ -100,7 +103,7 @@ function StagePresets(): JSX.Element {
           <input
             type="text"
             autoFocus
-            placeholder="Preset name… e.g. Dinner scene"
+            placeholder={t('library.presetPlaceholder')}
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
@@ -110,7 +113,7 @@ function StagePresets(): JSX.Element {
             style={{ flex: 1 }}
           />
           <button className="btn small primary" onClick={() => void onSave()}>
-            Save
+            {t('library.save')}
           </button>
         </div>
       ) : (
@@ -119,9 +122,9 @@ function StagePresets(): JSX.Element {
           style={{ width: '100%', marginTop: 6 }}
           disabled={(scene?.entities.length ?? 0) === 0}
           onClick={() => setNaming(true)}
-          title="Save this scene's staging (set, characters, blocking) as a reusable preset available in every project"
+          title={t('library.saveCurrentTitle')}
         >
-          ＋ Save current staging as preset
+          {t('library.saveCurrent')}
         </button>
       )}
     </div>
@@ -134,6 +137,7 @@ function StagePresets(): JSX.Element {
  * staged where the viewport is looking.
  */
 function Sequences(): JSX.Element {
+  const t = useT()
   const [type, setType] = useState<SequenceType>('dance')
   const [count, setCount] = useState(12)
   const [style, setStyle] = useState('mixed')
@@ -144,28 +148,28 @@ function Sequences(): JSX.Element {
   const activeStyle = styles.some((s) => s.id === style) ? style : styles[0]!.id
 
   const TYPE_LABELS: { id: SequenceType; label: string }[] = [
-    { id: 'dance', label: '💃 Dance number' },
-    { id: 'fight', label: '🥊 Fight' },
-    { id: 'footChase', label: '🏃 Foot chase' },
-    { id: 'carChase', label: '🚗 Car chase' }
+    { id: 'dance', label: t('library.seqDance') },
+    { id: 'fight', label: t('library.seqFight') },
+    { id: 'footChase', label: t('library.seqFootChase') },
+    { id: 'carChase', label: t('library.seqCarChase') }
   ]
 
   return (
     <div className="panel-section">
-      <div className="panel-title">Sequences</div>
+      <div className="panel-title">{t('library.sequences')}</div>
       <div className="field">
-        <label>Type</label>
+        <label>{t('library.type')}</label>
         <select value={type} onChange={(e) => setType(e.target.value as SequenceType)}>
-          {TYPE_LABELS.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
+          {TYPE_LABELS.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.label}
             </option>
           ))}
         </select>
       </div>
       <div className="field-row">
         <div className="field" style={{ flex: 1 }}>
-          <label>Performers</label>
+          <label>{t('library.performers')}</label>
           <input
             type="number"
             min={2}
@@ -178,11 +182,11 @@ function Sequences(): JSX.Element {
           />
         </div>
         <div className="field" style={{ flex: 2 }}>
-          <label>Style</label>
+          <label>{t('library.style')}</label>
           <select value={activeStyle} onChange={(e) => setStyle(e.target.value)}>
             {styles.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name}
+                {catalogName(`seq:${s.id}`, catalogName(`motion:${s.id}`, s.name))}
               </option>
             ))}
           </select>
@@ -194,9 +198,9 @@ function Sequences(): JSX.Element {
         onClick={() =>
           setPlacingSequence(placingSequence ? null : { type, count, style: activeStyle })
         }
-        title="Arms placement — then click the floor exactly where you want the group. It stages there, facing the camera. Esc cancels. One undo step; every performer stays individually editable."
+        title={t('library.sequenceArmTitle')}
       >
-        {placingSequence ? '⟳ Click the floor to place… (Esc cancels)' : `🎬 Stage ${count} performers`}
+        {placingSequence ? t('library.clickFloor') : t('library.stagePerformers', { count })}
       </button>
     </div>
   )
@@ -210,6 +214,7 @@ const randomSeed = (): number => Math.floor(Math.random() * 1_000_000_000)
  * currently selected characters.
  */
 function Choreographer(): JSX.Element {
+  const t = useT()
   const [kind, setKind] = useState<ChoreoKind>('dance')
   const [style, setStyle] = useState('mixed')
   const [performers, setPerformers] = useState(8)
@@ -252,25 +257,25 @@ function Choreographer(): JSX.Element {
 
   const onApply = (): void => {
     if (selCount === 0) {
-      toast('Select the performers to choreograph first.', 'info')
+      toast(t('toast.selectPerformers'), 'info')
       return
     }
-    if (!window.confirm(`Replace the choreography of ${selCount} selected performer${selCount > 1 ? 's' : ''}?`))
+    if (!window.confirm(t('library.confirmReplace', { count: selCount, plural: selCount > 1 ? 's' : '' })))
       return
     choreographSelected(spec())
   }
 
   const KIND_LABELS: { id: ChoreoKind; label: string }[] = [
-    { id: 'dance', label: '💃 Dance number' },
-    { id: 'fight', label: '🥋 Fight' },
-    { id: 'chase', label: '🏃 Chase' }
+    { id: 'dance', label: t('library.choreoDance') },
+    { id: 'fight', label: t('library.choreoFight') },
+    { id: 'chase', label: t('library.choreoChase') }
   ]
 
   return (
     <div className="panel-section">
-      <div className="panel-title">Choreographer</div>
+      <div className="panel-title">{t('library.choreographer')}</div>
       <div className="field">
-        <label>Routine</label>
+        <label>{t('library.routine')}</label>
         <select value={kind} onChange={(e) => setKind(e.target.value as ChoreoKind)}>
           {KIND_LABELS.map((k) => (
             <option key={k.id} value={k.id}>
@@ -281,17 +286,17 @@ function Choreographer(): JSX.Element {
       </div>
       <div className="field-row">
         <div className="field" style={{ flex: 2 }}>
-          <label>Style</label>
+          <label>{t('library.style')}</label>
           <select value={activeStyle} onChange={(e) => setStyle(e.target.value)}>
             {styles.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name}
+                {catalogName(`choreo:${s.id}`, s.name)}
               </option>
             ))}
           </select>
         </div>
         <div className="field" style={{ flex: 1 }}>
-          <label>Performers</label>
+          <label>{t('library.performers')}</label>
           <input
             type="number"
             min={kind === 'dance' ? 1 : 2}
@@ -306,7 +311,7 @@ function Choreographer(): JSX.Element {
       </div>
       <div className="field-row">
         <div className="field" style={{ flex: 1 }}>
-          <label>Duration (s)</label>
+          <label>{t('library.durationS')}</label>
           <input
             type="number"
             min={2}
@@ -320,7 +325,7 @@ function Choreographer(): JSX.Element {
         </div>
         {kind === 'dance' && (
           <div className="field" style={{ flex: 1 }}>
-            <label>BPM</label>
+            <label>{t('library.bpm')}</label>
             <input
               type="number"
               min={60}
@@ -335,11 +340,11 @@ function Choreographer(): JSX.Element {
         )}
         {(kind === 'fight' || kind === 'chase') && (
           <div className="field" style={{ flex: 2 }}>
-            <label>Ending</label>
+            <label>{t('library.ending')}</label>
             <select value={activeEnding} onChange={(e) => setEnding(e.target.value)}>
               {endings.map((en) => (
                 <option key={en.id} value={en.id}>
-                  {en.name}
+                  {catalogName(`ending:${en.id}`, en.name)}
                 </option>
               ))}
             </select>
@@ -349,21 +354,21 @@ function Choreographer(): JSX.Element {
       {kind === 'dance' && (
         <>
           <div className="field">
-            <label>Formation</label>
+            <label>{t('library.formation')}</label>
             <select value={formation} onChange={(e) => setFormation(e.target.value as FormationId)}>
               {choreoFormations().map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.name}
+                  {catalogName(`formation:${f.id}`, f.name)}
                 </option>
               ))}
             </select>
           </div>
           <div className="field-row" style={{ gap: 12, marginBottom: 6, flexWrap: 'wrap' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-              <input type="checkbox" checked={canon} onChange={(e) => setCanon(e.target.checked)} /> Canon
+              <input type="checkbox" checked={canon} onChange={(e) => setCanon(e.target.checked)} /> {t('library.canon')}
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-              <input type="checkbox" checked={mirror} onChange={(e) => setMirror(e.target.checked)} /> Mirror
+              <input type="checkbox" checked={mirror} onChange={(e) => setMirror(e.target.checked)} /> {t('library.mirror')}
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
               <input
@@ -371,7 +376,7 @@ function Choreographer(): JSX.Element {
                 checked={formationChange}
                 onChange={(e) => setFormationChange(e.target.checked)}
               />{' '}
-              Formations
+              {t('library.formations')}
             </label>
           </div>
         </>
@@ -379,12 +384,12 @@ function Choreographer(): JSX.Element {
       {kind === 'fight' && (
         <div className="field-row" style={{ gap: 12, marginBottom: 6 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-            <input type="checkbox" checked={mirror} onChange={(e) => setMirror(e.target.checked)} /> Mirror stance
+            <input type="checkbox" checked={mirror} onChange={(e) => setMirror(e.target.checked)} /> {t('library.mirrorStance')}
           </label>
         </div>
       )}
       <div className="field">
-        <label>Seed</label>
+        <label>{t('library.seed')}</label>
         <div className="field-row" style={{ gap: 6 }}>
           <input
             type="number"
@@ -395,7 +400,7 @@ function Choreographer(): JSX.Element {
               if (!Number.isNaN(v)) setSeed(Math.max(0, Math.round(v)))
             }}
           />
-          <button className="btn small" title="Reroll the seed" onClick={() => setSeed(randomSeed())}>
+          <button className="btn small" title={t('library.reroll')} onClick={() => setSeed(randomSeed())}>
             🎲
           </button>
         </div>
@@ -404,17 +409,17 @@ function Choreographer(): JSX.Element {
         className={`btn primary${placing ? ' active' : ''}`}
         style={{ width: '100%', marginBottom: 6 }}
         onClick={() => setPlacing(placing ? null : spec())}
-        title="Arm placement — then click the floor where the routine should stage, facing the camera. Esc cancels. One undo step; every performer stays editable."
+        title={t('library.choreoArmTitle')}
       >
-        {placing ? '⟳ Click the floor to place… (Esc cancels)' : '🎬 Spawn routine'}
+        {placing ? t('library.clickFloor') : t('library.spawnRoutine')}
       </button>
       <button
         className="btn"
         style={{ width: '100%' }}
         onClick={onApply}
-        title="Replace the choreography of the selected performers with this routine (keeps their look)."
+        title={t('library.applyTitle')}
       >
-        {selCount > 0 ? `Apply to ${selCount} selected` : 'Apply to selection'}
+        {selCount > 0 ? t('library.applyToN', { count: selCount }) : t('library.applyToSelection')}
       </button>
     </div>
   )
@@ -644,18 +649,18 @@ function thumbFor(id: string): string {
   return THUMBS[id] ?? '📦'
 }
 
-/** Fixed display order of categories with human-readable titles. */
-const CATEGORY_ORDER: { key: EntityCategory; title: string }[] = [
-  { key: 'people', title: 'People' },
-  { key: 'animals', title: 'Animals' },
-  { key: 'vehicles', title: 'Vehicles' },
-  { key: 'furniture', title: 'Furniture' },
-  { key: 'props', title: 'Props' },
-  { key: 'environment', title: 'Environments' },
-  { key: 'primitives', title: 'Primitives' }
+const CATEGORY_KEYS: { key: EntityCategory; title: TxKey }[] = [
+  { key: 'people', title: 'library.people' },
+  { key: 'animals', title: 'library.animals' },
+  { key: 'vehicles', title: 'library.vehicles' },
+  { key: 'furniture', title: 'library.furniture' },
+  { key: 'props', title: 'library.props' },
+  { key: 'environment', title: 'library.environments' },
+  { key: 'primitives', title: 'library.primitives' }
 ]
 
 export function Library(): JSX.Element {
+  const t = useT()
   const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<EntityCategory | 'all'>('all')
   const [collapsed, setCollapsed] = useState<Partial<Record<EntityCategory, boolean>>>({})
@@ -669,18 +674,23 @@ export function Library(): JSX.Element {
 
   const groups = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const matches = (a: AssetSpec): boolean =>
-      q === '' ||
-      a.name.toLowerCase().includes(q) ||
-      a.category.toLowerCase().includes(q)
-    return CATEGORY_ORDER.filter(
-      ({ key }) => categoryFilter === 'all' || key === categoryFilter
-    ).map(({ key, title }) => ({
-      key,
-      title,
-      items: ASSET_CATALOG.filter((a) => a.category === key && matches(a))
-    })).filter((g) => g.items.length > 0)
-  }, [query, categoryFilter])
+    const matches = (a: AssetSpec): boolean => {
+      const localized = catalogName(`asset:${a.id}`, a.name)
+      return (
+        q === '' ||
+        a.name.toLowerCase().includes(q) ||
+        localized.toLowerCase().includes(q) ||
+        a.category.toLowerCase().includes(q)
+      )
+    }
+    return CATEGORY_KEYS.filter(({ key }) => categoryFilter === 'all' || key === categoryFilter)
+      .map(({ key, title }) => ({
+        key,
+        title: t(title),
+        items: ASSET_CATALOG.filter((a) => a.category === key && matches(a))
+      }))
+      .filter((g) => g.items.length > 0)
+  }, [query, categoryFilter, t])
 
   const toggleCollapsed = (key: EntityCategory): void =>
     setCollapsed((c) => ({ ...c, [key]: !c[key] }))
@@ -692,7 +702,7 @@ export function Library(): JSX.Element {
 
   const onImportScan = async (): Promise<void> => {
     const path = await window.blockout.pickFile([
-      { name: '3D Scans (Gaussian splats)', extensions: ['ply', 'splat', 'ksplat', 'spz'] }
+      { name: t('dialog.scansFilter'), extensions: ['ply', 'splat', 'ksplat', 'spz'] }
     ])
     if (!path) return
     await importScan(path)
@@ -700,11 +710,11 @@ export function Library(): JSX.Element {
 
   const onImport = async (): Promise<void> => {
     const path = await window.blockout.pickFile([
-      { name: '3D Models', extensions: ['glb', 'gltf', 'obj'] }
+      { name: t('dialog.modelsFilter'), extensions: ['glb', 'gltf', 'obj'] }
     ])
     if (!path) return
     if (!projectFolder) {
-      toast('Open or save a project before importing models.', 'error')
+      toast(t('toast.importNeedProject'), 'error')
       return
     }
     try {
@@ -719,9 +729,9 @@ export function Library(): JSX.Element {
           }
         }
       })
-      toast(`Imported ${result.name}`, 'success')
+      toast(t('toast.imported', { name: result.name }), 'success')
     } catch (e) {
-      toast(`Import failed: ${(e as Error).message}`, 'error')
+      toast(t('toast.importFailed', { error: (e as Error).message }), 'error')
     }
   }
 
@@ -734,7 +744,7 @@ export function Library(): JSX.Element {
       <div className="library-search">
         <input
           type="text"
-          placeholder="Search assets…"
+          placeholder={t('library.searchAssets')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -746,26 +756,26 @@ export function Library(): JSX.Element {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value as EntityCategory | 'all')}
-            title="Show one category at a time"
+            title={t('library.categoryFilterTitle')}
           >
-            <option value="all">All categories</option>
-            {CATEGORY_ORDER.map((c) => (
+            <option value="all">{t('library.allCategories')}</option>
+            {CATEGORY_KEYS.map((c) => (
               <option key={c.key} value={c.key}>
-                {c.title}
+                {t(c.title)}
               </option>
             ))}
           </select>
           <select
             value={placingAssetId && ASSET_CATALOG.some((a) => a.id === placingAssetId) ? placingAssetId : ''}
             onChange={(e) => setPlacingAsset(e.target.value || null)}
-            title="Pick from the full list — then click the floor to place it"
+            title={t('library.placeFromListTitle')}
           >
-            <option value="">Place from list…</option>
-            {CATEGORY_ORDER.map((c) => (
-              <optgroup key={c.key} label={c.title}>
+            <option value="">{t('library.placeFromList')}</option>
+            {CATEGORY_KEYS.map((c) => (
+              <optgroup key={c.key} label={t(c.title)}>
                 {ASSET_CATALOG.filter((a) => a.category === c.key).map((a) => (
                   <option key={a.id} value={a.id}>
-                    {thumbFor(a.id)} {a.name}
+                    {thumbFor(a.id)} {catalogName(`asset:${a.id}`, a.name)}
                   </option>
                 ))}
               </optgroup>
@@ -780,7 +790,7 @@ export function Library(): JSX.Element {
             className="panel-title"
             style={{ cursor: 'pointer', userSelect: 'none', display: 'flex', justifyContent: 'space-between' }}
             onClick={() => toggleCollapsed(group.key)}
-            title={collapsed[group.key] ? 'Expand' : 'Collapse'}
+            title={collapsed[group.key] ? t('library.expand') : t('library.collapse')}
           >
             <span>
               {group.title} <span style={{ opacity: 0.5 }}>({group.items.length})</span>
@@ -796,7 +806,7 @@ export function Library(): JSX.Element {
                   onClick={() => onPick(asset.id)}
                 >
                   <span className="thumb">{thumbFor(asset.id)}</span>
-                  <span className="name">{asset.name}</span>
+                  <span className="name">{catalogName(`asset:${asset.id}`, asset.name)}</span>
                 </div>
               ))}
             </div>
@@ -809,23 +819,23 @@ export function Library(): JSX.Element {
           className="btn primary"
           style={{ width: '100%', marginBottom: 8 }}
           onClick={() => void populateFromReference()}
-          title="Give Claude a reference photo or video frame — it stages the scene to match: people, furniture, poses, lighting, and a camera to match the framing"
+          title={t('library.populateTitle')}
         >
-          ✨ Populate from reference…
+          {t('library.populate')}
         </button>
         <button className="btn" style={{ width: '100%', marginBottom: 8 }} onClick={() => void onImport()}>
-          Import 3D Model…
+          {t('library.importModel')}
         </button>
         <button
           className="btn"
           style={{ width: '100%' }}
           onClick={() => void onImportScan()}
-          title="Load a Gaussian-splat scan of a real location (.ply/.splat/.ksplat/.spz) and block your scene inside it. Scan with any phone app (Polycam, Luma, Scaniverse) or a video-to-3D tool. Editor staging only — scans never appear in exports."
+          title={t('library.importScanTitle')}
         >
-          🏙 Import 3D Scan…
+          {t('library.importScan')}
         </button>
         <p style={{ color: 'var(--text-faint)', fontSize: 10.5, lineHeight: 1.4, margin: '6px 0 0' }}>
-          Scans: phone-capture a real location, then stage and block inside it.
+          {t('library.scansHint')}
         </p>
       </div>
     </>

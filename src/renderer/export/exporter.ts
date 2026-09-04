@@ -33,6 +33,7 @@ export interface ExportResult {
 }
 
 import { sanitizeName as sanitize } from '@engine/strings'
+import { t, tOr } from '../../i18n/core'
 
 function evenDim(n: number): number {
   const r = Math.round(n)
@@ -84,7 +85,7 @@ function getExportRenderer(): { canvas: HTMLCanvasElement; renderer: THREE.WebGL
 
 async function canvasPng(canvas: HTMLCanvasElement): Promise<ArrayBuffer> {
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-  if (!blob) throw new Error('PNG encode failed')
+  if (!blob) throw new Error(t('deliver.errorPngEncode'))
   return blob.arrayBuffer()
 }
 
@@ -245,16 +246,16 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
   const manager = getSceneManager()
   if (!doc || !scene || !shot || !folder || !manager) {
     const missing = !doc
-      ? 'no project open'
+      ? t('deliver.errorNoProject')
       : !scene || !shot
-        ? 'no shot selected'
+        ? t('deliver.errorNoShot')
         : !folder
-          ? 'project has no folder'
-          : 'viewport not ready'
-    return { ok: false, error: `Cannot export: ${missing}.` }
+          ? t('deliver.errorNoFolder')
+          : t('deliver.errorViewport')
+    return { ok: false, error: t('deliver.errorCannotExport', { reason: missing }) }
   }
   if (useStore.getState().exportProgress.running) {
-    return { ok: false, error: 'An export is already running.' }
+    return { ok: false, error: t('deliver.errorAlreadyRunning') }
   }
   const profile = getProfile(opts.profileId)
   const { width, height } = exportDims(profile, shot.aspect, opts.resolution ?? 'auto')
@@ -270,7 +271,7 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
 
   s.setExportProgress({
     running: true,
-    label: `Exporting ${shot.name}…`,
+    label: t('deliver.exportingShot', { name: shot.name }),
     frame: 0,
     totalFrames,
     cancelRequested: false,
@@ -283,6 +284,12 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
     let done = 0
     for (const pass of passes) {
       const suffix = pass === 'clean' ? 'reference' : pass
+      const passLabel =
+        pass === 'clean'
+          ? t('deliver.passReference')
+          : pass === 'depth'
+            ? t('deliver.passDepth')
+            : t('deliver.passNormal')
       const result = await renderPassToMp4(
         manager,
         `${pkg}/${sanitize(shot.name)}_${suffix}.mp4`,
@@ -292,7 +299,7 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
         height,
         opts.labels === 'on',
         (f) => {
-          s.setExportProgress({ frame: done + f, label: `Rendering ${suffix} pass…` })
+          s.setExportProgress({ frame: done + f, label: t('deliver.renderingPass', { pass: passLabel }) })
         },
         isCancelled
       )
@@ -304,7 +311,7 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
     }
 
     // --- Stills: every camera mark + first/last frame
-    s.setExportProgress({ label: 'Rendering stills…' })
+    s.setExportProgress({ label: t('deliver.renderingStills') })
     const { canvas, renderer } = getExportRenderer()
     canvas.width = width
     canvas.height = height
@@ -343,18 +350,18 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
     await window.blockout.exportWriteFile(
       `${pkg}/README.txt`,
       [
-        `Blockout export — ${scene.name} / Shot ${shot.name}`,
+        t('deliver.packageTitle', { scene: scene.name, shot: shot.name }),
         ``,
-        `Target: ${profile.name} (${profile.vendor})`,
-        profile.attachHint,
+        t('deliver.packageTarget', { profile: profile.name, vendor: profile.vendor }),
+        tOr(`profileHint.${profile.id}`, profile.attachHint),
         ``,
-        `Files:`,
-        `  *_reference.mp4   clean motion reference`,
-        opts.passes.depth ? `  *_depth.mp4       depth pass (structure conditioning)` : null,
-        opts.passes.normal ? `  *_normal.mp4      normal pass` : null,
-        `  stills/           frame at every camera mark + first/last + top-down blocking diagram`,
-        `  prompt.txt        copy-paste prompt tailored to ${profile.name}`,
-        `  metadata.json     machine-readable marks/lenses/timings`,
+        t('deliver.packageFiles'),
+        t('deliver.packageReference'),
+        opts.passes.depth ? t('deliver.packageDepth') : null,
+        opts.passes.normal ? t('deliver.packageNormal') : null,
+        t('deliver.packageStills'),
+        t('deliver.packagePrompt', { profile: profile.name }),
+        t('deliver.packageMetadata'),
         ``
       ]
         .filter((l): l is string => l !== null)
@@ -394,19 +401,19 @@ export async function exportStillAtPlayhead(
   const folder = s.projectFolder
   const manager = getSceneManager()
   if (!scene || !shot || !folder || !manager) {
-    return { ok: false, error: 'Open a project and select a shot first.' }
+    return { ok: false, error: t('deliver.errorOpenShot') }
   }
-  const t = s.time
+  const playheadTime = s.time
   const { width, height } = exportDims(getProfile(profileId), shot.aspect, resolution)
   const { canvas, renderer } = getExportRenderer()
   canvas.width = width
   canvas.height = height
   manager.suspendLive = true
   try {
-    manager.renderFrameAt(renderer, t, width, height, 'clean', { showLabels })
+    manager.renderFrameAt(renderer, playheadTime, width, height, 'clean', { showLabels })
     const png = await canvasPng(canvas)
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
-    const out = `${folder}/exports/${sanitize(scene.name)}/Shot-${sanitize(shot.name)}/frames/${sanitize(shot.name)}_${t.toFixed(2)}s_${stamp}.png`
+    const out = `${folder}/exports/${sanitize(scene.name)}/Shot-${sanitize(shot.name)}/frames/${sanitize(shot.name)}_${playheadTime.toFixed(2)}s_${stamp}.png`
     await window.blockout.exportWriteFile(out, png)
     s.setExportProgress({ lastPackagePath: out })
     return { ok: true, packagePath: out }
@@ -425,14 +432,14 @@ export async function exportAnimatic(
   const s = useStore.getState()
   const scene = s.scene()
   const folder = s.projectFolder
-  if (!scene || !folder) return { ok: false, error: 'No scene.' }
+  if (!scene || !folder) return { ok: false, error: t('deliver.errorNoScene') }
   // Stream-copy concat requires uniform codec parameters — mixed aspects or
   // frame rates would produce a file most players choke on.
   const formats = new Set(scene.shots.map((sh) => `${sh.aspect}@${sh.fps}`))
   if (formats.size > 1) {
     return {
       ok: false,
-      error: `Shots mix formats (${[...formats].join(', ')}) — set every shot in the scene to the same aspect and fps before exporting an animatic.`
+      error: t('deliver.errorMixedFormats', { formats: [...formats].join(', ') })
     }
   }
   const originalShot = s.shotId
@@ -450,7 +457,7 @@ export async function exportAnimatic(
     })
     if (!res.ok || !res.packagePath) {
       if (originalShot) s.selectShot(originalShot)
-      return { ok: false, error: res.error ?? 'shot export failed' }
+      return { ok: false, error: res.error ?? t('deliver.errorShotFailed') }
     }
     clips.push(`${res.packagePath}/${sanitize(shot.name)}_reference.mp4`)
   }
@@ -469,7 +476,7 @@ export async function exportContactSheet(): Promise<ExportResult> {
   const scene = s.scene()
   const folder = s.projectFolder
   const manager = getSceneManager()
-  if (!scene || !folder || !manager) return { ok: false, error: 'No scene.' }
+  if (!scene || !folder || !manager) return { ok: false, error: t('deliver.errorNoScene') }
   const originalShot = s.shotId
 
   const cell = { w: 640, h: 360 }
@@ -485,7 +492,7 @@ export async function exportContactSheet(): Promise<ExportResult> {
   ctx.fillRect(0, 0, sheet.width, sheet.height)
   ctx.fillStyle = '#ececf1'
   ctx.font = 'bold 28px -apple-system, sans-serif'
-  ctx.fillText(`${scene.name} — contact sheet`, pad, 42)
+  ctx.fillText(t('deliver.contactSheetTitle', { scene: scene.name }), pad, 42)
 
   const { canvas, renderer } = getExportRenderer()
   canvas.width = cell.w
@@ -525,7 +532,7 @@ export async function exportContactSheet(): Promise<ExportResult> {
   await new Promise((r) => setTimeout(r, 50))
 
   const blob = await new Promise<Blob | null>((r) => sheet.toBlob(r, 'image/png'))
-  if (!blob) return { ok: false, error: 'PNG encode failed' }
+  if (!blob) return { ok: false, error: t('deliver.errorPngEncode') }
   const out = `${folder}/exports/${sanitize(scene.name)}/contact-sheet.png`
   await window.blockout.exportWriteFile(out, await blob.arrayBuffer())
   return { ok: true, packagePath: out }

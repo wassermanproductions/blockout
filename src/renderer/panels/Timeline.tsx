@@ -12,14 +12,17 @@ import { useStore } from '../store'
 import { ShotEvaluator } from '@engine/evaluate'
 import { GAITS } from '@engine/gaits'
 import type { ActorMark, CameraMark, MarkBase, Scene, Shot } from '@engine/types'
+import { catalogName } from '../../i18n/catalog'
+import { t } from '../../i18n/core'
+import { useT } from '../../i18n/react'
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), hi)
 
 /** Human-readable label for a speed-warning suggestion. */
 function suggestionLabel(suggestion: string): string {
-  if (suggestion === 'addTime') return 'more time'
+  if (suggestion === 'addTime') return t('timeline.addTime')
   const g = GAITS[suggestion as keyof typeof GAITS]
-  return g ? g.name.toLowerCase() : suggestion
+  return g ? catalogName(`gait:${suggestion}`, g.name.toLowerCase()) : suggestion
 }
 
 interface TimelineLane {
@@ -39,6 +42,7 @@ interface DragState {
 }
 
 export function Timeline(): JSX.Element {
+  const i18n = useT()
   const scene = useStore((s) => s.scene())
   const shot = useStore((s) => s.shot())
   const time = useStore((s) => s.time)
@@ -87,7 +91,7 @@ export function Timeline(): JSX.Element {
   const laneLabelProps = (entityId: string | 'camera'): React.HTMLAttributes<HTMLSpanElement> => ({
     onClick: () => selectAllMarksInLane(entityId),
     style: { cursor: 'pointer' },
-    title: 'Click: select ALL marks in this lane (⌫ deletes them together)'
+    title: i18n('timeline.laneTitle')
   })
 
   const lanes: TimelineLane[] = []
@@ -96,7 +100,7 @@ export function Timeline(): JSX.Element {
     entityId: 'camera',
     label: (
       <span className="timeline-track-label" {...laneLabelProps('camera')}>
-        🎥 CAMERA
+        {i18n('timeline.cameraLane')}
       </span>
     ),
     marks: shot.camera.marks
@@ -256,7 +260,7 @@ export function Timeline(): JSX.Element {
       <div
         className="timeline-resizer"
         onPointerDown={onResizeStart}
-        title="Drag to resize the timeline"
+        title={i18n('timeline.resize')}
       />
       <div className="timeline-toolbar">
         <button className="btn small" onClick={() => setPlaying(!playing)}>
@@ -266,7 +270,7 @@ export function Timeline(): JSX.Element {
           t={time.toFixed(1)}s / {duration.toFixed(1)}s
         </span>
         <label className="timeline-field">
-          <span>Dur</span>
+          <span>{i18n('timeline.dur')}</span>
           <input
             type="number"
             min={0.5}
@@ -278,7 +282,7 @@ export function Timeline(): JSX.Element {
           />
         </label>
         <label className="timeline-field">
-          <span>fps</span>
+          <span>{t('viewport.fps')}</span>
           <select value={shot.fps} onChange={onFps} style={{ width: 58 }}>
             <option value={24}>24</option>
             <option value={25}>25</option>
@@ -289,18 +293,18 @@ export function Timeline(): JSX.Element {
           className="btn small"
           disabled={!anyMarks}
           onClick={() => useStore.getState().selectAllMarks()}
-          title={`Select every mark on every lane (${window.blockout.platform.primaryModifier}A) — then ⌫ deletes them all, or shift times together in the inspector`}
+          title={i18n('timeline.selectAllTitle', { mod: window.blockout.platform.primaryModifier })}
         >
-          Select all
+          {i18n('timeline.selectAll')}
         </button>
         <div className="timeline-warnings">
           {evaluator?.lineCrossings().map((c) => (
             <span
               key={`line-${c.fromMark}-${c.toMark}`}
               className="warning-chip"
-              title="The camera crosses the 180° line (the axis between your two lead characters) between these marks — screen direction will flip. Intentional crossings are fine; otherwise keep coverage on one side."
+              title={i18n('timeline.lineCrossTitle')}
             >
-              🎬 180° line crossed: cam mark {c.fromMark} → {c.toMark}
+              {i18n('timeline.lineCross', { from: c.fromMark, to: c.toMark })}
             </span>
           ))}
           {evaluator?.warnings().map((w) => (
@@ -312,8 +316,11 @@ export function Timeline(): JSX.Element {
                 setSelection({ kind: 'mark', entityId: w.entityId, markId: w.toMarkId })
               }
             >
-              ⚠ {w.entityName}: implied {w.verdict.impliedSpeed.toFixed(1)} m/s — try{' '}
-              {suggestionLabel(w.verdict.suggestion)}
+              {i18n('timeline.speedWarn', {
+                name: w.entityName,
+                speed: w.verdict.impliedSpeed.toFixed(1),
+                suggestion: suggestionLabel(w.verdict.suggestion)
+              })}
             </span>
           ))}
         </div>
@@ -356,7 +363,7 @@ export function Timeline(): JSX.Element {
         ))}
         {!anyMarks && (
           <div className="timeline-empty">
-            Select the camera or an actor and press M, then click the floor to drop marks.
+            {i18n('timeline.empty')}
           </div>
         )}
         <div className="playhead" style={{ left: playheadLeft }} />

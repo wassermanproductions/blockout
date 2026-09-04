@@ -16,6 +16,8 @@ import { Toasts } from './panels/Toasts'
 import { HelpOverlay, BlockingCoach } from './panels/Help'
 import logoUrl from './assets/logo.png'
 import { DISTRIBUTION } from '../shared/distribution'
+import { LocaleSwitcher } from '../i18n/LocaleSwitcher'
+import { useT } from '../i18n/react'
 
 const PLATFORM_CLASS = `platform-${window.blockout.platform.platform}`
 
@@ -37,6 +39,7 @@ function CreditLink({ url, children }: { url: string; children: string }): JSX.E
 }
 
 export function Credits({ compact = false }: { compact?: boolean }): JSX.Element {
+  const t = useT()
   return (
     <div
       style={{
@@ -47,7 +50,7 @@ export function Credits({ compact = false }: { compact?: boolean }): JSX.Element
         padding: compact ? '10px 12px' : 0
       }}
     >
-      Created by Sam Wasserman
+      {t('credits.createdBy')}
       {compact ? <br /> : ' · '}
       <CreditLink url="https://wassermanproductions.com">wassermanproductions.com</CreditLink>
       {' · '}
@@ -55,7 +58,7 @@ export function Credits({ compact = false }: { compact?: boolean }): JSX.Element
       {!compact && (
         <>
           <br />
-          Open source under Apache-2.0 — keep this credit when using or forking.
+          {t('credits.license')}
           {DISTRIBUTION.maintainerCredit && (
             <>
               <br />
@@ -69,6 +72,7 @@ export function Credits({ compact = false }: { compact?: boolean }): JSX.Element
 }
 
 function Welcome(): JSX.Element {
+  const t = useT()
   const newProject = useStore((s) => s.newProject)
   const loadFromJson = useStore((s) => s.loadFromJson)
   const toast = useStore((s) => s.toast)
@@ -87,18 +91,18 @@ function Welcome(): JSX.Element {
     if (!folder) return
     const { json, backupJson, backupNewer } = await window.blockout.loadProject(folder)
     if (!json && !backupJson) {
-      toast('No project.json found in that folder.', 'error')
+      toast(t('toast.noProjectJson'), 'error')
       return
     }
     // A meaningfully-newer autosave means the app died with unsaved work —
     // restore it (undo history is fresh either way; ⌘S makes it permanent).
     if (backupNewer && backupJson && loadFromJson(folder, backupJson)) {
-      toast('Restored unsaved work from the autosave backup — Save to keep it.', 'success')
+      toast(t('toast.restoredBackup'), 'success')
       return
     }
     if (json && loadFromJson(folder, json)) return
     if (backupJson && loadFromJson(folder, backupJson)) {
-      toast('Recovered from autosave backup.', 'success')
+      toast(t('toast.recoveredBackup'), 'success')
     }
   }, [loadFromJson, toast])
 
@@ -109,21 +113,19 @@ function Welcome(): JSX.Element {
         alt="Blockout"
         style={{ width: 260, height: 260, objectFit: 'contain', borderRadius: 16, marginBottom: -8 }}
       />
-      <p>
-        Stage a scene, choreograph camera and character blocking with marks, and export
-        motion-reference packages for AI video generators.
-      </p>
+      <p>{t('welcome.blurb')}</p>
       <div className="actions">
         <button className="btn primary" onClick={onNew}>
-          New Project
+          {t('welcome.newProject')}
         </button>
         <button className="btn" onClick={onOpen}>
-          Open Project…
+          {t('welcome.openProject')}
         </button>
         <button className="btn" onClick={() => useStore.getState().setHelpOpen(true)}>
-          ? Tutorial
+          {t('welcome.tutorial')}
         </button>
       </div>
+      <LocaleSwitcher compact />
       <Credits />
     </div>
   )
@@ -206,6 +208,7 @@ function useKeyboard(): void {
 }
 
 export function App(): JSX.Element {
+  const t = useT()
   const doc = useStore((s) => s.doc)
   const mode = useStore((s) => s.mode)
   const setMode = useStore((s) => s.setMode)
@@ -228,7 +231,9 @@ export function App(): JSX.Element {
     return (
       <div className={`app ${PLATFORM_CLASS}`}>
         <div className="titlebar">
-          <span className="app-name">BLOCKOUT</span>
+          <span className="app-name">{t('app.name')}</span>
+          <span style={{ flex: 1 }} />
+          <LocaleSwitcher />
         </div>
         <Welcome />
         <Toasts />
@@ -240,31 +245,32 @@ export function App(): JSX.Element {
   return (
     <div className={`app ${PLATFORM_CLASS}`}>
       <div className="titlebar">
-        <span className="app-name">BLOCKOUT</span>
+        <span className="app-name">{t('app.name')}</span>
         <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>
           {doc.name}
           {dirty ? ' •' : ''}
         </span>
         <div className="mode-switch">
           <button className={mode === 'stage' ? 'active' : ''} onClick={() => setMode('stage')}>
-            STAGE
+            {t('app.stage')}
           </button>
           <button className={mode === 'shoot' ? 'active' : ''} onClick={() => setMode('shoot')}>
-            SHOOT
+            {t('app.shoot')}
           </button>
           <button className={mode === 'deliver' ? 'active' : ''} onClick={() => setMode('deliver')}>
-            DELIVER
+            {t('app.deliver')}
           </button>
         </div>
+        <LocaleSwitcher />
         <button className="btn small" onClick={onSave}>
-          Save
+          {t('app.save')}
         </button>
         <button
           className="btn small"
-          title="Help: quick start, how-do-I answers, shortcuts (?)"
+          title={t('app.helpTitle')}
           onClick={() => useStore.getState().setHelpOpen(true)}
         >
-          ? Help
+          {t('app.help')}
         </button>
       </div>
 

@@ -12,6 +12,8 @@ export interface PlatformInfo {
   primaryModifier: '⌘' | 'Ctrl'
   alternateModifier: '⌥' | 'Alt'
   showInFolderLabel: 'Reveal in Finder' | 'Show in Folder'
+  /** When set (smoke tests / BLOCKOUT_LOCALE), the UI must not persist a language choice. */
+  forcedLocale?: 'en' | 'zh'
 }
 
 export interface BlockoutAPI {
@@ -61,6 +63,8 @@ export interface BlockoutAPI {
     cb: (id: string, action: string, params: unknown) => void
   ): () => void
   controlResult(id: string, result: { ok: boolean; data?: unknown; error?: string }): void
+  getLocale(): Promise<'en' | 'zh'>
+  setLocale(locale: 'en' | 'zh'): Promise<boolean>
   /** Analyze a reference image/video with Claude and return a scene layout. */
   analyzeReference(filePath: string): Promise<
     | {
@@ -85,12 +89,20 @@ export interface BlockoutAPI {
   >
 }
 
+const forcedLocale: 'en' | 'zh' | undefined =
+  process.env.BLOCKOUT_LOCALE === 'zh' || process.env.BLOCKOUT_LOCALE === 'en'
+    ? process.env.BLOCKOUT_LOCALE
+    : process.env.BLOCKOUT_SMOKE_DIR
+      ? 'en'
+      : undefined
+
 const platform: PlatformInfo = {
   platform: process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux',
   isMac: process.platform === 'darwin',
   primaryModifier: process.platform === 'darwin' ? '⌘' : 'Ctrl',
   alternateModifier: process.platform === 'darwin' ? '⌥' : 'Alt',
-  showInFolderLabel: process.platform === 'darwin' ? 'Reveal in Finder' : 'Show in Folder'
+  showInFolderLabel: process.platform === 'darwin' ? 'Reveal in Finder' : 'Show in Folder',
+  forcedLocale
 }
 
 const api: BlockoutAPI = {
@@ -130,6 +142,8 @@ const api: BlockoutAPI = {
   },
   controlResult: (id, result) => ipcRenderer.send('control:result', id, result),
   versions: () => ipcRenderer.invoke('app:versions'),
+  getLocale: () => ipcRenderer.invoke('i18n:getLocale'),
+  setLocale: (locale) => ipcRenderer.invoke('i18n:setLocale', locale),
   analyzeReference: (filePath) => ipcRenderer.invoke('ai:analyzeReference', filePath)
 }
 

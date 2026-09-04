@@ -2,6 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { useStore } from './store'
+import { applyDocumentLang, isLocaleForced, setLocale } from '../i18n/core'
 import {
   exportShot,
   exportStillAtPlayhead,
@@ -33,9 +34,22 @@ import type { AspectId } from '@engine/types'
 // External agents (MCP clients) drive the app through this whitelist.
 registerControlHandler()
 
-const root = createRoot(document.getElementById('root')!)
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
+async function bootstrap(): Promise<void> {
+  if (!isLocaleForced()) {
+    try {
+      setLocale(await window.blockout.getLocale())
+    } catch {
+      /* Keep the renderer-detected locale if main-process sync is unavailable. */
+    }
+  }
+  applyDocumentLang()
+
+  const root = createRoot(document.getElementById('root')!)
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  )
+}
+
+void bootstrap()

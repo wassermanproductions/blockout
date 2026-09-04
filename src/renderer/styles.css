@@ -616,6 +616,33 @@ input[type='color'] {
 }
 .titlebar .help-btn:hover { color: var(--accent); border-color: var(--accent); }
 
+.lang-switch {
+  display: flex;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+.lang-switch button {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.lang-switch button.active {
+  background: var(--bg-raised);
+  color: var(--text);
+}
+.lang-switch.compact { margin-top: 8px; justify-content: center; }
+
 /* --------------------------- v4 help redesign --------------------------- */
 
 .help-v4 { width: min(920px, 94vw); height: min(720px, 90vh); }

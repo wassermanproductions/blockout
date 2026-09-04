@@ -8,6 +8,7 @@
 
 import type { GeneratorProfile } from '@engine/profiles'
 import type { Shot } from '@engine/types'
+import { t } from '../../i18n/core'
 
 export function buildComfyWorkflow(
   profile: GeneratorProfile,
@@ -19,47 +20,43 @@ export function buildComfyWorkflow(
   const workflow = {
     _meta: {
       app: 'Blockout',
-      note:
-        `Depth-conditioned video workflow for ${profile.name}. ` +
-        `Place ${depthVideoFilename} in your ComfyUI input folder. ` +
-        `Swap the checkpoint/control model nodes for your installed ${profile.name} models, ` +
-        `then queue. Frame count and fps match the Blockout shot.`
+      note: t('comfy.note', { profile: profile.name, file: depthVideoFilename })
     },
     nodes: [
       {
         id: 1,
         type: 'VHS_LoadVideo',
-        title: 'Load Blockout depth pass',
+        title: t('comfy.loadDepth'),
         inputs: { video: depthVideoFilename, force_rate: shot.fps, frame_load_cap: frames }
       },
       {
         id: 2,
         type: 'CLIPTextEncode',
-        title: 'Prompt (from Blockout)',
+        title: t('comfy.prompt'),
         inputs: { text: prompt }
       },
       {
         id: 3,
         type: 'CLIPTextEncode',
-        title: 'Negative prompt',
+        title: t('comfy.negativePrompt'),
         inputs: { text: 'blurry, low quality, warped geometry, extra limbs' }
       },
       {
         id: 4,
         type: 'CheckpointLoaderSimple',
-        title: `${profile.name} checkpoint (replace with yours)`,
+        title: t('comfy.checkpoint', { profile: profile.name }),
         inputs: { ckpt_name: 'REPLACE_ME.safetensors' }
       },
       {
         id: 5,
         type: 'ControlNetLoader',
-        title: 'Depth control model (replace with yours)',
+        title: t('comfy.depthModel'),
         inputs: { control_net_name: 'REPLACE_ME_depth.safetensors' }
       },
       {
         id: 6,
         type: 'ControlNetApplyAdvanced',
-        title: 'Apply depth conditioning',
+        title: t('comfy.applyDepth'),
         inputs: {
           strength: 0.85,
           start_percent: 0,
@@ -73,7 +70,7 @@ export function buildComfyWorkflow(
       {
         id: 7,
         type: 'KSampler',
-        title: 'Sampler',
+        title: t('comfy.sampler'),
         inputs: {
           seed: shot.camera.seed,
           steps: 30,
@@ -89,7 +86,7 @@ export function buildComfyWorkflow(
       {
         id: 8,
         type: 'VHS_VideoCombine',
-        title: 'Save video',
+        title: t('comfy.saveVideo'),
         inputs: { frame_rate: shot.fps, format: 'video/h264-mp4', images: ['7', 0] }
       }
     ]

@@ -30,6 +30,8 @@ import { headingOf } from '@engine/path'
 import { CAMERA_MOVE_PRESETS } from '@engine/camera-moves'
 import type { Entity, LightingPresetId, Scene as DocScene, Shot } from '@engine/types'
 import { useStore, selectedEntityIds } from '../store'
+import { t } from '../../i18n/core'
+import { catalogName } from '../../i18n/catalog'
 import { on } from '../bus'
 import { buildAsset, markMesh, labelSprite, type BuiltAsset } from './builders'
 
@@ -461,20 +463,20 @@ export class SceneManager {
       if (visual) visual.loading = false
       toast(message, 'error')
     }
-    if (!projectFolder) return fail('Scan load failed: no open project folder.')
+    if (!projectFolder) return fail(t('toast.scanNoFolder'))
 
     const ext = file.toLowerCase().split('.').pop() ?? ''
     const format = { ply: SceneFormat.Ply, splat: SceneFormat.Splat, ksplat: SceneFormat.KSplat, spz: SceneFormat.Spz }[
       ext
     ]
-    if (format === undefined) return fail(`Scan format ".${ext}" is not supported (.ply/.splat/.ksplat/.spz).`)
+    if (format === undefined) return fail(t('toast.scanBadFormat', { ext }))
 
     let url: string
     try {
       const buffer = await window.blockout.readProjectFile(projectFolder, file)
       url = URL.createObjectURL(new Blob([buffer]))
     } catch (e) {
-      return fail(`Scan load failed: ${(e as Error).message}`)
+      return fail(t('toast.scanLoadFailed', { error: (e as Error).message }))
     }
 
     const stale = (): boolean => {
@@ -576,7 +578,7 @@ export class SceneManager {
         visual.customLoaded = true
       })
     } catch (e) {
-      useStore.getState().toast(`Could not load model: ${String(e)}`, 'error')
+      useStore.getState().toast(t('toast.modelFailed', { error: String(e) }), 'error')
     }
   }
 
@@ -1329,7 +1331,7 @@ export class SceneManager {
     const s = this.currentState()
     const ids = selectedEntityIds(s.selection)
     if (ids.length === 0) {
-      s.toast('Select something to snap to the ground first.', 'info')
+      s.toast(t('toast.snapFirst'), 'info')
       return
     }
     const updates = new Map<string, number>()
@@ -1422,7 +1424,7 @@ export class SceneManager {
       subjectId = person?.id ?? this.docScene?.entities[0]?.id ?? null
     }
     if (!subjectId || !this.shot || !this.evaluator) {
-      s.toast('Place a subject first, then auto-frame.', 'info')
+      s.toast(t('toast.frameFirst'), 'info')
       return
     }
     const state = this.evaluator.evaluate(s.time)
@@ -1561,7 +1563,7 @@ export class SceneManager {
       camState.position.z
     )
     if (subjects.length === 0) {
-      s.toast('Place at least one character first.', 'info')
+      s.toast(t('toast.placeCharacter'), 'info')
       return
     }
     const primary = subjects[0]!
@@ -1585,7 +1587,7 @@ export class SceneManager {
         mark ? mark.tilt : tilt,
         next
       )
-      s.toast(next === 0 ? 'Horizon level' : `Dutch ${next > 0 ? 'right' : 'left'}`, 'info')
+      s.toast(next === 0 ? t('toast.horizonLevel') : next > 0 ? t('toast.dutchRight') : t('toast.dutchLeft'), 'info')
       return
     }
 
@@ -1604,7 +1606,7 @@ export class SceneManager {
 
     if (kind === 'OTS') {
       if (subjects.length < 2) {
-        s.toast('Over-the-shoulder needs two characters — select both.', 'info')
+        s.toast(t('toast.otsNeedTwo'), 'info')
         return
       }
       // Foreground shoulder = the subject closer to the current camera.
@@ -1661,7 +1663,7 @@ export class SceneManager {
     // 2S — group framing perpendicular to the pair (works for 3/4-shots too:
     // it fits however many subjects are selected).
     if (subjects.length < 2) {
-      s.toast('A two-shot needs two characters — select them first.', 'info')
+      s.toast(t('toast.twoShotNeedTwo'), 'info')
       return
     }
     const a = subjects[0]!
@@ -1708,7 +1710,7 @@ export class SceneManager {
     const subjects = this.framingSubjects()
     const subject = subjects[0]
     if (!subject) {
-      s.toast('Place a subject first — camera moves are built around one.', 'info')
+      s.toast(t('toast.moveNeedsSubject'), 'info')
       return
     }
     const entity = this.docScene.entities.find((e) => e.id === subject.id)!
@@ -1761,7 +1763,10 @@ export class SceneManager {
     })
     s.setSelection({ kind: 'camera' })
     s.toast(
-      `${preset.name} on ${entity.label?.text || entity.name} — ▶ to watch, then drag any mark to adjust.`,
+      t('toast.cameraMoveOn', {
+        move: catalogName(`move:${preset.id}`, preset.name),
+        name: entity.label?.text || entity.name
+      }),
       'success'
     )
   }
@@ -1833,12 +1838,7 @@ export class SceneManager {
     }
 
     if (this.recTarget === 'camera') {
-      s.toast(
-        this.recPlaybackSynced
-          ? 'Recording camera — the blocking replays while you fly the viewport. Stops at the end of the shot.'
-          : 'Recording — fly the viewport; the shot camera follows. Click ■ to stop.',
-        'info'
-      )
+      s.toast(this.recPlaybackSynced ? t('toast.recCamSynced') : t('toast.recCamFree'), 'info')
     } else {
       // Start the flight plane at the entity's current altitude so props
       // already in the air (or on tables) record from where they sit.
@@ -1846,12 +1846,7 @@ export class SceneManager {
       this.recHeight = startPos?.y ?? 0
       this.recCursor.copy(startPos ?? new THREE.Vector3())
       this.controls.enableZoom = false // wheel = altitude while puppeteering
-      s.toast(
-        this.recPlaybackSynced
-          ? 'Recording performance — steer with the cursor while the rest replays. Scroll = altitude.'
-          : 'Recording performance — steer with the cursor; scroll wheel raises/lowers it (fly a plate, a plane, debris). Click ■ to stop.',
-        'info'
-      )
+      s.toast(this.recPlaybackSynced ? t('toast.recPerfSynced') : t('toast.recPerfFree'), 'info')
     }
   }
 
@@ -1874,7 +1869,7 @@ export class SceneManager {
     const samples = this.recSamples
     this.recSamples = []
     if (!shotId || samples.length < 5) {
-      if (samples.length > 0) s.toast('Recording too short — nothing saved.', 'info')
+      if (samples.length > 0) s.toast(t('toast.recTooShort'), 'info')
       return
     }
     const length = this.recPlaybackSynced
@@ -1917,10 +1912,7 @@ export class SceneManager {
     s.setLookThrough(true)
     s.setTime(0)
     s.setPlaying(true)
-    s.toast(
-      `Recorded ${length.toFixed(1)}s — playing back your shot. Press C to exit the camera view.`,
-      'success'
-    )
+    s.toast(t('toast.recCamSaved', { duration: length.toFixed(1) }), 'success')
   }
 
   /** Convert a puppeteered entity performance into actor marks. */
@@ -1931,7 +1923,7 @@ export class SceneManager {
     const samples = this.entitySamples
     this.entitySamples = []
     if (!shotId || samples.length < 5) {
-      if (samples.length > 0) s.toast('Recording too short — nothing saved.', 'info')
+      if (samples.length > 0) s.toast(t('toast.recTooShort'), 'info')
       return
     }
     const length = this.recPlaybackSynced
@@ -1984,7 +1976,7 @@ export class SceneManager {
     s.setTime(0)
     s.setPlaying(true)
     s.toast(
-      `Performance recorded — ${marks.length} marks over ${length.toFixed(1)}s. Now select the camera and ● Record to fly it while this replays.`,
+      t('toast.recPerfSaved', { count: marks.length, duration: length.toFixed(1) }),
       'success'
     )
   }

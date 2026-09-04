@@ -9,6 +9,7 @@ import { useStore } from '../store'
 import { createEntity, createCameraMark } from '@engine/schema'
 import { assetSpec } from '@engine/assets'
 import type { GaitId } from '@engine/types'
+import { t } from '../../i18n/core'
 
 const DEG2RAD = Math.PI / 180
 
@@ -16,11 +17,11 @@ export async function populateFromReference(): Promise<void> {
   const s = useStore.getState()
   if (!s.doc || !s.sceneId) return
   const file = await window.blockout.pickFile([
-    { name: 'Reference image or video', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'webm', 'm4v'] }
+    { name: t('dialog.referenceFilter'), extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'webm', 'm4v'] }
   ])
   if (!file) return
 
-  s.toast('Analyzing reference with Claude — this takes ~30–90 seconds…', 'info')
+  s.toast(t('toast.analyzing'), 'info')
   const result = await window.blockout.analyzeReference(file)
   if (!result.ok) {
     s.toast(result.error, 'error')
@@ -37,7 +38,11 @@ export async function populateFromReference(): Promise<void> {
 
     for (const item of layout.entities) {
       const spec = assetSpec(item.assetId)
-      const entity = createEntity(item.assetId, spec.name, { x: item.x, y: 0, z: item.z })
+      const entity = createEntity(item.assetId, spec.name, {
+        x: item.x,
+        y: 0,
+        z: item.z
+      })
       entity.transform.rotationY = item.rotationDeg * DEG2RAD
       if (item.scale && item.scale > 0 && Math.abs(item.scale - 1) > 0.01) {
         entity.transform.scale = Math.min(5, Math.max(0.1, item.scale))
@@ -72,8 +77,9 @@ export async function populateFromReference(): Promise<void> {
   })
 
   const camNote =
-    useStore.getState().shot()?.camera.marks.length === 1
-      ? ' Camera Mark 1 set to match the reference framing — check the shot preview.'
-      : ''
-  s.toast(`Staged ${layout.entities.length} elements from the reference.${camNote} ${layout.notes}`, 'success')
+    useStore.getState().shot()?.camera.marks.length === 1 ? t('toast.camNote') : ''
+  s.toast(
+    t('toast.stagedFromRef', { count: layout.entities.length, camNote, notes: layout.notes }),
+    'success'
+  )
 }
