@@ -69,6 +69,52 @@ function catmullRom(seg: Segment, t: number): V3 {
   return lerpV(b1, b2, t1, t2, tt)
 }
 
+/**
+ * Points just outside a path's ends, used only to shape the end tangents.
+ * Passing the neighbouring legs' points makes consecutive legs join with a
+ * continuous tangent instead of a corner.
+ */
+export interface PathEnds {
+  before?: V3
+  after?: V3
+  /**
+   * When a neighbour is missing, extrapolate it quadratically from the next
+   * two points (continuing the path's bend) instead of mirroring the first
+   * segment, so an arc keeps its curvature right up to its ends.
+   */
+  extrapolate?: boolean
+}
+
+/** Neighbours closer than this are treated as absent (avoids degenerate tangents). */
+const MIN_NEIGHBOUR_DIST = 1e-4
+
+/** Extrapolate only when consecutive spacings are within this ratio of each other. */
+const MAX_SPACING_RATIO = 3
+
+/**
+ * The point one |ab| step before `a` on the chord-length-parameterized
+ * parabola through a → b → c, continuing the path's bend past its end.
+ * Returns undefined when the spacing is too uneven for a parabola to be a
+ * safe guess (it can swing behind `a`); callers then mirror the first
+ * segment as before.
+ */
+function quadraticExtrapolate(a: V3, b: V3, c: V3): V3 | undefined {
+  const d1 = dist(a, b)
+  const d2 = dist(b, c)
+  if (d1 < MIN_NEIGHBOUR_DIST || d2 < MIN_NEIGHBOUR_DIST) return undefined
+  if (d2 / d1 > MAX_SPACING_RATIO || d1 / d2 > MAX_SPACING_RATIO) return undefined
+  // Lagrange weights for nodes a@0, b@d1, c@d1+d2 evaluated at −d1
+  // (with equal spacing these reduce to 3, −3, 1).
+  const wa = (2 * (2 * d1 + d2)) / (d1 + d2)
+  const wb = -(2 * d1 + d2) / d2
+  const wc = (2 * d1 * d1) / ((d1 + d2) * d2)
+  return {
+    x: wa * a.x + wb * b.x + wc * c.x,
+    y: wa * a.y + wb * b.y + wc * c.y,
+    z: wa * a.z + wb * b.z + wc * c.z
+  }
+}
+
 export class Path {
   private points: V3[]
   private samples: V3[] = []
@@ -78,16 +124,32 @@ export class Path {
   /**
    * @param points ordered control points the path passes through
    *               (departure mark, via…, arrival mark)
+   * @param ends   optional points beyond the first/last control point; when
+   *               omitted the end tangent is mirrored from the path itself
    */
-  constructor(points: V3[], samplesPerSegment = 32) {
+  constructor(points: V3[], samplesPerSegment = 32, ends: PathEnds = {}) {
     this.points = points.length >= 2 ? points : [points[0] ?? v3(), points[0] ?? v3()]
     const pts = this.points
+    const first = pts[0]!
+    const last = pts[pts.length - 1]!
+    let before = ends.before && dist(ends.before, first) > MIN_NEIGHBOUR_DIST ? ends.before : undefined
+    let after = ends.after && dist(ends.after, last) > MIN_NEIGHBOUR_DIST ? ends.after : undefined
+    if (ends.extrapolate) {
+      // Third point along the path in each direction (a real neighbour counts).
+      const n = pts.length
+      const fwd = pts[2] ?? after
+      const back = pts[n - 3] ?? before
+      before ??= fwd && n >= 2 ? quadraticExtrapolate(first, pts[1]!, fwd) : undefined
+      after ??= back && n >= 2 ? quadraticExtrapolate(last, pts[n - 2]!, back) : undefined
+    }
     const segs: Segment[] = []
     for (let i = 0; i < pts.length - 1; i++) {
       const p1 = pts[i]!
       const p2 = pts[i + 1]!
-      const p0 = pts[i - 1] ?? { x: p1.x + (p1.x - p2.x), y: p1.y + (p1.y - p2.y), z: p1.z + (p1.z - p2.z) }
-      const p3 = pts[i + 2] ?? { x: p2.x + (p2.x - p1.x), y: p2.y + (p2.y - p1.y), z: p2.z + (p2.z - p1.z) }
+      const p0 =
+        pts[i - 1] ?? before ?? { x: p1.x + (p1.x - p2.x), y: p1.y + (p1.y - p2.y), z: p1.z + (p1.z - p2.z) }
+      const p3 =
+        pts[i + 2] ?? after ?? { x: p2.x + (p2.x - p1.x), y: p2.y + (p2.y - p1.y), z: p2.z + (p2.z - p1.z) }
       segs.push({ p0, p1, p2, p3 })
     }
 

@@ -10,9 +10,10 @@
 
 import { assetSpec, entityHeight } from './assets'
 import { verticalFov } from './camera'
-import { easedProgress, lerp, lerpAngle, smoothstep } from './easing'
+import { buildCameraTangents, hermite, type LegTangents } from './camera-orient'
+import { easedProgress, lerp, smoothstep } from './easing'
 import { GAITS, checkSpeed, type SpeedVerdict } from './gaits'
-import { Path, headingOf } from './path'
+import { Path, headingOf, type PathEnds } from './path'
 import { RigNoise } from './rigs'
 import type {
   ActorMark,
@@ -56,7 +57,12 @@ interface Leg<M extends MarkBase> {
   distanceBefore: number
 }
 
-function buildLegs<M extends MarkBase>(marks: M[]): Leg<M>[] {
+/**
+ * @param smoothJoins shape each leg's end tangents from the neighbouring
+ *        legs so consecutive legs join without a corner (used for the
+ *        camera; actor blocking keeps its mark-to-mark corners).
+ */
+function buildLegs<M extends MarkBase>(marks: M[], smoothJoins = false): Leg<M>[] {
   const sorted = [...marks].sort((a, b) => a.time - b.time)
   const legs: Leg<M>[] = []
   let distanceBefore = 0
@@ -68,7 +74,19 @@ function buildLegs<M extends MarkBase>(marks: M[]): Leg<M>[] {
     const departTime = Math.min(from.time + from.hold, Math.max(from.time, to.time - 0.1))
     const arriveTime = Math.max(to.time, departTime + 0.001)
     const points: V3[] = [from.position, ...(to.via ?? []), to.position]
-    const path = new Path(points)
+    let ends: PathEnds = {}
+    if (smoothJoins) {
+      const prev = sorted[i - 1]
+      const next = sorted[i + 2]
+      ends = {
+        // The point travelled through just before `from`: its last via, else the previous mark.
+        before: prev ? (from.via?.length ? from.via[from.via.length - 1] : prev.position) : undefined,
+        // The point travelled through just after `to`: the next leg's first via, else the next mark.
+        after: next ? (next.via?.length ? next.via[0] : next.position) : undefined,
+        extrapolate: true
+      }
+    }
+    const path = new Path(points, 32, ends)
     legs.push({ from, to, departTime, arriveTime, path, distanceBefore })
     distanceBefore += path.length
   }
@@ -165,6 +183,7 @@ export class ShotEvaluator {
   readonly scene: Scene
   readonly shot: Shot
   private cameraLegs: Leg<CameraMark>[]
+  private cameraTangents: LegTangents[]
   private entityLegs = new Map<string, { entity: Entity; marks: ActorMark[]; legs: Leg<ActorMark>[] }>()
   private rigNoise: RigNoise
   private staticEntities: Entity[] = []
@@ -172,7 +191,8 @@ export class ShotEvaluator {
   constructor(scene: Scene, shot: Shot) {
     this.scene = scene
     this.shot = shot
-    this.cameraLegs = shot.camera.marks.length >= 2 ? buildLegs(shot.camera.marks) : []
+    this.cameraLegs = shot.camera.marks.length >= 2 ? buildLegs(shot.camera.marks, true) : []
+    this.cameraTangents = buildCameraTangents(this.cameraLegs)
     this.rigNoise = new RigNoise(shot.camera.rig, shot.camera.seed)
 
     const take = scene.blocking.find((b) => b.id === shot.blockingTakeId) ?? scene.blocking[0]
@@ -413,11 +433,15 @@ export class ShotEvaluator {
       const r = evaluateTrack(marks, this.cameraLegs, time)
       position = r.position
       if (r.leg) {
-        const u = smoothstep(easedProgress(r.legProgress, r.leg.from.easeOut, r.leg.to.easeIn))
-        pan = lerpAngle(r.leg.from.pan, r.leg.to.pan, u)
-        tilt = lerpAngle(r.leg.from.tilt, r.leg.to.tilt, u)
-        roll = lerpAngle(r.leg.from.roll, r.leg.to.roll, u)
-        focalLength = lerp(r.leg.from.focalLength, r.leg.to.focalLength, u)
+        // Orientation & lens follow the travel's own easing, with tangents
+        // that carry the turn rate through marks (see camera-orient.ts).
+        const s = easedProgress(r.legProgress, r.leg.from.easeOut, r.leg.to.easeIn)
+        const curves = this.cameraTangents[this.cameraLegs.indexOf(r.leg)]!
+        pan = hermite(s, curves.pan)
+        tilt = hermite(s, curves.tilt)
+        roll = hermite(s, curves.roll)
+        focalLength = Math.max(1, hermite(s, curves.focalLength))
+        const u = smoothstep(s)
         const f0 = r.leg.from.focusDistance
         const f1 = r.leg.to.focusDistance
         focusDistance = f0 !== undefined && f1 !== undefined ? lerp(f0, f1, u) : (f1 ?? f0)
