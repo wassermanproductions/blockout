@@ -8,7 +8,8 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
 import { mkdir, readFile, writeFile, copyFile, stat, rm } from 'fs/promises'
-import { join, dirname, basename, extname, resolve, sep } from 'path'
+import { join, dirname, basename, extname, resolve, sep, isAbsolute } from 'path'
+import { existsSync } from 'fs'
 import { registerPresetsIpc } from './presets'
 import { startControlServer } from './control'
 import { friendlyFfmpegError, resolveFfmpeg, terminateProcessTree } from './ffmpeg'
@@ -89,6 +90,17 @@ ipcMain.handle('dialog:newProject', async () => {
   const name = sanitizeName(basename(withoutExtension))
   const folder = join(dirname(withoutExtension), `${name}.blockout`)
   await mkdir(folder, { recursive: true })
+  await mkdir(join(folder, 'assets'), { recursive: true })
+  await mkdir(join(folder, 'exports'), { recursive: true })
+  return { folder, name }
+})
+
+// The agent-control twin of dialog:newProject — same folder layout, no dialog.
+ipcMain.handle('project:createAt', async (_e, parentDir: string, rawName: string) => {
+  if (typeof parentDir !== 'string' || !isAbsolute(parentDir)) throw new Error('parentDir must be an absolute path.')
+  const name = sanitizeName(String(rawName ?? '').replace(/\.blockout$/i, '')) || 'Untitled'
+  const folder = join(parentDir, `${name}.blockout`)
+  if (existsSync(join(folder, 'project.json'))) throw new Error(`A project already exists at ${folder} — use open_project.`)
   await mkdir(join(folder, 'assets'), { recursive: true })
   await mkdir(join(folder, 'exports'), { recursive: true })
   return { folder, name }

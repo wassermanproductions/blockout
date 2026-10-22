@@ -7,11 +7,12 @@
  * does is undoable, autosaved, and visible live.
  */
 
-import { useStore } from '../store'
+import { useStore, currentProjectJson } from '../store'
 import { ASSET_CATALOG, assetSpec } from '@engine/assets'
 import { createActorMark, createCameraMark } from '@engine/schema'
 import { newId } from '@engine/ids'
-import { renderStillPngForTest } from '../export/exporter'
+import { BUILTIN_PROFILES } from '@engine/profiles'
+import { renderStillPngForTest, exportShot } from '../export/exporter'
 import { getSceneManager } from '../export/scene-access'
 import type { AspectId, GaitId } from '@engine/types'
 import type { ChoreoKind, FormationId, RoutineSpec } from '@engine/choreography'
@@ -628,6 +629,97 @@ async function execute(action: string, params: Params): Promise<unknown> {
       })
       if (!attached) throw new Error('No active shot to attach the reference to.')
       return { attached: true, handoffVersion: 1, path: imported.relativePath, mode, opacity }
+    }
+
+    /* ---- project, shot selection and export without the UI ---- */
+
+    case 'new_project': {
+      // Same as Welcome → New Project, minus the save dialog: parentDir/<name>.blockout
+      const parentDir = str(params, 'parentDir')
+      const name = str(params, 'name')
+      if (!parentDir || !name) throw new Error('parentDir (absolute folder) and name are required.')
+      const created = await window.blockout.createProjectAt(parentDir, name)
+      useStore.getState().newProject(created.folder, created.name)
+      const json = currentProjectJson()
+      if (json) await window.blockout.saveProject(created.folder, json)
+      return { folder: created.folder, name: created.name }
+    }
+
+    case 'open_project': {
+      // Same as Welcome → Open Project, minus the folder dialog (autosave restore included)
+      const folder = str(params, 'folder')
+      if (!folder) throw new Error('folder (absolute path to a .blockout folder) is required.')
+      const { json, backupJson, backupNewer } = await window.blockout.loadProject(folder)
+      if (!json && !backupJson) throw new Error('No project.json found in that folder.')
+      const load = useStore.getState().loadFromJson
+      const restored = !!(backupNewer && backupJson && load(folder, backupJson))
+      if (!restored && !(json && load(folder, json)) && !(backupJson && load(folder, backupJson))) {
+        throw new Error('Could not read the project in that folder.')
+      }
+      return { folder, restoredAutosave: restored, ...(summary() as object) }
+    }
+
+    case 'save_project': {
+      requireDoc()
+      const folder = useStore.getState().projectFolder
+      const json = currentProjectJson()
+      if (!folder || !json) throw new Error('Nothing to save.')
+      await window.blockout.saveProject(folder, json)
+      return { saved: folder }
+    }
+
+    case 'list_shots': {
+      requireDoc()
+      const st = useStore.getState()
+      return (st.doc?.scenes ?? []).map((sc) => ({
+        sceneId: sc.id,
+        scene: sc.name,
+        shots: sc.shots.map((sh) => ({
+          id: sh.id,
+          name: sh.name,
+          duration: sh.duration,
+          fps: sh.fps,
+          aspect: sh.aspect,
+          cameraMarks: sh.camera.marks.length,
+          active: sh.id === st.shotId
+        }))
+      }))
+    }
+
+    case 'select_shot': {
+      requireDoc()
+      const st = useStore.getState()
+      const want = str(params, 'shotId') ?? str(params, 'name')
+      if (!want) throw new Error('shotId or name is required — call list_shots.')
+      for (const sc of st.doc?.scenes ?? []) {
+        const sh = sc.shots.find((x) => x.id === want || x.name === want)
+        if (!sh) continue
+        if (sc.id !== st.sceneId) st.selectScene(sc.id)
+        useStore.getState().selectShot(sh.id)
+        if (useStore.getState().shotId !== sh.id) throw new Error('An export is running — try again when it finishes.')
+        return { sceneId: sc.id, shotId: sh.id, name: sh.name }
+      }
+      throw new Error(`No shot "${want}" — call list_shots.`)
+    }
+
+    case 'list_profiles':
+      return BUILTIN_PROFILES.map((p) => ({ id: p.id, name: p.name, vendor: p.vendor, kind: p.kind, maxDuration: p.maxDuration }))
+
+    case 'export_shot': {
+      // The Deliver panel's "Export shot package", for the active shot (or shotId/name first).
+      requireDoc()
+      const want = str(params, 'shotId') ?? str(params, 'name')
+      if (want) await execute('select_shot', { shotId: want })
+      const labels = str(params, 'labels')
+      const resolution = str(params, 'resolution')
+      const res = await exportShot({
+        profileId: str(params, 'profileId') ?? 'seedance-2',
+        passes: { clean: true, depth: bool(params, 'depth') ?? true, normal: bool(params, 'normal') ?? false },
+        labels: labels === 'on' || labels === 'stillsOnly' ? labels : 'off',
+        resolution: resolution === 'auto' || resolution === '1080p' ? resolution : '720p'
+      })
+      if (!res.ok) throw new Error(res.error ?? 'Export failed.')
+      return { shot: useStore.getState().shot()?.name, packagePath: res.packagePath }
     }
 
     case 'list_presets':

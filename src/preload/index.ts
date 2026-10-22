@@ -18,6 +18,8 @@ export interface BlockoutAPI {
   readonly platform: PlatformInfo
   newProjectDialog(): Promise<{ folder: string; name: string } | null>
   openProjectDialog(): Promise<string | null>
+  /** Create <parentDir>/<name>.blockout without the save dialog (agent control). */
+  createProjectAt(parentDir: string, name: string): Promise<{ folder: string; name: string }>
   pickFile(filters: { name: string; extensions: string[] }[]): Promise<string | null>
   saveProject(folder: string, json: string): Promise<boolean>
   saveBackup(folder: string, json: string): Promise<boolean>
@@ -97,6 +99,7 @@ const api: BlockoutAPI = {
   platform,
   newProjectDialog: () => ipcRenderer.invoke('dialog:newProject'),
   openProjectDialog: () => ipcRenderer.invoke('dialog:openProject'),
+  createProjectAt: (parentDir, name) => ipcRenderer.invoke('project:createAt', parentDir, name),
   pickFile: (filters) => ipcRenderer.invoke('dialog:pickFile', filters),
   saveProject: (folder, json) => ipcRenderer.invoke('project:save', folder, json),
   saveBackup: (folder, json) => ipcRenderer.invoke('project:saveBackup', folder, json),

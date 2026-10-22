@@ -413,6 +413,78 @@ const TOOLS = [
       additionalProperties: false
     }
   },
+  /* ---- project, shot selection and export without the UI ---- */
+  {
+    name: 'new_project',
+    description:
+      'Create a new project at <parentDir>/<name>.blockout and open it — the Welcome screen\'s New Project without the save dialog. Fails if a project already exists there (use open_project).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        parentDir: { type: 'string', description: 'Absolute folder to create the project in, e.g. /Users/me/Documents.' },
+        name: { type: 'string', description: 'Project name (".blockout" is added).' }
+      },
+      required: ['parentDir', 'name'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'open_project',
+    description:
+      'Open an existing .blockout project folder (restores a newer autosave like the UI does). Returns the project summary.',
+    inputSchema: {
+      type: 'object',
+      properties: { folder: { type: 'string', description: 'Absolute path to the .blockout folder.' } },
+      required: ['folder'],
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'save_project',
+    description: 'Save the open project to its folder (⌘S).',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+  },
+  {
+    name: 'list_shots',
+    description: 'Every scene and its shots (id, name, duration, fps, aspect, camera-mark count, which one is active).',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+  },
+  {
+    name: 'select_shot',
+    description:
+      'Make a shot the active one (camera marks, set_shot, screenshot and export_shot act on the active shot). Accepts the shot id or its name.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        shotId: { type: 'string', description: 'Shot id or name from list_shots.' },
+        name: { type: 'string', description: 'Alternative to shotId: the shot name, e.g. "1A".' }
+      },
+      additionalProperties: false
+    }
+  },
+  {
+    name: 'list_profiles',
+    description: 'The generator profiles export_shot can target (id, name, vendor, kind, max duration).',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false }
+  },
+  {
+    name: 'export_shot',
+    description:
+      "The Deliver panel's Export shot package for the active shot (or shotId/name first): reference MP4 + depth pass + stills + prompt.txt + metadata into the project's exports/ folder. Returns packagePath. Defaults: profileId seedance-2, resolution 720p, labels off, depth on, normal off.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        shotId: { type: 'string', description: 'Optional shot id or name to select first.' },
+        name: { type: 'string', description: 'Optional shot name to select first.' },
+        profileId: { type: 'string', description: 'Generator profile id from list_profiles (default seedance-2).' },
+        resolution: { type: 'string', enum: ['auto', '720p', '1080p'], description: 'Default 720p.' },
+        labels: { type: 'string', enum: ['on', 'stillsOnly', 'off'], description: 'Subject labels burned in: default off.' },
+        depth: { type: 'boolean', description: 'Render the depth pass (default true).' },
+        normal: { type: 'boolean', description: 'Render the normal pass (default false).' }
+      },
+      additionalProperties: false
+    }
+  },
   {
     name: 'import_scan',
     description:
