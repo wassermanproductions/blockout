@@ -218,6 +218,26 @@ function buildPerson(assetId: string, params?: Record<string, number | string>):
   headMesh.position.y = headR + 0.06 * s
   head.add(headMesh)
 
+  // A readable FRONT, so an image/video model can tell which way the figure
+  // faces (front is −Z). Untinted (no origColor) so the label tint can't wash it out:
+  // dark eyes, a nose, and a pale bib on the chest. The back stays plain.
+  const untinted = (m: THREE.Mesh): THREE.Mesh => {
+    delete (m.userData as TintUserData).origColor
+    m.castShadow = false
+    return m
+  }
+  for (const side of [-1, 1]) {
+    const eye = untinted(sphere(headR * 0.16, 0x16161a, 8))
+    eye.position.set(side * headR * 0.36, headMesh.position.y + headR * 0.12, -headR * 0.9)
+    head.add(eye)
+  }
+  const nose = untinted(box(headR * 0.18, headR * 0.3, headR * 0.3, 0xd9d9de))
+  nose.position.set(0, headMesh.position.y - headR * 0.12, -headR * 1.02)
+  head.add(nose)
+  const bib = untinted(box(bodyW * 0.55, torsoLen * 0.38, 0.02 * s, 0xe8e8ec))
+  bib.position.set(0, torsoLen * 0.62, -bodyW * 0.5)
+  torso.add(bib)
+
   // Arms — shoulders at top of torso.
   const shoulderY = torsoLen * 0.92
   const armR = 0.055 * s * w

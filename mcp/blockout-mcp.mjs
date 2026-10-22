@@ -414,6 +414,19 @@ const TOOLS = [
     }
   },
   {
+    name: 'shot_brief',
+    description:
+      "What the active (or named) shot's camera actually sees — only on-screen subjects (ray-tested occlusion), where each sits in frame (left/center/right, top/middle/bottom, foreground/midground/background), and each performer's facing and travel relative to THIS camera (facing / back to the camera, walks toward / away, ends next to …). Use it to write per-shot prompts that mention only what is visible. Export packages include it as brief.json.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        shotId: { type: 'string', description: 'Optional shot id or name to select first.' },
+        name: { type: 'string', description: 'Optional shot name to select first.' }
+      },
+      additionalProperties: false
+    }
+  },
+  {
     name: 'import_scan',
     description:
       "Import a Gaussian-splat / photogrammetry scan (.ply/.splat/.spz/.ksplat) as an environment. The file is copied into the project's scans/ folder and attached to the current scene. Scans are editor-only reference geometry — visible while you block, never rendered into any export pass. Returns the created scan (id, name, transform).",

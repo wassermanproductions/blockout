@@ -150,6 +150,7 @@ test('exports a real package: video + stills + prompt + metadata', async () => {
   expect(depthMp4).toBeTruthy()
   expect(files).toContain('prompt.txt')
   expect(files).toContain('metadata.json')
+  expect(files).toContain('brief.json')
   expect(files).toContain('README.txt')
 
   // Video correctness via ffprobe: duration ≈ 5s, 24fps, correct resolution.
@@ -184,4 +185,12 @@ test('exports a real package: video + stills + prompt + metadata', async () => {
   const meta = JSON.parse(readFileSync(join(pkg, 'metadata.json'), 'utf-8'))
   expect(meta.cameraMarks.length).toBe(2)
   expect(meta.shot.fps).toBe(24)
+
+  // Shot brief: the labeled performer is on screen, and its travel is described relative to this camera
+  // (it walks 8 m down −Z while the camera sits on the +Z side).
+  const brief = JSON.parse(readFileSync(join(pkg, 'brief.json'), 'utf-8'))
+  expect(brief.visible.some((v: { name: string }) => v.name === 'HERO')).toBe(true)
+  const hero = brief.actors.find((a: { name: string }) => a.name === 'HERO')
+  expect(hero?.travel).toContain('walks away from the camera')
+  expect(prompt).toContain('In this shot')
 })

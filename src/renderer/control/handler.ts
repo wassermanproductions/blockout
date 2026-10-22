@@ -16,6 +16,7 @@ import { getSceneManager } from '../export/scene-access'
 import type { AspectId, GaitId } from '@engine/types'
 import type { ChoreoKind, FormationId, RoutineSpec } from '@engine/choreography'
 import type { FramingKind } from '../bus'
+import { briefText } from '../export/brief'
 
 type Params = Record<string, unknown>
 type ControlResult = { ok: boolean; data?: unknown; error?: string }
@@ -600,6 +601,25 @@ async function execute(action: string, params: Params): Promise<unknown> {
       const bytes = new Uint8Array(png)
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!)
       return { imageBase64: btoa(binary) }
+    }
+
+    case 'shot_brief': {
+      // What the active (or named) shot's camera sees + performers' facing/travel — without exporting.
+      requireDoc()
+      const want = str(params, 'shotId') ?? str(params, 'name')
+      if (want) {
+        const st = useStore.getState()
+        const scene = st.doc?.scenes.find((sc) => sc.shots.some((x) => x.id === want || x.name === want))
+        const target = scene?.shots.find((x) => x.id === want || x.name === want)
+        if (!scene || !target) throw new Error(`No shot "${want}".`)
+        if (scene.id !== st.sceneId) st.selectScene(scene.id)
+        useStore.getState().selectShot(target.id)
+      }
+      const shot = useStore.getState().shot()
+      if (!shot) throw new Error('No active shot.')
+      const ratio = { '16:9': 16 / 9, '9:16': 9 / 16, '2.39:1': 2.39, '4:3': 4 / 3, '1:1': 1 }[shot.aspect] ?? 16 / 9
+      const brief = requireManager().analyzeShot(shot.duration, ratio)
+      return { shot: shot.name, ...brief, text: briefText(brief) }
     }
 
     case 'set_reference': {

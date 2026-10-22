@@ -14,6 +14,7 @@ import { ShotEvaluator } from '@engine/evaluate'
 import type { ProjectDoc, Scene, Shot } from '@engine/types'
 import { useStore } from '../store'
 import { getSceneManager, type SceneManager } from './scene-access'
+import { briefText } from './brief'
 import { buildComfyWorkflow } from './comfy'
 
 /** 'auto' = the profile's native size; 720p/1080p pin the SHORT edge. */
@@ -333,11 +334,20 @@ export async function exportShot(opts: ExportOptions): Promise<ExportResult> {
       await canvasPng(canvas)
     )
 
+    // --- shot brief — only what this camera sees (information masking) + direction relative to it
+    const brief = manager.analyzeShot(shot.duration, width / height)
+    const seen = new Set(brief.visible.map((v) => v.id))
+    const maskedScene = {
+      ...scene,
+      entities: scene.entities.filter((e) => seen.has(e.id) || e.assetId.startsWith('prim.') || e.assetId.startsWith('env.'))
+    }
+    await window.blockout.exportWriteFile(`${pkg}/brief.json`, JSON.stringify(brief, null, 2) + '\n')
+
     // --- Prompt, metadata, ComfyUI workflow
-    await window.blockout.exportWriteFile(`${pkg}/prompt.txt`, generatePrompt(scene, shot, profile) + '\n')
+    await window.blockout.exportWriteFile(`${pkg}/prompt.txt`, generatePrompt(maskedScene, shot, profile) + '\n\n' + briefText(brief) + '\n')
     await window.blockout.exportWriteFile(`${pkg}/metadata.json`, buildMetadata(scene, shot, profile))
     if (profile.refModes.includes('depthVideo') || profile.id.startsWith('wan') || profile.id.startsWith('ltx')) {
-      const workflow = buildComfyWorkflow(profile, shot, `${sanitize(shot.name)}_depth.mp4`, generatePrompt(scene, shot, profile))
+      const workflow = buildComfyWorkflow(profile, shot, `${sanitize(shot.name)}_depth.mp4`, generatePrompt(maskedScene, shot, profile))
       await window.blockout.exportWriteFile(`${pkg}/comfyui-workflow.json`, workflow)
     }
     await window.blockout.exportWriteFile(

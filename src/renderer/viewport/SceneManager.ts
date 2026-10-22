@@ -57,6 +57,24 @@ interface EntityVisual {
 
 export type RenderPass = 'clean' | 'depth' | 'normal'
 
+/** What one shot's camera sees — only these get described downstream. */
+export interface ShotBrief {
+  times: number[]
+  visible: {
+    id: string
+    name: string
+    asset: string
+    /** share of sample points on screen and unoccluded (0..1) */
+    coverage: number
+    /** NDC, −1..1, +y up */
+    screen: { x: number; y: number }
+    where: string
+    distance: number
+  }[]
+  notVisible: string[]
+  actors: { id: string; name: string; facingStart: string; facingEnd: string; travel: string; endsNear?: string }[]
+}
+
 export class SceneManager {
   readonly scene = new THREE.Scene()
   readonly renderer: THREE.WebGLRenderer
@@ -2325,6 +2343,182 @@ export class SceneManager {
         this.selectionBox.visible = true
       }
     }
+  }
+
+  /* ------------------ per-shot visibility + direction brief ------------------ */
+
+  /**
+   * What the shot camera actually sees, so a downstream image/video model is told
+   * only about objects that are on screen (information masking) and where they are,
+   * plus each performer's facing and travel relative to THIS camera.
+   * Sampled at the first, middle and last frame; occlusion by walls/props is
+   * ray-tested from the camera to points on each object's bounding box.
+   */
+  analyzeShot(duration: number, aspect: number): ShotBrief {
+    const times = [0, duration / 2, Math.max(0, duration - 1 / 24)]
+    const ray = new THREE.Raycaster()
+    const box = new THREE.Box3()
+    const v = new THREE.Vector3()
+    const exportable = [...this.visuals.values()].filter((x) => !x.entity.excludeFromExport && x.root.visible)
+    const roots = exportable.map((x) => x.root)
+    const visualOf = (o: THREE.Object3D | null): EntityVisual | undefined => {
+      for (let p: THREE.Object3D | null = o; p; p = p.parent) {
+        const hit = exportable.find((x) => x.root === p)
+        if (hit) return hit
+      }
+      return undefined
+    }
+    const perEntity = new Map<string, { hits: number; samples: number; sx: number[]; sy: number[]; dist: number[] }>()
+    const actorTrack = new Map<string, { t: number; pos: THREE.Vector3; fwd: THREE.Vector3 }[]>()
+    this.shotCam.aspect = aspect
+    this.shotCam.updateProjectionMatrix()
+    for (const t of times) {
+      this.applyTime(t)
+      this.scene.updateMatrixWorld(true)
+      const cam = this.shotCam
+      const camPos = cam.getWorldPosition(new THREE.Vector3())
+      for (const vis of exportable) {
+        box.setFromObject(vis.root)
+        if (box.isEmpty()) continue
+        const rec = perEntity.get(vis.entity.id) ?? { hits: 0, samples: 0, sx: [], sy: [], dist: [] }
+        const c = box.getCenter(new THREE.Vector3())
+        const half = box.getSize(new THREE.Vector3()).multiplyScalar(0.42)
+        // centre, 6 face centres, 8 inset corners
+        const pts: THREE.Vector3[] = [c.clone()]
+        for (const [ax, sgn] of [['x', 1], ['x', -1], ['y', 1], ['y', -1], ['z', 1], ['z', -1]] as const) {
+          const q = c.clone()
+          q[ax] += sgn * half[ax]
+          pts.push(q)
+        }
+        for (const dx of [-1, 1]) for (const dy of [-1, 1]) for (const dz of [-1, 1]) pts.push(new THREE.Vector3(c.x + dx * half.x, c.y + dy * half.y, c.z + dz * half.z))
+        for (const p of pts) {
+          rec.samples++
+          v.copy(p).project(cam)
+          if (v.z < -1 || v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) continue
+          const dir = p.clone().sub(camPos)
+          const d = dir.length()
+          ray.set(camPos, dir.normalize())
+          ray.camera = cam // label sprites in the entity roots need it to raycast
+          ray.far = d + 0.05
+          const hit = ray.intersectObjects(roots, true).find((h) => (h.object as THREE.Mesh).isMesh)
+          if (hit && visualOf(hit.object) !== vis && hit.distance < d - 0.08) continue // something else is in front
+          rec.hits++
+          rec.sx.push(v.x)
+          rec.sy.push(v.y)
+          rec.dist.push(d)
+        }
+        perEntity.set(vis.entity.id, rec)
+        if (vis.entity.assetId.startsWith('person.') || vis.entity.assetId.startsWith('animal.')) {
+          const pos = vis.root.getWorldPosition(new THREE.Vector3())
+          const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(vis.root.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize()
+          const arr = actorTrack.get(vis.entity.id) ?? []
+          arr.push({ t, pos, fwd })
+          actorTrack.set(vis.entity.id, arr)
+        }
+      }
+    }
+
+    const nameOf = (vis: EntityVisual): string => vis.entity.label?.text || vis.entity.name
+    const side = (x: number): string => (x < -0.33 ? 'left' : x > 0.33 ? 'right' : 'center')
+    const vert = (y: number): string => (y > 0.33 ? 'top' : y < -0.33 ? 'bottom' : 'middle')
+    const plane = (d: number): string => (d < 1.6 ? 'foreground' : d < 3.5 ? 'midground' : 'background')
+    const avg = (a: number[]): number => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length)
+    const visible: ShotBrief['visible'] = []
+    const hidden: string[] = []
+    for (const vis of exportable) {
+      const rec = perEntity.get(vis.entity.id)
+      const structural = vis.entity.assetId.startsWith('prim.') || vis.entity.assetId.startsWith('env.')
+      if (!rec || rec.hits === 0) {
+        if (!structural) hidden.push(nameOf(vis))
+        continue
+      }
+      if (structural) continue
+      const x = avg(rec.sx)
+      const y = avg(rec.sy)
+      const d = avg(rec.dist)
+      visible.push({
+        id: vis.entity.id,
+        name: nameOf(vis),
+        asset: vis.entity.assetId,
+        coverage: Math.round((rec.hits / rec.samples) * 100) / 100,
+        screen: { x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 },
+        where: `${side(x)} ${vert(y)}, ${plane(d)}`,
+        distance: Math.round(d * 10) / 10
+      })
+    }
+    visible.sort((a, b) => a.distance - b.distance)
+
+    const actors: ShotBrief['actors'] = []
+    for (const [id, track] of actorTrack) {
+      const vis = this.visuals.get(id)
+      if (!vis || !visible.some((x) => x.id === id)) continue
+      const facingAt = (k: number): string => {
+        const s = track[k]!
+        const camPos = this.cameraPositionAt(s.t)
+        const toCam = camPos.clone().sub(s.pos).setY(0).normalize()
+        const dot = s.fwd.dot(toCam)
+        if (dot > 0.5) return 'facing the camera'
+        if (dot < -0.5) return 'back to the camera'
+        const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(this.cameraQuaternionAt(s.t))
+        return s.fwd.dot(camRight) > 0 ? 'in profile, facing screen right' : 'in profile, facing screen left'
+      }
+      const a = track[0]!
+      const b = track[track.length - 1]!
+      let travel = 'stays in place'
+      if (a.pos.distanceTo(b.pos) > 0.25) {
+        const dA = a.pos.distanceTo(this.cameraPositionAt(a.t))
+        const pa = a.pos.clone().project(this.cameraAt(a.t))
+        const dB = b.pos.distanceTo(this.cameraPositionAt(b.t))
+        const pb = b.pos.clone().project(this.cameraAt(b.t))
+        const parts: string[] = []
+        if (dB < dA - 0.3) parts.push('walks toward the camera')
+        else if (dB > dA + 0.3) parts.push('walks away from the camera')
+        if (pb.x - pa.x > 0.15) parts.push('moves to screen right')
+        else if (pa.x - pb.x > 0.15) parts.push('moves to screen left')
+        travel = parts.join(', ') || 'walks across the room'
+      }
+      // Landmark the performer ends at: furniture/vehicles first (a desk says more than a mug on the floor);
+      // small props only when no larger landmark is within reach.
+      let endsNear: string | undefined
+      let best = Infinity
+      for (const smallOk of [false, true]) {
+        for (const other of exportable) {
+          const id2 = other.entity.assetId
+          if (other === vis || id2.startsWith('prim.') || id2.startsWith('env.') || id2 === 'furniture.rug') continue
+          if (!smallOk && (id2.startsWith('prop.') || id2.startsWith('person.') || id2.startsWith('animal.'))) continue
+          box.setFromObject(other.root)
+          const dd = box.distanceToPoint(b.pos)
+          if (dd < best) {
+            best = dd
+            endsNear = nameOf(other)
+          }
+        }
+        if (best < 1.2) break
+      }
+      actors.push({
+        id,
+        name: nameOf(vis),
+        facingStart: facingAt(0),
+        facingEnd: facingAt(track.length - 1),
+        travel,
+        endsNear: best < 1.2 ? endsNear : undefined
+      })
+    }
+    this.applyTime(useStore.getState().time)
+    return { times, visible, notVisible: hidden, actors }
+  }
+
+  /** Shot camera at time t (applies t to the whole scene). */
+  private cameraAt(t: number): THREE.PerspectiveCamera {
+    this.applyTime(t)
+    this.shotCam.updateMatrixWorld(true)
+    return this.shotCam
+  }
+  private cameraPositionAt(t: number): THREE.Vector3 {
+    return this.cameraAt(t).getWorldPosition(new THREE.Vector3())
+  }
+  private cameraQuaternionAt(t: number): THREE.Quaternion {
+    return this.cameraAt(t).getWorldQuaternion(new THREE.Quaternion())
   }
 
   /* -------------------------- export render hook ------------------------ */
